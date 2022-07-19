@@ -1,16 +1,17 @@
-use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
 use anyhow::{anyhow, Result};
-use assert_matches::assert_matches;
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, Empty, QueryRequest, StdError, WasmMsg, WasmQuery};
 use cw1::Cw1Contract;
 use cw_multi_test::{App, AppResponse, Contract, ContractWrapper, Executor};
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Serialize};
 
+#[allow(dead_code)]
 fn mock_app() -> App {
     App::default()
 }
 
+#[allow(dead_code)]
 fn contract_cw1() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
         crate::contract::execute,
@@ -24,6 +25,7 @@ fn contract_cw1() -> Box<dyn Contract<Empty>> {
 #[derivative(Debug)]
 pub struct Suite {
     /// Application mock
+    #[allow(dead_code)]
     #[derivative(Debug = "ignore")]
     app: App,
     /// Special account
@@ -33,6 +35,7 @@ pub struct Suite {
 }
 
 impl Suite {
+    #[allow(dead_code)]
     pub fn init() -> Result<Suite> {
         let mut app = mock_app();
         let owner = "owner".to_owned();
@@ -41,7 +44,8 @@ impl Suite {
         Ok(Suite { app, owner, cw1_id })
     }
 
-    pub fn instantiate_cw1_contract(&mut self, admin: String, mutable: bool) -> Cw1Contract {
+    #[allow(dead_code)]
+    pub fn instantiate_cw1_contract(&mut self, admin: String) -> Cw1Contract {
         let contract = self
             .app
             .instantiate_contract(
@@ -56,6 +60,7 @@ impl Suite {
         Cw1Contract(contract)
     }
 
+    #[allow(dead_code)]
     pub fn execute<M>(
         &mut self,
         sender_contract: Addr,
@@ -82,6 +87,7 @@ impl Suite {
             .map_err(|err| anyhow!(err))
     }
 
+    #[allow(dead_code)]
     pub fn query<M>(&self, target_contract: Addr, msg: M) -> Result<AdminResponse, StdError>
     where
         M: Serialize + DeserializeOwned,

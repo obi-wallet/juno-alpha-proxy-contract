@@ -4,7 +4,7 @@ use std::fmt;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Api, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Response,
+    to_binary, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Response,
     StdResult,
 };
 
@@ -123,7 +123,8 @@ pub fn query_can_execute(
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, BankMsg, StakingMsg, SubMsg, WasmMsg};
+    use cosmwasm_std::{coin, coins, BankMsg, StakingMsg, SubMsg};
+    //use cosmwasm_std::WasmMsg;
 
     #[test]
     fn instantiate_and_modify_config() {
@@ -131,7 +132,6 @@ mod tests {
 
         let alice = "alice";
         let bob = "bob";
-        let carl = "carl";
 
         let anyone = "anyone";
 
@@ -176,7 +176,6 @@ mod tests {
 
         let alice = "alice";
         let bob = "bob";
-        let carl = "carl";
 
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
@@ -222,7 +221,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let alice = "alice";
-        let bob = "bob";
 
         let anyone = "anyone";
 
