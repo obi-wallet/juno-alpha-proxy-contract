@@ -14,8 +14,8 @@ has the Freeze function.
 In order to prevent the admin from accidentally updating to an account
 that no one controls, the update process is now 2 steps:
 
-1) ProposeUpdateAdmin {new_admin: String}
-2) ConfirmUpdateAdmin {}
+1) ProposeUpdateAdmin {new_admin: String}, signed by current admin
+2) ConfirmUpdateAdmin {}, signed by new admin
 
 ## Allowing Custom Messages
 
