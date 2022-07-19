@@ -12,8 +12,8 @@ use cw1::CanExecuteResponse;
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{AdminListResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{AdminList, ADMIN_LIST};
+use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::state::{Admin, ADMIN};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw1-whitelist";
@@ -27,16 +27,11 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let cfg = AdminList {
-        admins: map_validate(deps.api, &msg.admins)?,
-        mutable: msg.mutable,
+    let cfg = Admin {
+        admin: deps.api.addr_validate(&msg.admin)?.to_string(),
     };
-    ADMIN_LIST.save(deps.storage, &cfg)?;
+    ADMIN.save(deps.storage, &cfg)?;
     Ok(Response::default())
-}
-
-pub fn map_validate(api: &dyn Api, admins: &[String]) -> StdResult<Vec<Addr>> {
-    admins.iter().map(|addr| api.addr_validate(addr)).collect()
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -50,7 +45,9 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
-        ExecuteMsg::UpdateAdmins { admins } => execute_update_admins(deps, env, info, admins),
+        ExecuteMsg::UpdateAdmin { new_admin } => execute_update_admin(deps, env, info, new_admin),
+        //ExecuteMsg::ProposeUpdateAdmin { admin } => propose_update_admin(deps, env, info, admin),
+        //ExecuteMsg::ConfirmUpdateAdmin { admin } => confirm_update_admin(deps, env, info),
     }
 }
 
@@ -73,18 +70,18 @@ where
     }
 }
 
-pub fn execute_update_admins(
+pub fn execute_update_admin(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    admins: Vec<String>,
+    admin: String,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMIN_LIST.load(deps.storage)?;
-    if !cfg.can_modify(info.sender.as_ref()) {
+    let mut cfg = ADMIN.load(deps.storage)?;
+    if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
-        cfg.admins = map_validate(deps.api, &admins)?;
-        ADMIN_LIST.save(deps.storage, &cfg)?;
+        cfg.admin = deps.api.addr_validate(&admin)?.to_string();
+        ADMIN.save(deps.storage, &cfg)?;
 
         let res = Response::new().add_attribute("action", "update_admins");
         Ok(res)
@@ -92,24 +89,23 @@ pub fn execute_update_admins(
 }
 
 fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
-    let cfg = ADMIN_LIST.load(deps.storage)?;
-    let can = cfg.is_admin(&sender);
+    let cfg = ADMIN.load(deps.storage)?;
+    let can = cfg.is_admin(sender.to_string());
     Ok(can)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::AdminList {} => to_binary(&query_admin_list(deps)?),
+        QueryMsg::Admin {} => to_binary(&query_admin(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
     }
 }
 
-pub fn query_admin_list(deps: Deps) -> StdResult<AdminListResponse> {
-    let cfg = ADMIN_LIST.load(deps.storage)?;
-    Ok(AdminListResponse {
-        admins: cfg.admins.into_iter().map(|a| a.into()).collect(),
-        mutable: cfg.mutable,
+pub fn query_admin(deps: Deps) -> StdResult<AdminResponse> {
+    let cfg = ADMIN.load(deps.storage)?;
+    Ok(AdminResponse {
+        admin: cfg.admin,
     })
 }
 
@@ -141,40 +137,37 @@ mod tests {
 
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
-            admins: vec![alice.to_string(), bob.to_string(), carl.to_string()],
-            mutable: true,
+            admin: alice.to_string(),
         };
         let info = mock_info(anyone, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
 
         // ensure expected config
-        let expected = AdminListResponse {
-            admins: vec![alice.to_string(), bob.to_string(), carl.to_string()],
-            mutable: true,
+        let expected = AdminResponse {
+            admin: alice.to_string(),
         };
-        assert_eq!(query_admin_list(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
 
         // anyone cannot modify the contract
-        let msg = ExecuteMsg::UpdateAdmins {
-            admins: vec![anyone.to_string()],
+        let msg = ExecuteMsg::UpdateAdmin {
+            new_admin: anyone.to_string(),
         };
         let info = mock_info(anyone, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
-        // but alice can kick out carl
-        let msg = ExecuteMsg::UpdateAdmins {
-            admins: vec![alice.to_string(), bob.to_string()],
+        // but alice can update
+        let msg = ExecuteMsg::UpdateAdmin {
+            new_admin: bob.to_string(),
         };
         let info = mock_info(alice, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // ensure expected config
-        let expected = AdminListResponse {
-            admins: vec![alice.to_string(), bob.to_string()],
-            mutable: true,
+        let expected = AdminResponse {
+            admin: bob.to_string(),
         };
-        assert_eq!(query_admin_list(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
     }
 
     #[test]
@@ -187,8 +180,7 @@ mod tests {
 
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
-            admins: vec![alice.to_string(), carl.to_string()],
-            mutable: false,
+            admin: alice.to_string(),
         };
         let info = mock_info(bob, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
@@ -215,8 +207,8 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info, execute_msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
-        // but carl can
-        let info = mock_info(carl, &[]);
+        // but alice can
+        let info = mock_info(alice, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
         assert_eq!(
             res.messages,
@@ -236,8 +228,7 @@ mod tests {
 
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
-            admins: vec![alice.to_string(), bob.to_string()],
-            mutable: false,
+            admin: alice.to_string(),
         };
         let info = mock_info(anyone, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
@@ -257,7 +248,7 @@ mod tests {
         assert!(res.can_execute);
 
         // owner can stake
-        let res = query_can_execute(deps.as_ref(), bob.to_string(), staking_msg.clone()).unwrap();
+        let res = query_can_execute(deps.as_ref(), alice.to_string(), staking_msg.clone()).unwrap();
         assert!(res.can_execute);
 
         // anyone cannot send

@@ -1,29 +1,22 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::Addr;
 use cw_storage_plus::Item;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
-pub struct AdminList {
-    pub admins: Vec<Addr>,
-    pub mutable: bool,
+pub struct Admin {
+    pub admin: String,
 }
 
-impl AdminList {
+impl Admin {
     /// returns true if the address is a registered admin
-    pub fn is_admin(&self, addr: impl AsRef<str>) -> bool {
-        let addr = addr.as_ref();
-        self.admins.iter().any(|a| a.as_ref() == addr)
-    }
-
-    /// returns true if the address is a registered admin and the config is mutable
-    pub fn can_modify(&self, addr: &str) -> bool {
-        self.mutable && self.is_admin(addr)
+    pub fn is_admin(&self, addr: String) -> bool {
+        let addr: &str = &addr;
+        self.admin == addr
     }
 }
 
-pub const ADMIN_LIST: Item<AdminList> = Item::new("admin_list");
+pub const ADMIN: Item<Admin> = Item::new("admin");
 
 #[cfg(test)]
 mod tests {
@@ -31,39 +24,12 @@ mod tests {
 
     #[test]
     fn is_admin() {
-        let admins: Vec<_> = vec!["bob", "paul", "john"]
-            .into_iter()
-            .map(Addr::unchecked)
-            .collect();
-        let config = AdminList {
-            admins: admins.clone(),
-            mutable: false,
+        let admin: &str = "bob";
+        let config = Admin {
+            admin: admin.to_string(),
         };
 
-        assert!(config.is_admin(admins[0].as_ref()));
-        assert!(config.is_admin(admins[2].as_ref()));
-        assert!(!config.is_admin("other"));
-    }
-
-    #[test]
-    fn can_modify() {
-        let alice = Addr::unchecked("alice");
-        let bob = Addr::unchecked("bob");
-
-        // admin can modify mutable contract
-        let config = AdminList {
-            admins: vec![bob.clone()],
-            mutable: true,
-        };
-        assert!(!config.can_modify(alice.as_ref()));
-        assert!(config.can_modify(bob.as_ref()));
-
-        // no one can modify an immutable contract
-        let config = AdminList {
-            admins: vec![alice.clone()],
-            mutable: false,
-        };
-        assert!(!config.can_modify(alice.as_ref()));
-        assert!(!config.can_modify(bob.as_ref()));
+        assert!(config.is_admin(admin.to_string()));
+        assert!(!config.is_admin("other".to_string()));
     }
 }

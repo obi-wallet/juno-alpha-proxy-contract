@@ -1,4 +1,4 @@
-use crate::msg::{AdminListResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use anyhow::{anyhow, Result};
 use assert_matches::assert_matches;
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, Empty, QueryRequest, StdError, WasmMsg, WasmQuery};
@@ -41,13 +41,13 @@ impl Suite {
         Ok(Suite { app, owner, cw1_id })
     }
 
-    pub fn instantiate_cw1_contract(&mut self, admins: Vec<String>, mutable: bool) -> Cw1Contract {
+    pub fn instantiate_cw1_contract(&mut self, admin: String, mutable: bool) -> Cw1Contract {
         let contract = self
             .app
             .instantiate_contract(
                 self.cw1_id,
                 Addr::unchecked(self.owner.clone()),
-                &InstantiateMsg { admins, mutable },
+                &InstantiateMsg { admin },
                 &[],
                 "Whitelist",
                 None,
@@ -82,7 +82,7 @@ impl Suite {
             .map_err(|err| anyhow!(err))
     }
 
-    pub fn query<M>(&self, target_contract: Addr, msg: M) -> Result<AdminListResponse, StdError>
+    pub fn query<M>(&self, target_contract: Addr, msg: M) -> Result<AdminResponse, StdError>
     where
         M: Serialize + DeserializeOwned,
     {
