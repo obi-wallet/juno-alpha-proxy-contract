@@ -4,7 +4,9 @@ This is a modification of CW1, a whitelist of addresses, originally
 at https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw1-whitelist.
 
 1 single admin may `Execute` any message via the contract. This
-is intended to be used with a native multisig.
+is intended to be used with a native multisig in order to achieve
+an "updatable multisig" for single user multisigs without the
+propose+vote+execute transaction overhead of cw3.
 
 The immutability functionality of CW1 has been removed, and so
 has the Freeze function.
