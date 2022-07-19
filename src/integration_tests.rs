@@ -92,29 +92,3 @@ impl Suite {
         }))
     }
 }
-
-#[test]
-fn proxy_freeze_message() {
-    let mut suite = Suite::init().unwrap();
-
-    let first_contract = suite.instantiate_cw1_contract(vec![suite.owner.clone()], true);
-    let second_contract =
-        suite.instantiate_cw1_contract(vec![first_contract.addr().to_string()], true);
-    assert_ne!(second_contract, first_contract);
-
-    let freeze_msg: ExecuteMsg = ExecuteMsg::Freeze {};
-    assert_matches!(
-        suite.execute(first_contract.addr(), &second_contract.addr(), freeze_msg),
-        Ok(_)
-    );
-
-    let query_msg: QueryMsg = QueryMsg::AdminList {};
-    assert_matches!(
-        suite.query(second_contract.addr(), query_msg),
-        Ok(
-            AdminListResponse {
-                mutable,
-                ..
-            }) if !mutable
-    );
-}

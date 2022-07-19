@@ -50,7 +50,6 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
-        ExecuteMsg::Freeze {} => execute_freeze(deps, env, info),
         ExecuteMsg::UpdateAdmins { admins } => execute_update_admins(deps, env, info, admins),
     }
 }
@@ -70,23 +69,6 @@ where
         let res = Response::new()
             .add_messages(msgs)
             .add_attribute("action", "execute");
-        Ok(res)
-    }
-}
-
-pub fn execute_freeze(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
-    let mut cfg = ADMIN_LIST.load(deps.storage)?;
-    if !cfg.can_modify(info.sender.as_ref()) {
-        Err(ContractError::Unauthorized {})
-    } else {
-        cfg.mutable = false;
-        ADMIN_LIST.save(deps.storage, &cfg)?;
-
-        let res = Response::new().add_attribute("action", "freeze");
         Ok(res)
     }
 }
@@ -193,28 +175,6 @@ mod tests {
             mutable: true,
         };
         assert_eq!(query_admin_list(deps.as_ref()).unwrap(), expected);
-
-        // carl cannot freeze it
-        let info = mock_info(carl, &[]);
-        let err = execute(deps.as_mut(), mock_env(), info, ExecuteMsg::Freeze {}).unwrap_err();
-        assert_eq!(err, ContractError::Unauthorized {});
-
-        // but bob can
-        let info = mock_info(bob, &[]);
-        execute(deps.as_mut(), mock_env(), info, ExecuteMsg::Freeze {}).unwrap();
-        let expected = AdminListResponse {
-            admins: vec![alice.to_string(), bob.to_string()],
-            mutable: false,
-        };
-        assert_eq!(query_admin_list(deps.as_ref()).unwrap(), expected);
-
-        // and now alice cannot change it again
-        let msg = ExecuteMsg::UpdateAdmins {
-            admins: vec![alice.to_string()],
-        };
-        let info = mock_info(alice, &[]);
-        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
-        assert_eq!(err, ContractError::Unauthorized {});
     }
 
     #[test]
@@ -233,19 +193,18 @@ mod tests {
         let info = mock_info(bob, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
 
-        let freeze: ExecuteMsg<Empty> = ExecuteMsg::Freeze {};
         let msgs = vec![
             BankMsg::Send {
                 to_address: bob.to_string(),
                 amount: coins(10000, "DAI"),
             }
             .into(),
-            WasmMsg::Execute {
+            /*WasmMsg::Execute {
                 contract_addr: "some contract".into(),
                 msg: to_binary(&freeze).unwrap(),
                 funds: vec![],
             }
-            .into(),
+            .into(),*/
         ];
 
         // make some nice message
