@@ -1,0 +1,18 @@
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/deps/typenum-5dcedede27280ebd.rmeta: /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/lib.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/bit.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/int.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/marker_traits.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/operator_aliases.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/private.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/type_operators.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/uint.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/array.rs /Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/op.rs /Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/consts.rs
+
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/deps/typenum-5dcedede27280ebd.d: /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/lib.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/bit.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/int.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/marker_traits.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/operator_aliases.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/private.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/type_operators.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/uint.rs /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/array.rs /Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/op.rs /Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/consts.rs
+
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/lib.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/bit.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/int.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/marker_traits.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/operator_aliases.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/private.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/type_operators.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/uint.rs:
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/typenum-1.15.0/src/array.rs:
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/op.rs:
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/consts.rs:
+
+# env-dep:TYPENUM_BUILD_CONSTS=/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/consts.rs
+# env-dep:TYPENUM_BUILD_OP=/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/build/typenum-b0d7bbae173dad32/out/op.rs

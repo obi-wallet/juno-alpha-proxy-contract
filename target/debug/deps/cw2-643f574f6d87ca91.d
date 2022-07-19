@@ -1,0 +1,7 @@
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/deps/cw2-643f574f6d87ca91.rmeta: /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/cw2-0.13.4/src/lib.rs
+
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/deps/libcw2-643f574f6d87ca91.rlib: /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/cw2-0.13.4/src/lib.rs
+
+/Users/ntropian/Code/obi-wallet/cw1-whitelist/target/debug/deps/cw2-643f574f6d87ca91.d: /Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/cw2-0.13.4/src/lib.rs
+
+/Users/ntropian/.cargo/registry/src/github.com-1ecc6299db9ec823/cw2-0.13.4/src/lib.rs:
