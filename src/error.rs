@@ -8,4 +8,7 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("Caller is not pending new admin. Propose new admin first.")]
+    CallerIsNotPendingNewAdmin {},
 }

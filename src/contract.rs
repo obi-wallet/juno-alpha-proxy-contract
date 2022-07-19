@@ -13,7 +13,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Admin, ADMIN};
+use crate::state::{Admin, ADMIN, PENDING};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw1-whitelist";
@@ -45,9 +45,8 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
-        ExecuteMsg::UpdateAdmin { new_admin } => execute_update_admin(deps, env, info, new_admin),
-        //ExecuteMsg::ProposeUpdateAdmin { admin } => propose_update_admin(deps, env, info, admin),
-        //ExecuteMsg::ConfirmUpdateAdmin { admin } => confirm_update_admin(deps, env, info),
+        ExecuteMsg::ProposeUpdateAdmin { new_admin } => propose_update_admin(deps, env, info, new_admin),
+        ExecuteMsg::ConfirmUpdateAdmin { } => confirm_update_admin(deps, env, info),
     }
 }
 
@@ -70,20 +69,36 @@ where
     }
 }
 
-pub fn execute_update_admin(
+pub fn propose_update_admin(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    admin: String,
+    new_admin: String,
 ) -> Result<Response, ContractError> {
     let mut cfg = ADMIN.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
-        cfg.admin = deps.api.addr_validate(&admin)?.to_string();
+        cfg.admin = deps.api.addr_validate(&new_admin)?.to_string();
+        PENDING.save(deps.storage, &cfg)?;
+
+        let res = Response::new().add_attribute("action", "propose_update_admin");
+        Ok(res)
+    }
+}
+
+pub fn confirm_update_admin(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    let cfg = PENDING.load(deps.storage)?;
+    if !cfg.is_admin(info.sender.to_string()) {
+        Err(ContractError::CallerIsNotPendingNewAdmin {})
+    } else {
         ADMIN.save(deps.storage, &cfg)?;
 
-        let res = Response::new().add_attribute("action", "update_admins");
+        let res = Response::new().add_attribute("action", "confirm_update_admin");
         Ok(res)
     }
 }
@@ -127,7 +142,7 @@ mod tests {
     //use cosmwasm_std::WasmMsg;
 
     #[test]
-    fn instantiate_and_modify_config() {
+    fn instantiate_and_modify_admin() {
         let mut deps = mock_dependencies();
 
         let alice = "alice";
@@ -148,22 +163,34 @@ mod tests {
         };
         assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
 
-        // anyone cannot modify the contract
-        let msg = ExecuteMsg::UpdateAdmin {
+        // anyone cannot propose updating admin on the contract
+        let msg = ExecuteMsg::ProposeUpdateAdmin {
             new_admin: anyone.to_string(),
         };
         let info = mock_info(anyone, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
-        // but alice can update
-        let msg = ExecuteMsg::UpdateAdmin {
+        // but alice can propose an update
+        let msg = ExecuteMsg::ProposeUpdateAdmin {
             new_admin: bob.to_string(),
         };
         let info = mock_info(alice, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // ensure expected config
+        // now, the admin isn't updated yet
+        let expected = AdminResponse {
+            admin: alice.to_string(),
+        };
+        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+
+        // but if bob accepts...
+        let msg = ExecuteMsg::ConfirmUpdateAdmin {
+        };
+        let info = mock_info(bob, &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // then admin is updated
         let expected = AdminResponse {
             admin: bob.to_string(),
         };

@@ -17,6 +17,7 @@ impl Admin {
 }
 
 pub const ADMIN: Item<Admin> = Item::new("admin");
+pub const PENDING: Item<Admin> = Item::new("pending");
 
 #[cfg(test)]
 mod tests {

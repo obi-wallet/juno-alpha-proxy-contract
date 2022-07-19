@@ -21,7 +21,8 @@ where
     Execute { msgs: Vec<CosmosMsg<T>> },
     /// UpdateAdmins will change the admin set of the contract, must be called by an existing admin,
     /// and only works if the contract is mutable
-    UpdateAdmin { new_admin: String },
+    ProposeUpdateAdmin { new_admin: String },
+    ConfirmUpdateAdmin {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
