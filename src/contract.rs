@@ -13,7 +13,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Admin, ADMIN, PENDING};
+use crate::state::{Admins, ADMINS, PENDING};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw1-whitelist";
@@ -27,10 +27,11 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let cfg = Admin {
+    let cfg = Admins {
         admin: deps.api.addr_validate(&msg.admin)?.to_string(),
+        hot_wallets: vec![]
     };
-    ADMIN.save(deps.storage, &cfg)?;
+    ADMINS.save(deps.storage, &cfg)?;
     Ok(Response::default())
 }
 
@@ -75,7 +76,7 @@ pub fn propose_update_admin(
     info: MessageInfo,
     new_admin: String,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMIN.load(deps.storage)?;
+    let mut cfg = ADMINS.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
@@ -96,7 +97,7 @@ pub fn confirm_update_admin(
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::CallerIsNotPendingNewAdmin {})
     } else {
-        ADMIN.save(deps.storage, &cfg)?;
+        ADMINS.save(deps.storage, &cfg)?;
 
         let res = Response::new().add_attribute("action", "confirm_update_admin");
         Ok(res)
@@ -104,7 +105,7 @@ pub fn confirm_update_admin(
 }
 
 fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
-    let cfg = ADMIN.load(deps.storage)?;
+    let cfg = ADMINS.load(deps.storage)?;
     let can = cfg.is_admin(sender.to_string());
     Ok(can)
 }
@@ -118,7 +119,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 pub fn query_admin(deps: Deps) -> StdResult<AdminResponse> {
-    let cfg = ADMIN.load(deps.storage)?;
+    let cfg = ADMINS.load(deps.storage)?;
     Ok(AdminResponse {
         admin: cfg.admin,
     })
