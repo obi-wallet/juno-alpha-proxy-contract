@@ -39,14 +39,11 @@ pub enum ContractError {
     #[error("Failed to advance the reset month.")]
     MonthUpdateError {},
 
-    #[error("Hot wallet {0} does not have a spend limit for asset {1}.")]
-    CannotSpendThisAsset(String, String),
+    #[error("Hot wallet does not have a spend limit for asset {0}.")]
+    CannotSpendThisAsset(String),
 
-    #[error("You cannot spend more than your total spend limit.")]
-    CannotSpendMoreThanTotalLimit {},
-
-    #[error("You cannot spend more than your remaining spend limit.")]
-    CannotSpendMoreThanRemainingLimit {},
+    #[error("You cannot spend more than your available spend limit.")]
+    CannotSpendMoreThanLimit {},
 
     #[error("Caller is not pending new admin. Propose new admin first.")]
     CallerIsNotPendingNewAdmin {},
