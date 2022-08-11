@@ -81,11 +81,11 @@ pub fn execute_execute(
         let res = Response::new()
             .add_messages(msgs)
             .add_attribute("action", "execute_execute");
-        return Ok(res);
+        Ok(res)
     } else {
         let mut core_payload = CorePayload {
-            cfg: cfg,
-            info: info,
+            cfg,
+            info,
             this_msg: CosmosMsg::Custom(Empty {}),
             current_time: env.block.time,
         };
@@ -139,41 +139,41 @@ fn try_wasm_send(
                             recipient: _,
                             amount,
                         } => {
-                            return check_and_spend(
+                            check_and_spend(
                                 deps,
                                 core_payload,
                                 vec![Coin {
                                     denom: contract_addr.to_string(),
                                     amount,
                                 }],
-                            );
+                            )
                         }
                         Cw20ExecuteMsg::Send {
                             contract: _,
                             amount,
                             msg: _,
                         } => {
-                            return check_and_spend(
+                            check_and_spend(
                                 deps,
                                 core_payload,
                                 vec![Coin {
                                     denom: contract_addr.to_string(),
                                     amount,
                                 }],
-                            );
+                            )
                         }
                         _ => {
-                            return Err(ContractError::OnlyTransferSendAllowed {});
+                            Err(ContractError::OnlyTransferSendAllowed {})
                         }
                     }
                 }
                 Err(_) => {
-                    return Err(ContractError::ErrorDeserializingCw20Message {});
+                    Err(ContractError::ErrorDeserializingCw20Message {})
                 }
             }
         }
         _ => {
-            return Err(ContractError::WasmMsgMustBeExecute {});
+            Err(ContractError::WasmMsgMustBeExecute {})
         }
     }
 }
@@ -188,7 +188,7 @@ fn try_bank_send(
             to_address: _,
             amount,
         } => {
-            return check_and_spend(deps, core_payload, amount.clone());
+            check_and_spend(deps, core_payload, amount.clone())
         }
         _ => {
             //probably unreachable as can_spend throws
@@ -475,7 +475,7 @@ mod tests {
         // query to see we have "hotcarl" as hot wallet
         let res = query_hot_wallets(deps.as_ref()).unwrap();
         assert!(res.hot_wallets.len() == 1);
-        assert!(res.hot_wallets[0].address.to_string() == HOT_WALLET);
+        assert!(res.hot_wallets[0].address == HOT_WALLET);
 
         // spend as the hot wallet
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
@@ -487,7 +487,7 @@ mod tests {
             &mut deps.as_mut(),
             current_env.clone(),
             info.clone(),
-            vec![send_msg.clone()],
+            vec![send_msg],
         )
         .unwrap();
         assert!(res.messages.len() == 1);
