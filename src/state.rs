@@ -96,7 +96,7 @@ impl Admins {
                     match working_dt {
                         Some(dt) => Ok(dt),
                         None => {
-                            return Err(ContractError::DateUpdateError {});
+                            return Err(ContractError::DayUpdateError {});
                         }
                     }
                 }
@@ -114,7 +114,7 @@ impl Admins {
                             )
                             .and_hms(0, 0, 0))
                         }
-                        _ => Err(ContractError::Unauthorized {}),
+                        _ => Err(ContractError::MonthUpdateError {}),
                     }
                 }
             };
@@ -128,7 +128,10 @@ impl Admins {
                             .position(|limit| limit.coin_limit.denom == spend[n].denom);
                         match i {
                             None => {
-                                return Err(ContractError::Unauthorized {});
+                                return Err(ContractError::CannotSpendThisAsset {
+                                    0: new_wallet_configs[index].address.to_string(),
+                                    1: spend[n].denom.clone(),
+                                });
                             }
                             Some(i) => {
                                 // spend can't be bigger than total spend limit
@@ -139,7 +142,7 @@ impl Admins {
                                 let limit_remaining = match limit_remaining {
                                     Ok(remaining) => remaining,
                                     Err(_) => {
-                                        return Err(ContractError::Unauthorized {});
+                                        return Err(ContractError::CannotSpendMoreThanTotalLimit {});
                                     }
                                 };
                                 new_spend_limits[i] = CoinLimit {
@@ -157,7 +160,7 @@ impl Admins {
                     new_wallet_configs[index].spend_limits = new_spend_limits;
                     self.hot_wallets = new_wallet_configs;
                     Ok(true)
-                }
+                },
                 Err(e) => Err(e),
             }
         } else {
@@ -169,7 +172,10 @@ impl Admins {
                     .position(|limit| limit.coin_limit.denom == spend[n].denom);
                 match i {
                     None => {
-                        return Err(ContractError::Unauthorized {});
+                        return Err(ContractError::CannotSpendThisAsset {
+                            0: new_wallet_configs[index].address.to_string(),
+                            1: spend[n].denom.clone(),
+                        });
                     }
                     Some(i) => {
                         // spend can't be bigger than total spend limit
@@ -179,7 +185,7 @@ impl Admins {
                         let limit_remaining = match limit_remaining {
                             Ok(remaining) => remaining,
                             Err(_) => {
-                                return Err(ContractError::Unauthorized {});
+                                return Err(ContractError::CannotSpendMoreThanRemainingLimit {});
                             }
                         };
                         new_spend_limits[i] = CoinLimit {

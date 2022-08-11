@@ -382,10 +382,12 @@ mod tests {
         // make some nice message
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
-        // bob cannot execute them
+        // bob cannot execute them ... and gets HotWalletDoesNotExist since
+        // this is a spend, so contract assumes we're trying against spend limit
+        // if not admin
         let info = mock_info(bob, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, execute_msg.clone()).unwrap_err();
-        assert_eq!(err, ContractError::Unauthorized {});
+        assert_eq!(err, ContractError::HotWalletDoesNotExist {});
 
         // but alice can
         let info = mock_info(alice, &[]);
