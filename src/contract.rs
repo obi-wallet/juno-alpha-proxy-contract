@@ -66,9 +66,7 @@ where
     T: Clone + fmt::Debug + PartialEq + JsonSchema,
 {
     let mut admins = ADMINS.load(deps.storage)?;
-    if !can_execute(deps.as_ref(), info.sender.as_ref())? {
-        return Err(ContractError::Unauthorized {});
-    } else if admins.is_admin(info.sender.to_string()) {
+    if admins.is_admin(info.sender.to_string()) {
         let res = Response::new()
             .add_messages(msgs)
             .add_attribute("action", "execute");
@@ -89,7 +87,7 @@ where
                             // amount param is where funds are specified, instead
                             let empty_vec: Vec<Coin> = [].to_vec();
                             if funds != &empty_vec {
-                                return Err(ContractError::Unauthorized {});
+                                return Err(ContractError::AttachedFundsNotAllowed {});
                             }
                             let msg_de: Result<cw20::Cw20ExecuteMsg, StdError> = from_binary(msg);
                             match msg_de {
@@ -134,17 +132,17 @@ where
                                             }
                                         }
                                         _ => {
-                                            return Err(ContractError::Unauthorized {});
+                                            return Err(ContractError::OnlyTransferSendAllowed {});
                                         }
                                     }
                                 }
                                 Err(_) => {
-                                    return Err(ContractError::Unauthorized {});
+                                    return Err(ContractError::ErrorDeserializingCw20Message {});
                                 }
                             }
                         }
                         _ => {
-                            return Err(ContractError::Unauthorized {});
+                            return Err(ContractError::WasmMsgMustBeExecute {});
                         }
                     }
                 }
@@ -165,11 +163,12 @@ where
                         return Ok(res);
                     }
                     _ => {
-                        return Err(ContractError::Unauthorized {});
+                        //probably unreachable as can_spend tends to throw
+                        return Err(ContractError::SpendNotAuthorized {});
                     }
                 },
                 _ => {
-                    return Err(ContractError::Unauthorized {});
+                    return Err(ContractError::BadMessageType {});
                 }
             };
         }
@@ -191,7 +190,7 @@ pub fn add_hot_wallet(
         .iter()
         .any(|wallet| wallet.address == new_hot_wallet.address)
     {
-        Err(ContractError::Unauthorized {})
+        Err(ContractError::HotWalletExists {})
     } else {
         cfg.add_hot_wallet(new_hot_wallet);
         Ok(Response::new().add_attribute("action", "add_hot_wallet"))
@@ -212,7 +211,7 @@ pub fn rm_hot_wallet(
         .iter()
         .any(|wallet| wallet.address == doomed_hot_wallet)
     {
-        Err(ContractError::Unauthorized {})
+        Err(ContractError::HotWalletDoesNotExist {})
     } else {
         cfg.rm_hot_wallet(doomed_hot_wallet);
         Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
@@ -383,10 +382,12 @@ mod tests {
         // make some nice message
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
-        // bob cannot execute them
+        // bob cannot execute them ... and gets HotWalletDoesNotExist since
+        // this is a spend, so contract assumes we're trying against spend limit
+        // if not admin
         let info = mock_info(bob, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, execute_msg.clone()).unwrap_err();
-        assert_eq!(err, ContractError::Unauthorized {});
+        assert_eq!(err, ContractError::HotWalletDoesNotExist {});
 
         // but alice can
         let info = mock_info(alice, &[]);

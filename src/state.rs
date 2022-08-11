@@ -15,6 +15,11 @@ pub enum PeriodType {
     MONTHS,
 }
 
+enum CheckType {
+    TotalLimit,
+    RemainingLimit,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct CoinLimit {
     coin_limit: Coin,
@@ -75,7 +80,7 @@ impl Admins {
         let index = match this_wallet_index {
             Some(index) => index,
             None => {
-                return Err(ContractError::Unauthorized {});
+                return Err(ContractError::HotWalletDoesNotExist {});
             }
         };
         let wallet_config = self.hot_wallets[index].clone();
@@ -96,7 +101,7 @@ impl Admins {
                     match working_dt {
                         Some(dt) => Ok(dt),
                         None => {
-                            return Err(ContractError::Unauthorized {});
+                            return Err(ContractError::DayUpdateError {});
                         }
                     }
                 }
@@ -114,7 +119,7 @@ impl Admins {
                             )
                             .and_hms(0, 0, 0))
                         }
-                        _ => Err(ContractError::Unauthorized {}),
+                        _ => Err(ContractError::MonthUpdateError {}),
                     }
                 }
             };
@@ -122,80 +127,68 @@ impl Admins {
                 Ok(dt) => {
                     let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
                     for n in 0..spend.len() {
-                        let i = new_spend_limits
-                            .clone()
-                            .iter()
-                            .position(|limit| limit.coin_limit.denom == spend[n].denom);
-                        match i {
-                            None => {
-                                return Err(ContractError::Unauthorized {});
-                            }
-                            Some(i) => {
-                                // spend can't be bigger than total spend limit
-                                let limit_remaining = new_spend_limits[i]
-                                    .coin_limit
-                                    .amount
-                                    .checked_sub(spend[n].amount);
-                                let limit_remaining = match limit_remaining {
-                                    Ok(remaining) => remaining,
-                                    Err(_) => {
-                                        return Err(ContractError::Unauthorized {});
-                                    }
-                                };
-                                new_spend_limits[i] = CoinLimit {
-                                    coin_limit: Coin {
-                                        denom: new_spend_limits[i].coin_limit.denom.clone(),
-                                        amount: new_spend_limits[i].coin_limit.amount,
-                                    },
-                                    limit_remaining,
-                                }
-                            }
-                        }
+                        self.check_spend_against_limit(CheckType::TotalLimit, &mut new_spend_limits, spend[n].clone())?;
                     }
                     new_wallet_configs[index].current_period_reset =
                         Timestamp::from_seconds(dt.timestamp() as u64);
                     new_wallet_configs[index].spend_limits = new_spend_limits;
                     self.hot_wallets = new_wallet_configs;
                     Ok(true)
-                }
+                },
                 Err(e) => Err(e),
             }
         } else {
             let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
             for n in 0..spend.len() {
-                let i = new_spend_limits
-                    .clone()
-                    .iter()
-                    .position(|limit| limit.coin_limit.denom == spend[n].denom);
-                match i {
-                    None => {
-                        return Err(ContractError::Unauthorized {});
-                    }
-                    Some(i) => {
-                        // spend can't be bigger than total spend limit
-                        let limit_remaining = new_spend_limits[i]
-                            .limit_remaining
-                            .checked_sub(spend[n].amount);
-                        let limit_remaining = match limit_remaining {
-                            Ok(remaining) => remaining,
-                            Err(_) => {
-                                return Err(ContractError::Unauthorized {});
-                            }
-                        };
-                        new_spend_limits[i] = CoinLimit {
-                            coin_limit: Coin {
-                                denom: new_spend_limits[i].coin_limit.denom.clone(),
-                                amount: new_spend_limits[i].coin_limit.amount,
-                            },
-                            limit_remaining,
-                        }
-                    }
-                }
+                self.check_spend_against_limit(CheckType::RemainingLimit, &mut new_spend_limits, spend[n].clone())?;
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
             self.hot_wallets = new_wallet_configs;
             Ok(true)
         }
+    }
+
+    fn check_spend_against_limit (&self, check_type: CheckType, new_spend_limits: &mut Vec<CoinLimit>, spend: Coin) -> Result<(), ContractError> {
+        let i = new_spend_limits
+            .iter()
+            .position(|limit| limit.coin_limit.denom == spend.denom);
+        match i {
+            None => {
+                return Err(ContractError::CannotSpendThisAsset {
+                    0: spend.denom.clone(),
+                });
+            }
+            Some(i) => {
+                // spend can't be bigger than total spend limit
+                let limit_remaining = match check_type {
+                    CheckType::TotalLimit => { 
+                        new_spend_limits[i]
+                        .coin_limit
+                        .amount
+                        .checked_sub(spend.amount)
+                    },
+                    CheckType::RemainingLimit => {
+                        new_spend_limits[i]
+                        .limit_remaining
+                        .checked_sub(spend.amount)
+                    },
+                };
+                let limit_remaining = match limit_remaining {
+                    Ok(remaining) => remaining,
+                    Err(_) => {
+                        return Err(ContractError::CannotSpendMoreThanLimit {});
+                    }
+                };
+                new_spend_limits[i] = CoinLimit {
+                    coin_limit: Coin {
+                        denom: new_spend_limits[i].coin_limit.denom.clone(),
+                        amount: new_spend_limits[i].coin_limit.amount,
+                    },
+                    limit_remaining,
+                }
+            }
+        }
+        Ok(())
     }
 }
 
