@@ -22,8 +22,8 @@ enum CheckType {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct CoinLimit {
-    coin_limit: Coin,
-    limit_remaining: Uint128,
+    pub coin_limit: Coin,
+    pub limit_remaining: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
