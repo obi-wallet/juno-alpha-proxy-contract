@@ -432,45 +432,16 @@ mod tests {
         let current_env = mock_env();
 
         instantiate_contract(&mut deps, current_env);
-
-        // let us make some queries... different msg types by owner and by other
-        let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: ANYONE.to_string(),
-            amount: coins(12345, "ushell"),
-        });
-        let staking_msg = CosmosMsg::Staking(StakingMsg::Delegate {
-            validator: ANYONE.to_string(),
-            amount: coin(70000, "ureef"),
-        });
-
-        // owner can send
-        let res = query_can_execute(deps.as_ref(), ADMIN.to_string(), send_msg.clone()).unwrap();
-        assert!(res.can_execute);
-
-        // owner can stake
-        let res = query_can_execute(deps.as_ref(), ADMIN.to_string(), staking_msg.clone()).unwrap();
-        assert!(res.can_execute);
-
-        // anyone cannot send
-        let res = query_can_execute(deps.as_ref(), ANYONE.to_string(), send_msg).unwrap();
-        assert!(!res.can_execute);
-
-        // anyone cannot stake
-        let res = query_can_execute(deps.as_ref(), ANYONE.to_string(), staking_msg).unwrap();
-        assert!(!res.can_execute);
+        // this helper includes a hotwallet
     }
 
     fn instantiate_contract (deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>, _env: Env) {
-        let alice = "alice";
-        let hotbob = "hotbob";
-        let anyone = "anyone";
-
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
-            admin: alice.to_string(),
+            admin: ADMIN.to_string(),
             hot_wallets: vec![
                 HotWallet {
-                    address: Addr::unchecked(hotbob),
+                    address: Addr::unchecked(HOT_WALLET),
                     current_period_reset: Timestamp::from_seconds(0u64),
                     period_type: PeriodType::DAYS,
                     period_multiple: 1,
@@ -486,7 +457,7 @@ mod tests {
                 }
             ]
         };
-        let info = mock_info(anyone, &[]);
+        let info = mock_info(ADMIN, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
     }
 
