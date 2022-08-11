@@ -21,10 +21,14 @@ pub enum ContractError {
     #[error("WASM message is not Execute. Spend-limited WasmMsg txes are limited to a Cw20ExecuteMsg Send or Transfer.")]
     WasmMsgMustBeExecute {},
 
-    #[error("This address is not permitted to spend this token, or to spend this many of this token.")]
+    #[error(
+        "This address is not permitted to spend this token, or to spend this many of this token."
+    )]
     SpendNotAuthorized {},
 
-    #[error("Spend-limited transactions must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer).")]
+    #[error(
+        "Spend-limited transactions must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer)."
+    )]
     BadMessageType {},
 
     #[error("This address is already authorized as a Hot Wallet. Remove it first in order to update it.")]

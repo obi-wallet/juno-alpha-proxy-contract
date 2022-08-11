@@ -47,8 +47,12 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
-        ExecuteMsg::AddHotWallet { new_hot_wallet } => add_hot_wallet(deps, env, info, new_hot_wallet),
-        ExecuteMsg::RmHotWallet { doomed_hot_wallet } => rm_hot_wallet(deps, env, info, doomed_hot_wallet),
+        ExecuteMsg::AddHotWallet { new_hot_wallet } => {
+            add_hot_wallet(deps, env, info, new_hot_wallet)
+        }
+        ExecuteMsg::RmHotWallet { doomed_hot_wallet } => {
+            rm_hot_wallet(deps, env, info, doomed_hot_wallet)
+        }
         ExecuteMsg::ProposeUpdateAdmin { new_admin } => {
             propose_update_admin(deps, env, info, new_admin)
         }
@@ -73,8 +77,8 @@ where
         return Ok(res);
     } else {
         //make sure the message is doing nothing else but sending
-        for n in 0..msgs.len() {
-            match &msgs[n] {
+        for this_msg in msgs {
+            match &this_msg {
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
                     match wasm {
@@ -107,7 +111,7 @@ where
                                                 }],
                                             )? {
                                                 let res = Response::new()
-                                                    .add_messages(vec![msgs[n].clone()])
+                                                    .add_messages(vec![this_msg.clone()])
                                                     .add_attribute("action", "execute");
                                                 return Ok(res);
                                             }
@@ -126,7 +130,7 @@ where
                                                 }],
                                             )? {
                                                 let res = Response::new()
-                                                    .add_messages(vec![msgs[n].clone()])
+                                                    .add_messages(vec![this_msg.clone()])
                                                     .add_attribute("action", "execute");
                                                 return Ok(res);
                                             }
@@ -158,7 +162,7 @@ where
                     )? =>
                     {
                         let res = Response::new()
-                            .add_messages(vec![msgs[n].clone()])
+                            .add_messages(vec![this_msg.clone()])
                             .add_attribute("action", "execute");
                         return Ok(res);
                     }
@@ -263,7 +267,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Admin {} => to_binary(&query_admin(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
-        QueryMsg::HotWallets { } => to_binary(&query_hot_wallets(deps)?),
+        QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
     }
 }
 
