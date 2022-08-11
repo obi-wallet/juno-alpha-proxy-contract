@@ -37,15 +37,6 @@ pub struct HotWallet {
     pub spend_limits: Vec<CoinLimit>,
 }
 
-/* let ts = Timestamp::from_nanos(1_000_000_202);
-assert_eq!(ts.nanos(), 1_000_000_202);
-assert_eq!(ts.seconds(), 1);
-assert_eq!(ts.subsec_nanos(), 202);
-
-let ts = ts.plus_seconds(2);
-assert_eq!(ts.nanos(), 3_000_000_202);
-assert_eq!(ts.seconds(), 3); */
-
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct Admins {
     pub admin: String,
