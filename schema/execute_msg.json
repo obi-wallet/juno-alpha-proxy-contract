@@ -30,10 +30,10 @@
       "description": "UpdateAdmins will change the admin set of the contract, must be called by an existing admin, and only works if the contract is mutable",
       "type": "object",
       "required": [
-        "update_admin"
+        "propose_update_admin"
       ],
       "properties": {
-        "update_admin": {
+        "propose_update_admin": {
           "type": "object",
           "required": [
             "new_admin"
@@ -43,6 +43,18 @@
               "type": "string"
             }
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "confirm_update_admin"
+      ],
+      "properties": {
+        "confirm_update_admin": {
+          "type": "object"
         }
       },
       "additionalProperties": false
