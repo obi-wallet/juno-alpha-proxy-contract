@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, WasmMsg,
+    Response, StdError, StdResult, Timestamp, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -104,20 +104,17 @@ pub fn execute_execute(
                                             recipient: _,
                                             amount,
                                         } => {
-                                            if cfg.can_spend(
+                                            return check_and_spend(
+                                                &mut cfg,
+                                                deps,
+                                                info,
+                                                this_msg.clone(),
                                                 env.block.time,
-                                                info.sender.as_ref(),
                                                 vec![Coin {
                                                     denom: contract_addr.to_string(),
                                                     amount,
                                                 }],
-                                            )? {
-                                                let res = Response::new()
-                                                    .add_messages(vec![this_msg.clone()])
-                                                    .add_attribute("action", "execute");
-                                                ADMINS.save(deps.storage, &cfg)?;
-                                                return Ok(res);
-                                            }
+                                            );
                                         }
                                         Cw20ExecuteMsg::Send {
                                             contract: _,
@@ -159,15 +156,18 @@ pub fn execute_execute(
                     BankMsg::Send {
                         to_address: _,
                         amount,
-                    } if cfg.can_spend(env.block.time, info.sender.as_ref(), amount.clone())? => {
-                        let res = Response::new()
-                            .add_messages(vec![this_msg.clone()])
-                            .add_attribute("action", "execute");
-                        ADMINS.save(deps.storage, &cfg)?;
-                        return Ok(res);
+                    } => {
+                        return check_and_spend(
+                            &mut cfg,
+                            deps,
+                            info,
+                            this_msg.clone(),
+                            env.block.time,
+                            amount.clone(),
+                        );
                     }
                     _ => {
-                        //probably unreachable as can_spend tends to throw
+                        //probably unreachable as can_spend throws
                         return Err(ContractError::SpendNotAuthorized {});
                     }
                 },
@@ -178,6 +178,22 @@ pub fn execute_execute(
         }
     }
     Ok(Response::default())
+}
+
+fn check_and_spend(
+    cfg: &mut Admins,
+    deps: DepsMut,
+    info: MessageInfo,
+    this_msg: CosmosMsg,
+    current_time: Timestamp,
+    spend: Vec<Coin>,
+) -> Result<Response, ContractError> {
+    cfg.can_spend(current_time, info.sender.as_ref(), spend)?;
+    let res = Response::new()
+        .add_messages(vec![this_msg])
+        .add_attribute("action", "execute");
+    ADMINS.save(deps.storage, cfg)?;
+    Ok(res)
 }
 
 pub fn add_hot_wallet(
