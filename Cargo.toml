@@ -22,8 +22,10 @@ test-utils = []
 cw-utils = { version = "0.13.4" }
 cw1 = { version = "0.13.4" }
 cw2 = { version = "0.13.4" }
+cw20 = { version = "0.13.4" }
 cosmwasm-std = { version = "1.0.0", features = ["staking"] }
 cw-storage-plus = { version = "0.13.4" }
+chrono = { version = "0.4.20" }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }

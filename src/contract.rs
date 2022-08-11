@@ -4,16 +4,17 @@ use std::fmt;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Response,
-    StdResult,
+    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, Response, StdError, StdResult, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
 use cw2::set_contract_version;
+use cw20::Cw20ExecuteMsg;
 
 use crate::error::ContractError;
-use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Admin, ADMIN, PENDING};
+use crate::msg::{AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, QueryMsg};
+use crate::state::{Admins, HotWallet, ADMINS, PENDING};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw1-whitelist";
@@ -27,10 +28,11 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let cfg = Admin {
+    let cfg = Admins {
         admin: deps.api.addr_validate(&msg.admin)?.to_string(),
+        hot_wallets: vec![],
     };
-    ADMIN.save(deps.storage, &cfg)?;
+    ADMINS.save(deps.storage, &cfg)?;
     Ok(Response::default())
 }
 
@@ -45,27 +47,175 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
-        ExecuteMsg::ProposeUpdateAdmin { new_admin } => propose_update_admin(deps, env, info, new_admin),
-        ExecuteMsg::ConfirmUpdateAdmin { } => confirm_update_admin(deps, env, info),
+        ExecuteMsg::AddHotWallet { new_hot_wallet } => add_hot_wallet(deps, env, info, new_hot_wallet),
+        ExecuteMsg::RmHotWallet { doomed_hot_wallet } => rm_hot_wallet(deps, env, info, doomed_hot_wallet),
+        ExecuteMsg::ProposeUpdateAdmin { new_admin } => {
+            propose_update_admin(deps, env, info, new_admin)
+        }
+        ExecuteMsg::ConfirmUpdateAdmin {} => confirm_update_admin(deps, env, info),
     }
 }
 
 pub fn execute_execute<T>(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msgs: Vec<CosmosMsg<T>>,
 ) -> Result<Response<T>, ContractError>
 where
     T: Clone + fmt::Debug + PartialEq + JsonSchema,
 {
+    let mut admins = ADMINS.load(deps.storage)?;
     if !can_execute(deps.as_ref(), info.sender.as_ref())? {
-        Err(ContractError::Unauthorized {})
-    } else {
+        return Err(ContractError::Unauthorized {});
+    } else if admins.is_admin(info.sender.to_string()) {
         let res = Response::new()
             .add_messages(msgs)
             .add_attribute("action", "execute");
-        Ok(res)
+        return Ok(res);
+    } else {
+        //make sure the message is doing nothing else but sending
+        for n in 0..msgs.len() {
+            match &msgs[n] {
+                // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
+                CosmosMsg::Wasm(wasm) => {
+                    match wasm {
+                        WasmMsg::Execute {
+                            contract_addr,
+                            msg,
+                            funds,
+                        } => {
+                            // prevent attaching funds to tx, as Transfer message's
+                            // amount param is where funds are specified, instead
+                            let empty_vec: Vec<Coin> = [].to_vec();
+                            if funds != &empty_vec {
+                                return Err(ContractError::Unauthorized {});
+                            }
+                            let msg_de: Result<cw20::Cw20ExecuteMsg, StdError> = from_binary(msg);
+                            match msg_de {
+                                Ok(msg_contents) => {
+                                    // must be Transfer or Send
+                                    match msg_contents {
+                                        Cw20ExecuteMsg::Transfer {
+                                            recipient: _,
+                                            amount,
+                                        } => {
+                                            if admins.can_spend(
+                                                env.block.time,
+                                                info.sender.as_ref(),
+                                                vec![Coin {
+                                                    denom: contract_addr.to_string(),
+                                                    amount,
+                                                }],
+                                            )? {
+                                                let res = Response::new()
+                                                    .add_messages(vec![msgs[n].clone()])
+                                                    .add_attribute("action", "execute");
+                                                return Ok(res);
+                                            }
+                                        }
+                                        Cw20ExecuteMsg::Send {
+                                            contract: _,
+                                            amount,
+                                            msg: _,
+                                        } => {
+                                            if admins.can_spend(
+                                                env.block.time,
+                                                info.sender.as_ref(),
+                                                vec![Coin {
+                                                    denom: contract_addr.to_string(),
+                                                    amount,
+                                                }],
+                                            )? {
+                                                let res = Response::new()
+                                                    .add_messages(vec![msgs[n].clone()])
+                                                    .add_attribute("action", "execute");
+                                                return Ok(res);
+                                            }
+                                        }
+                                        _ => {
+                                            return Err(ContractError::Unauthorized {});
+                                        }
+                                    }
+                                }
+                                Err(_) => {
+                                    return Err(ContractError::Unauthorized {});
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(ContractError::Unauthorized {});
+                        }
+                    }
+                }
+                // otherwise it must be a bank transfer
+                CosmosMsg::Bank(bank) => match bank {
+                    BankMsg::Send {
+                        to_address: _,
+                        amount,
+                    } if admins.can_spend(
+                        env.block.time,
+                        info.sender.as_ref(),
+                        amount.clone(),
+                    )? =>
+                    {
+                        let res = Response::new()
+                            .add_messages(vec![msgs[n].clone()])
+                            .add_attribute("action", "execute");
+                        return Ok(res);
+                    }
+                    _ => {
+                        return Err(ContractError::Unauthorized {});
+                    }
+                },
+                _ => {
+                    return Err(ContractError::Unauthorized {});
+                }
+            };
+        }
+    }
+    Ok(Response::default())
+}
+
+pub fn add_hot_wallet(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    new_hot_wallet: HotWallet,
+) -> Result<Response, ContractError> {
+    let mut cfg = ADMINS.load(deps.storage)?;
+    if !cfg.is_admin(info.sender.to_string()) {
+        Err(ContractError::Unauthorized {})
+    } else if cfg
+        .hot_wallets
+        .iter()
+        .any(|wallet| wallet.address == new_hot_wallet.address)
+    {
+        Err(ContractError::Unauthorized {})
+    } else {
+        cfg.add_hot_wallet(new_hot_wallet);
+        Ok(Response::new().add_attribute("action", "add_hot_wallet"))
+    }
+}
+
+pub fn rm_hot_wallet(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    doomed_hot_wallet: String,
+) -> Result<Response, ContractError> {
+    let mut cfg = ADMINS.load(deps.storage)?;
+    if !cfg.is_admin(info.sender.to_string()) {
+        Err(ContractError::Unauthorized {})
+    } else if !cfg
+        .hot_wallets
+        .iter()
+        .any(|wallet| wallet.address == doomed_hot_wallet)
+    {
+        Err(ContractError::Unauthorized {})
+    } else {
+        cfg.rm_hot_wallet(doomed_hot_wallet);
+        Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
     }
 }
 
@@ -75,7 +225,7 @@ pub fn propose_update_admin(
     info: MessageInfo,
     new_admin: String,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMIN.load(deps.storage)?;
+    let mut cfg = ADMINS.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
@@ -96,7 +246,7 @@ pub fn confirm_update_admin(
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::CallerIsNotPendingNewAdmin {})
     } else {
-        ADMIN.save(deps.storage, &cfg)?;
+        ADMINS.save(deps.storage, &cfg)?;
 
         let res = Response::new().add_attribute("action", "confirm_update_admin");
         Ok(res)
@@ -104,7 +254,7 @@ pub fn confirm_update_admin(
 }
 
 fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
-    let cfg = ADMIN.load(deps.storage)?;
+    let cfg = ADMINS.load(deps.storage)?;
     let can = cfg.is_admin(sender.to_string());
     Ok(can)
 }
@@ -114,14 +264,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Admin {} => to_binary(&query_admin(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
+        QueryMsg::HotWallets { } => to_binary(&query_hot_wallets(deps)?),
     }
 }
 
 pub fn query_admin(deps: Deps) -> StdResult<AdminResponse> {
-    let cfg = ADMIN.load(deps.storage)?;
-    Ok(AdminResponse {
-        admin: cfg.admin,
-    })
+    let cfg = ADMINS.load(deps.storage)?;
+    Ok(AdminResponse { admin: cfg.admin })
 }
 
 pub fn query_can_execute(
@@ -131,6 +280,13 @@ pub fn query_can_execute(
 ) -> StdResult<CanExecuteResponse> {
     Ok(CanExecuteResponse {
         can_execute: can_execute(deps, &sender)?,
+    })
+}
+
+pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
+    let cfg = ADMINS.load(deps.storage)?;
+    Ok(HotWalletsResponse {
+        hot_wallets: cfg.hot_wallets,
     })
 }
 
@@ -185,8 +341,7 @@ mod tests {
         assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
 
         // but if bob accepts...
-        let msg = ExecuteMsg::ConfirmUpdateAdmin {
-        };
+        let msg = ExecuteMsg::ConfirmUpdateAdmin {};
         let info = mock_info(bob, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
