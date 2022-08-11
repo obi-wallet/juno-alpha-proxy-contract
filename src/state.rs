@@ -57,7 +57,7 @@ impl Admins {
 
     pub fn rm_hot_wallet(&mut self, doomed_hot_wallet: String) {
         self.hot_wallets
-            .retain(|wallet| wallet.address.to_string() != doomed_hot_wallet);
+            .retain(|wallet| wallet.address != doomed_hot_wallet);
     }
 
     /// returns true if the address is a registered admin
