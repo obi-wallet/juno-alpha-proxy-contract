@@ -20,10 +20,14 @@ where
     /// Execute requests the contract to re-dispatch all these messages with the
     /// contract's address as sender. Every implementation has it's own logic to
     /// determine in
-    Execute { msgs: Vec<CosmosMsg<T>> },
+    Execute {
+        msgs: Vec<CosmosMsg<T>>,
+    },
     /// UpdateAdmins will change the admin set of the contract, must be called by an existing admin,
     /// and only works if the contract is mutable
-    ProposeUpdateAdmin { new_admin: String },
+    ProposeUpdateAdmin {
+        new_admin: String,
+    },
     ConfirmUpdateAdmin {},
 }
 

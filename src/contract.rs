@@ -151,7 +151,12 @@ where
                     BankMsg::Send {
                         to_address: _,
                         amount,
-                    } if admins.can_spend(env.block.time, info.sender.as_ref(), amount.clone())? => {
+                    } if admins.can_spend(
+                        env.block.time,
+                        info.sender.as_ref(),
+                        amount.clone(),
+                    )? =>
+                    {
                         let res = Response::new()
                             .add_messages(vec![msgs[n].clone()])
                             .add_attribute("action", "execute");
@@ -179,17 +184,15 @@ pub fn add_hot_wallet(
     let mut cfg = ADMINS.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
+    } else if cfg
+        .hot_wallets
+        .iter()
+        .any(|wallet| wallet.address == new_hot_wallet.address)
+    {
+        Err(ContractError::Unauthorized {})
     } else {
-        if cfg
-            .hot_wallets
-            .iter()
-            .any(|wallet| wallet.address == new_hot_wallet.address)
-        {
-            Err(ContractError::Unauthorized {})
-        } else {
-            cfg.add_hot_wallet(new_hot_wallet);
-            Ok(Response::new().add_attribute("action", "add_hot_wallet"))
-        }
+        cfg.add_hot_wallet(new_hot_wallet);
+        Ok(Response::new().add_attribute("action", "add_hot_wallet"))
     }
 }
 
@@ -202,17 +205,15 @@ pub fn rm_hot_wallet(
     let mut cfg = ADMINS.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
+    } else if !cfg
+        .hot_wallets
+        .iter()
+        .any(|wallet| wallet.address == doomed_hot_wallet)
+    {
+        Err(ContractError::Unauthorized {})
     } else {
-        if !cfg
-            .hot_wallets
-            .iter()
-            .any(|wallet| wallet.address == doomed_hot_wallet)
-        {
-            Err(ContractError::Unauthorized {})
-        } else {
-            cfg.rm_hot_wallet(doomed_hot_wallet);
-            Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
-        }
+        cfg.rm_hot_wallet(doomed_hot_wallet);
+        Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
     }
 }
 

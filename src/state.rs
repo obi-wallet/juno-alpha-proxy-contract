@@ -1,9 +1,9 @@
 //use cw_multi_test::Contract;
+use chrono::Datelike;
+use chrono::{NaiveDate, NaiveDateTime};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
-use chrono::{NaiveDate, NaiveDateTime};
-use chrono::{Datelike};
 
 use cw_storage_plus::Item;
 
@@ -16,13 +16,13 @@ pub enum PeriodType {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct CoinLimit{
+pub struct CoinLimit {
     coin_limit: Coin,
     limit_remaining: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct HotWallet{
+pub struct HotWallet {
     pub address: Addr,
     pub current_period_reset: Timestamp,
     pub period_type: PeriodType,
@@ -51,7 +51,8 @@ impl Admins {
     }
 
     pub fn rm_hot_wallet(&mut self, doomed_hot_wallet: String) {
-        self.hot_wallets.retain(|wallet| wallet.address == doomed_hot_wallet);
+        self.hot_wallets
+            .retain(|wallet| wallet.address == doomed_hot_wallet);
     }
 
     /// returns true if the address is a registered admin
@@ -60,13 +61,22 @@ impl Admins {
         self.admin == addr
     }
 
-    pub fn can_spend(&mut self, current_time: Timestamp, addr: impl AsRef<str>, spend: Vec<Coin>) -> Result<bool, ContractError> {
+    pub fn can_spend(
+        &mut self,
+        current_time: Timestamp,
+        addr: impl AsRef<str>,
+        spend: Vec<Coin>,
+    ) -> Result<bool, ContractError> {
         let addr = addr.as_ref();
-        let this_wallet_index =
-            self.hot_wallets.iter().position(|a| a.address.as_ref() == addr);
+        let this_wallet_index = self
+            .hot_wallets
+            .iter()
+            .position(|a| a.address.as_ref() == addr);
         let index = match this_wallet_index {
             Some(index) => index,
-            None => { return Err(ContractError::Unauthorized {  }); }
+            None => {
+                return Err(ContractError::Unauthorized {});
+            }
         };
         let wallet_config = self.hot_wallets[index].clone();
         let mut new_wallet_configs = self.hot_wallets.clone();
@@ -80,80 +90,106 @@ impl Admins {
             // depends on the spend limit period (type and multiple)
             let new_dt: Result<NaiveDateTime, ContractError> = match wallet_config.period_type {
                 PeriodType::DAYS => {
-                    let working_dt = new_dt.checked_add_signed(chrono::Duration::days(wallet_config.period_multiple as i64));
+                    let working_dt = new_dt.checked_add_signed(chrono::Duration::days(
+                        wallet_config.period_multiple as i64,
+                    ));
                     match working_dt {
                         Some(dt) => Ok(dt),
-                        None => { return Err(ContractError::Unauthorized {  }); }
+                        None => {
+                            return Err(ContractError::Unauthorized {});
+                        }
                     }
-                },
+                }
                 PeriodType::MONTHS => {
                     let working_month = new_dt.month() as u16 + wallet_config.period_multiple;
                     match working_month {
-                        2..=12 => {
-                            Ok(NaiveDate::from_ymd(new_dt.year(), working_month as u32, 1).and_hms(0, 0, 0))
-                        },
+                        2..=12 => Ok(NaiveDate::from_ymd(new_dt.year(), working_month as u32, 1)
+                            .and_hms(0, 0, 0)),
                         13..=268 => {
-                            let year_increment: i32 = (working_month/12u16) as i32;
-                            Ok(NaiveDate::from_ymd(new_dt.year() + year_increment, working_month as u32 % 12, 1).and_hms(0, 0, 0))
-                        },
-                        _ => { Err(ContractError::Unauthorized {  }) }
+                            let year_increment: i32 = (working_month / 12u16) as i32;
+                            Ok(NaiveDate::from_ymd(
+                                new_dt.year() + year_increment,
+                                working_month as u32 % 12,
+                                1,
+                            )
+                            .and_hms(0, 0, 0))
+                        }
+                        _ => Err(ContractError::Unauthorized {}),
                     }
-                },
+                }
             };
             match new_dt {
                 Ok(dt) => {
                     let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
                     for n in 0..spend.len() {
-                        let i = new_spend_limits.clone().iter().position(|limit| limit.coin_limit.denom == spend[n].denom);
+                        let i = new_spend_limits
+                            .clone()
+                            .iter()
+                            .position(|limit| limit.coin_limit.denom == spend[n].denom);
                         match i {
-                            None => { return Err(ContractError::Unauthorized {  }); },
+                            None => {
+                                return Err(ContractError::Unauthorized {});
+                            }
                             Some(i) => {
                                 // spend can't be bigger than total spend limit
-                                let limit_remaining =
-                                    new_spend_limits[i].coin_limit.amount.checked_sub(spend[n].amount);
+                                let limit_remaining = new_spend_limits[i]
+                                    .coin_limit
+                                    .amount
+                                    .checked_sub(spend[n].amount);
                                 let limit_remaining = match limit_remaining {
                                     Ok(remaining) => remaining,
-                                    Err(_) => { return Err(ContractError::Unauthorized {  }); }
+                                    Err(_) => {
+                                        return Err(ContractError::Unauthorized {});
+                                    }
                                 };
-                                new_spend_limits[i] = CoinLimit{
+                                new_spend_limits[i] = CoinLimit {
                                     coin_limit: Coin {
                                         denom: new_spend_limits[i].coin_limit.denom.clone(),
                                         amount: new_spend_limits[i].coin_limit.amount,
                                     },
                                     limit_remaining,
                                 }
-                            },
+                            }
                         }
                     }
-                    new_wallet_configs[index].current_period_reset =  Timestamp::from_seconds(dt.timestamp() as u64);
+                    new_wallet_configs[index].current_period_reset =
+                        Timestamp::from_seconds(dt.timestamp() as u64);
                     new_wallet_configs[index].spend_limits = new_spend_limits;
                     self.hot_wallets = new_wallet_configs;
                     Ok(true)
-                },
-                Err(e) => { Err(e) }
+                }
+                Err(e) => Err(e),
             }
         } else {
             let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
             for n in 0..spend.len() {
-                let i = new_spend_limits.clone().iter().position(|limit| limit.coin_limit.denom == spend[n].denom);
+                let i = new_spend_limits
+                    .clone()
+                    .iter()
+                    .position(|limit| limit.coin_limit.denom == spend[n].denom);
                 match i {
-                    None => { return Err(ContractError::Unauthorized {  }); },
+                    None => {
+                        return Err(ContractError::Unauthorized {});
+                    }
                     Some(i) => {
                         // spend can't be bigger than total spend limit
-                        let limit_remaining =
-                            new_spend_limits[i].limit_remaining.checked_sub(spend[n].amount);
+                        let limit_remaining = new_spend_limits[i]
+                            .limit_remaining
+                            .checked_sub(spend[n].amount);
                         let limit_remaining = match limit_remaining {
                             Ok(remaining) => remaining,
-                            Err(_) => { return Err(ContractError::Unauthorized {  }); }
+                            Err(_) => {
+                                return Err(ContractError::Unauthorized {});
+                            }
                         };
-                        new_spend_limits[i] = CoinLimit{
+                        new_spend_limits[i] = CoinLimit {
                             coin_limit: Coin {
                                 denom: new_spend_limits[i].coin_limit.denom.clone(),
                                 amount: new_spend_limits[i].coin_limit.amount,
                             },
                             limit_remaining,
                         }
-                    },
+                    }
                 }
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
@@ -192,7 +228,7 @@ mod tests {
         let bad_spender: &str = "medusa";
         let dt = NaiveDateTime::new(
             NaiveDate::from_ymd(2022, 6, 3),
-            NaiveTime::from_hms_milli(12,00,00,000)
+            NaiveTime::from_hms_milli(12, 00, 00, 000),
         );
         let mut now_env = mock_env();
         now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
@@ -201,28 +237,26 @@ mod tests {
             admin: admin.to_string(),
             hot_wallets: vec![HotWallet {
                 address: spender.clone(),
-                current_period_reset: Timestamp::from_seconds(
-                    dt.timestamp() as u64
-                ),
+                current_period_reset: Timestamp::from_seconds(dt.timestamp() as u64),
                 period_type: PeriodType::DAYS,
                 period_multiple: 3,
                 spend_limits: vec![
-                    CoinLimit{
-                        coin_limit: Coin{
+                    CoinLimit {
+                        coin_limit: Coin {
                             amount: Uint128::from(100_000_000u128),
                             denom: "ujuno".to_string(),
                         },
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
-                    CoinLimit{
-                        coin_limit: Coin{
+                    CoinLimit {
+                        coin_limit: Coin {
                             amount: Uint128::from(100_000_000u128),
                             denom: "uaxlusdc".to_string(),
                         },
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
-                    CoinLimit{
-                        coin_limit: Coin{
+                    CoinLimit {
+                        coin_limit: Coin {
                             amount: Uint128::from(9_000_000_000u128),
                             denom: "uloop".to_string(),
                         },
@@ -232,27 +266,63 @@ mod tests {
             }],
         };
 
-        assert!(config.can_spend(now_env.block.time, spender.clone(), vec![
-            Coin { denom: "ujuno".to_string(), amount: Uint128::from(1_000_000u128) }
-        ]).unwrap());
-        config.can_spend(now_env.block.time, bad_spender.clone(), vec![
-            Coin { denom: "ujuno".to_string(), amount: Uint128::from(1_000_000u128) }
-        ]).unwrap_err();
-        config.can_spend(now_env.block.time, spender.clone(), vec![
-            Coin { denom: "ujuno".to_string(), amount: Uint128::from(99_500_000u128) }
-        ]).unwrap_err();
+        assert!(config
+            .can_spend(
+                now_env.block.time,
+                spender.clone(),
+                vec![Coin {
+                    denom: "ujuno".to_string(),
+                    amount: Uint128::from(1_000_000u128)
+                }]
+            )
+            .unwrap());
+        config
+            .can_spend(
+                now_env.block.time,
+                bad_spender.clone(),
+                vec![Coin {
+                    denom: "ujuno".to_string(),
+                    amount: Uint128::from(1_000_000u128),
+                }],
+            )
+            .unwrap_err();
+        config
+            .can_spend(
+                now_env.block.time,
+                spender.clone(),
+                vec![Coin {
+                    denom: "ujuno".to_string(),
+                    amount: Uint128::from(99_500_000u128),
+                }],
+            )
+            .unwrap_err();
 
         // now we shouldn't be able to total just over our spend limit
-        config.can_spend(now_env.block.time, spender.clone(), vec![
-            Coin { denom: "ujuno".to_string(), amount: Uint128::from(99_000_001u128) }
-        ]).unwrap_err();
+        config
+            .can_spend(
+                now_env.block.time,
+                spender.clone(),
+                vec![Coin {
+                    denom: "ujuno".to_string(),
+                    amount: Uint128::from(99_000_001u128),
+                }],
+            )
+            .unwrap_err();
 
         // but go 3 days + 1 second into the future and we should
-        let mut env_future = now_env.clone();
-        env_future.block.time = Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);
-        config.can_spend(env_future.block.time, spender.clone(), vec![
-            Coin { denom: "ujuno".to_string(), amount: Uint128::from(100_000_000u128) }
-        ]).unwrap();
+        let mut env_future = now_env;
+        env_future.block.time =
+            Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);
+        config
+            .can_spend(
+                env_future.block.time,
+                spender,
+                vec![Coin {
+                    denom: "ujuno".to_string(),
+                    amount: Uint128::from(100_000_000u128),
+                }],
+            )
+            .unwrap();
     }
 
     #[test]
@@ -262,41 +332,41 @@ mod tests {
         let bad_spender: &str = "medusa";
         let dt = NaiveDateTime::new(
             NaiveDate::from_ymd(2022, 6, 3),
-            NaiveTime::from_hms_milli(12,00,00,000)
+            NaiveTime::from_hms_milli(12, 00, 00, 000),
         );
         let mut now_env = mock_env();
         now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
-        
+
         // Let's do a 38 month spend limit period
         // and for kicks use a contract address for LOOP
         let mut config = Admins {
             admin: admin.to_string(),
             hot_wallets: vec![HotWallet {
                 address: spender.clone(),
-                current_period_reset: Timestamp::from_seconds(
-                    dt.timestamp() as u64
-                ),
+                current_period_reset: Timestamp::from_seconds(dt.timestamp() as u64),
                 period_type: PeriodType::MONTHS,
                 period_multiple: 38,
                 spend_limits: vec![
-                    CoinLimit{
-                        coin_limit: Coin{
+                    CoinLimit {
+                        coin_limit: Coin {
                             amount: Uint128::from(7_000_000_000u128),
                             denom: "ujuno".to_string(),
                         },
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
-                    CoinLimit{
-                        coin_limit: Coin{
+                    CoinLimit {
+                        coin_limit: Coin {
                             amount: Uint128::from(100_000_000u128),
                             denom: "uaxlusdc".to_string(),
                         },
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
-                    CoinLimit{
-                        coin_limit: Coin{
+                    CoinLimit {
+                        coin_limit: Coin {
                             amount: Uint128::from(999_000_000_000u128),
-                            denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm".to_string(),
+                            denom:
+                                "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
+                                    .to_string(),
                         },
                         limit_remaining: Uint128::from(999_000_000_000u128),
                     },
@@ -304,33 +374,70 @@ mod tests {
             }],
         };
 
-        assert!(config.can_spend(now_env.block.time, spender.clone(), vec![
-            Coin { denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm".to_string(), amount: Uint128::from(9_000_000_000u128) }
-        ]).unwrap());
-        config.can_spend(now_env.block.time, bad_spender.clone(), vec![
-            Coin { denom: "ujuno".to_string(), amount: Uint128::from(1_000_000u128) }
-        ]).unwrap_err();
-        config.can_spend(now_env.block.time, spender.clone(), vec![
-            Coin { denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm".to_string(), amount: Uint128::from(999_000_000_000u128) }
-        ]).unwrap_err();
+        assert!(config
+            .can_spend(
+                now_env.block.time,
+                spender.clone(),
+                vec![Coin {
+                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
+                        .to_string(),
+                    amount: Uint128::from(9_000_000_000u128)
+                }]
+            )
+            .unwrap());
+        config
+            .can_spend(
+                now_env.block.time,
+                bad_spender.clone(),
+                vec![Coin {
+                    denom: "ujuno".to_string(),
+                    amount: Uint128::from(1_000_000u128),
+                }],
+            )
+            .unwrap_err();
+        config
+            .can_spend(
+                now_env.block.time,
+                spender.clone(),
+                vec![Coin {
+                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
+                        .to_string(),
+                    amount: Uint128::from(999_000_000_000u128),
+                }],
+            )
+            .unwrap_err();
 
         // now we shouldn't be able to total just over our spend limit
-        config.can_spend(now_env.block.time, spender.clone(), vec![
-            Coin { denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm".to_string(), amount: Uint128::from(990_000_000_001u128) }
-        ]).unwrap_err();
+        config
+            .can_spend(
+                now_env.block.time,
+                spender.clone(),
+                vec![Coin {
+                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
+                        .to_string(),
+                    amount: Uint128::from(990_000_000_001u128),
+                }],
+            )
+            .unwrap_err();
 
         // but go 38 months (minus a couple of days - reset is the 1st, not the 3rd)
         // into the future and we should be able to spend
         let dt = NaiveDateTime::new(
             NaiveDate::from_ymd(2025, 8, 1),
-            NaiveTime::from_hms_milli(12,00,00,000)
+            NaiveTime::from_hms_milli(12, 00, 00, 000),
         );
         let mut env_future = mock_env();
         env_future.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
-        config.can_spend(env_future.block.time, spender.clone(), vec![
-            Coin { denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm".to_string(), amount: Uint128::from(990_000_000_001u128) }
-        ]).unwrap();
-
-
+        config
+            .can_spend(
+                env_future.block.time,
+                spender,
+                vec![Coin {
+                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
+                        .to_string(),
+                    amount: Uint128::from(990_000_000_001u128),
+                }],
+            )
+            .unwrap();
     }
 }
