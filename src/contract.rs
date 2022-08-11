@@ -30,7 +30,7 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let cfg = Admins {
         admin: deps.api.addr_validate(&msg.admin)?.to_string(),
-        hot_wallets: vec![],
+        hot_wallets: msg.hot_wallets,
     };
     ADMINS.save(deps.storage, &cfg)?;
     Ok(Response::default())
@@ -433,6 +433,12 @@ mod tests {
 
         instantiate_contract(&mut deps, current_env);
         // this helper includes a hotwallet
+
+        // query to see we have a hot wallet
+        let res = query_hot_wallets(deps.as_ref())
+        .unwrap();
+        assert!(res.hot_wallets.len() == 1);
+
     }
 
     fn instantiate_contract (deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>, _env: Env) {
