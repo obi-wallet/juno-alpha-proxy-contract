@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, Timestamp, WasmMsg,
+    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, Response, StdError, StdResult, Timestamp, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -18,6 +18,13 @@ use crate::state::{Admins, HotWallet, ADMINS, PENDING};
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+struct CorePayload {
+    cfg: Admins,
+    info: MessageInfo,
+    this_msg: CosmosMsg,
+    current_time: Timestamp,
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -43,15 +50,13 @@ pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, 
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut,
+    mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    // Note: implement this function with different type to add support for custom messages
-    // and then import the rest of this contract code.
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
+        ExecuteMsg::Execute { msgs } => execute_execute(&mut deps, env, info, msgs),
         ExecuteMsg::AddHotWallet { new_hot_wallet } => {
             add_hot_wallet(deps, env, info, new_hot_wallet)
         }
@@ -66,133 +71,146 @@ pub fn execute(
 }
 
 pub fn execute_execute(
-    deps: DepsMut,
+    deps: &mut DepsMut,
     env: Env,
     info: MessageInfo,
     msgs: Vec<CosmosMsg>,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMINS.load(deps.storage)?;
+    let cfg = ADMINS.load(deps.storage)?;
     if cfg.is_admin(info.sender.to_string()) {
         let res = Response::new()
             .add_messages(msgs)
-            .add_attribute("action", "execute");
+            .add_attribute("action", "execute_execute");
         return Ok(res);
     } else {
-        //make sure the message is doing nothing else but sending
+        let mut core_payload = CorePayload {
+            cfg: cfg,
+            info: info,
+            this_msg: CosmosMsg::Custom(Empty {}),
+            current_time: env.block.time,
+        };
+        //make sure the message is a send of some kind
+        let mut res = Response::new().add_attribute("action", "execute_spend_limit");
         for this_msg in msgs {
+            core_payload.this_msg = this_msg.clone();
             match &this_msg {
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
-                    match wasm {
-                        WasmMsg::Execute {
-                            contract_addr,
-                            msg,
-                            funds,
-                        } => {
-                            // prevent attaching funds to tx, as Transfer message's
-                            // amount param is where funds are specified, instead
-                            let empty_vec: Vec<Coin> = [].to_vec();
-                            if funds != &empty_vec {
-                                return Err(ContractError::AttachedFundsNotAllowed {});
-                            }
-                            let msg_de: Result<cw20::Cw20ExecuteMsg, StdError> = from_binary(msg);
-                            match msg_de {
-                                Ok(msg_contents) => {
-                                    // must be Transfer or Send
-                                    match msg_contents {
-                                        Cw20ExecuteMsg::Transfer {
-                                            recipient: _,
-                                            amount,
-                                        } => {
-                                            return check_and_spend(
-                                                &mut cfg,
-                                                deps,
-                                                info,
-                                                this_msg.clone(),
-                                                env.block.time,
-                                                vec![Coin {
-                                                    denom: contract_addr.to_string(),
-                                                    amount,
-                                                }],
-                                            );
-                                        }
-                                        Cw20ExecuteMsg::Send {
-                                            contract: _,
-                                            amount,
-                                            msg: _,
-                                        } => {
-                                            if cfg.can_spend(
-                                                env.block.time,
-                                                info.sender.as_ref(),
-                                                vec![Coin {
-                                                    denom: contract_addr.to_string(),
-                                                    amount,
-                                                }],
-                                            )? {
-                                                let res = Response::new()
-                                                    .add_messages(vec![this_msg.clone()])
-                                                    .add_attribute("action", "execute");
-                                                ADMINS.save(deps.storage, &cfg)?;
-                                                return Ok(res);
-                                            }
-                                        }
-                                        _ => {
-                                            return Err(ContractError::OnlyTransferSendAllowed {});
-                                        }
-                                    }
-                                }
-                                Err(_) => {
-                                    return Err(ContractError::ErrorDeserializingCw20Message {});
-                                }
-                            }
-                        }
-                        _ => {
-                            return Err(ContractError::WasmMsgMustBeExecute {});
-                        }
-                    }
+                    let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
+                    res = res.add_message(partial_res.messages[0].msg.clone());
                 }
                 // otherwise it must be a bank transfer
-                CosmosMsg::Bank(bank) => match bank {
-                    BankMsg::Send {
-                        to_address: _,
-                        amount,
-                    } => {
-                        return check_and_spend(
-                            &mut cfg,
-                            deps,
-                            info,
-                            this_msg.clone(),
-                            env.block.time,
-                            amount.clone(),
-                        );
-                    }
-                    _ => {
-                        //probably unreachable as can_spend throws
-                        return Err(ContractError::SpendNotAuthorized {});
-                    }
-                },
+                CosmosMsg::Bank(bank) => {
+                    let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
+                    res = res.add_message(partial_res.messages[0].msg.clone());
+                }
                 _ => {
                     return Err(ContractError::BadMessageType {});
                 }
             };
         }
+        Ok(res)
     }
-    Ok(Response::default())
+}
+
+fn try_wasm_send(
+    deps: &mut DepsMut,
+    wasm: &WasmMsg,
+    core_payload: &mut CorePayload,
+) -> Result<Response, ContractError> {
+    match wasm {
+        WasmMsg::Execute {
+            contract_addr,
+            msg,
+            funds,
+        } => {
+            // prevent attaching funds to tx, as Transfer message's
+            // amount param is where funds are specified, instead
+            let empty_vec: Vec<Coin> = [].to_vec();
+            if funds != &empty_vec {
+                return Err(ContractError::AttachedFundsNotAllowed {});
+            }
+            let msg_de: Result<cw20::Cw20ExecuteMsg, StdError> = from_binary(msg);
+            match msg_de {
+                Ok(msg_contents) => {
+                    // must be Transfer or Send
+                    match msg_contents {
+                        Cw20ExecuteMsg::Transfer {
+                            recipient: _,
+                            amount,
+                        } => {
+                            return check_and_spend(
+                                deps,
+                                core_payload,
+                                vec![Coin {
+                                    denom: contract_addr.to_string(),
+                                    amount,
+                                }],
+                            );
+                        }
+                        Cw20ExecuteMsg::Send {
+                            contract: _,
+                            amount,
+                            msg: _,
+                        } => {
+                            return check_and_spend(
+                                deps,
+                                core_payload,
+                                vec![Coin {
+                                    denom: contract_addr.to_string(),
+                                    amount,
+                                }],
+                            );
+                        }
+                        _ => {
+                            return Err(ContractError::OnlyTransferSendAllowed {});
+                        }
+                    }
+                }
+                Err(_) => {
+                    return Err(ContractError::ErrorDeserializingCw20Message {});
+                }
+            }
+        }
+        _ => {
+            return Err(ContractError::WasmMsgMustBeExecute {});
+        }
+    }
+}
+
+fn try_bank_send(
+    deps: &mut DepsMut,
+    bank: &BankMsg,
+    core_payload: &mut CorePayload,
+) -> Result<Response, ContractError> {
+    match bank {
+        BankMsg::Send {
+            to_address: _,
+            amount,
+        } => {
+            return check_and_spend(deps, core_payload, amount.clone());
+        }
+        _ => {
+            //probably unreachable as can_spend throws
+            Err(ContractError::SpendNotAuthorized {})
+        }
+    }
 }
 
 fn check_and_spend(
-    cfg: &mut Admins,
-    deps: DepsMut,
-    info: MessageInfo,
-    this_msg: CosmosMsg,
-    current_time: Timestamp,
+    deps: &mut DepsMut,
+    core_payload: &mut CorePayload,
     spend: Vec<Coin>,
 ) -> Result<Response, ContractError> {
-    cfg.can_spend(current_time, info.sender.as_ref(), spend)?;
+    core_payload.cfg.can_spend(
+        core_payload.current_time,
+        core_payload.info.sender.as_ref(),
+        spend,
+    )?;
     let res = Response::new()
-        .add_messages(vec![this_msg])
+        .add_messages(vec![core_payload.this_msg.clone()])
         .add_attribute("action", "execute");
-    ADMINS.save(deps.storage, cfg)?;
+    ADMINS.save(deps.storage, &core_payload.cfg)?;
     Ok(res)
 }
 
@@ -410,7 +428,7 @@ mod tests {
             res.messages,
             msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
         );
-        assert_eq!(res.attributes, [("action", "execute")]);
+        assert_eq!(res.attributes, [("action", "execute_execute")]);
     }
 
     #[test]
@@ -466,7 +484,7 @@ mod tests {
         });
         let info = mock_info(ADMIN, &[]);
         let res = execute_execute(
-            deps.as_mut(),
+            &mut deps.as_mut(),
             current_env.clone(),
             info.clone(),
             vec![send_msg.clone()],

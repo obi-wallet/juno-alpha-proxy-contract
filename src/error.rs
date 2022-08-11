@@ -49,6 +49,9 @@ pub enum ContractError {
     #[error("You cannot spend more than your available spend limit.")]
     CannotSpendMoreThanLimit {},
 
+    #[error("Uninitialized message.")]
+    UninitializedMessage {},
+
     #[error("Caller is not pending new admin. Propose new admin first.")]
     CallerIsNotPendingNewAdmin {},
 }
