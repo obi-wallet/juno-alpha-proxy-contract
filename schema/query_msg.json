@@ -3,7 +3,7 @@
   "title": "QueryMsg",
   "oneOf": [
     {
-      "description": "Shows all admins and whether or not it is mutable",
+      "description": "Shows all admins; always mutable",
       "type": "object",
       "required": [
         "admin"
@@ -16,7 +16,7 @@
       "additionalProperties": false
     },
     {
-      "description": "Checks permissions of the caller on this proxy. If CanExecute returns true then a call to `Execute` with the same message, before any further state changes, should also succeed.",
+      "description": "Checks permissions of the caller on this proxy. If CanExecute returns true then a call to `Execute` with the same message, before any further state changes, should also succeed. TODO: support can_spend for hot wallets in this check.",
       "type": "object",
       "required": [
         "can_execute"
@@ -41,6 +41,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Gets an array of all the active HotWallets for this proxy.",
       "type": "object",
       "required": [
         "hot_wallets"

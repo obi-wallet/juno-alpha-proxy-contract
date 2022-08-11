@@ -27,7 +27,7 @@
       "additionalProperties": false
     },
     {
-      "description": "UpdateAdmins will change the admin set of the contract, must be called by an existing admin, and only works if the contract is mutable",
+      "description": "Proposes a new admin for the proxy contract – must be called by the existing admin",
       "type": "object",
       "required": [
         "propose_update_admin"
@@ -48,6 +48,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Confirms a proposed admin - must be called by the new admin. This is to prevent accidentally transitioning to an uncontrolled address.",
       "type": "object",
       "required": [
         "confirm_update_admin"
@@ -60,6 +61,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg transactions if within the known recurring spend limit.",
       "type": "object",
       "required": [
         "add_hot_wallet"
@@ -80,6 +82,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Removes an active spend-limited wallet.",
       "type": "object",
       "required": [
         "rm_hot_wallet"
