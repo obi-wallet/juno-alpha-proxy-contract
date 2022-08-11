@@ -75,7 +75,7 @@ impl Admins {
         let index = match this_wallet_index {
             Some(index) => index,
             None => {
-                return Err(ContractError::Unauthorized {});
+                return Err(ContractError::HotWalletDoesNotExist {});
             }
         };
         let wallet_config = self.hot_wallets[index].clone();
@@ -96,7 +96,7 @@ impl Admins {
                     match working_dt {
                         Some(dt) => Ok(dt),
                         None => {
-                            return Err(ContractError::Unauthorized {});
+                            return Err(ContractError::DateUpdateError {});
                         }
                     }
                 }

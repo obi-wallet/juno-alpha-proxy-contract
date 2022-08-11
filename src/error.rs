@@ -6,8 +6,35 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("Unauthorized")]
+    #[error("Caller is not admin.")]
     Unauthorized {},
+
+    #[error("Spend-limited cw20 transactions cannot have additional funds attached.")]
+    AttachedFundsNotAllowed {},
+
+    #[error("Spend-limited WasmMsg txes must be cw20 Send or Transfer messages.")]
+    OnlyTransferSendAllowed {},
+
+    #[error("Message deserialization error.  Spend-limited WasmMsg txes are limited to a Cw20ExecuteMsg Send or Transfer.")]
+    ErrorDeserializingCw20Message {},
+
+    #[error("WASM message is not Execute. Spend-limited WasmMsg txes are limited to a Cw20ExecuteMsg Send or Transfer.")]
+    WasmMsgMustBeExecute {},
+
+    #[error("This address is not permitted to spend this token, or to spend this many of this token.")]
+    SpendNotAuthorized {},
+
+    #[error("Spend-limited transactions must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer).")]
+    BadMessageType {},
+
+    #[error("This address is already authorized as a Hot Wallet. Remove it first in order to update it.")]
+    HotWalletExists {},
+
+    #[error("This address is not authorized as a spend limit Hot Wallet.")]
+    HotWalletDoesNotExist {},
+
+    #[error("Failed to advance the reset date.")]
+    DateUpdateError {},
 
     #[error("Caller is not pending new admin. Propose new admin first.")]
     CallerIsNotPendingNewAdmin {},
