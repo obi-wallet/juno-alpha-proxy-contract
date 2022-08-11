@@ -26,6 +26,8 @@ pub struct CoinLimit {
     pub limit_remaining: Uint128,
 }
 
+// could do hot wallets as Map or even IndexedMap, but this contract
+// for more than 2-3 hot wallets at this time
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct HotWallet {
     pub address: Addr,
