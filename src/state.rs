@@ -126,11 +126,11 @@ impl Admins {
             match new_dt {
                 Ok(dt) => {
                     let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
-                    for n in 0..spend.len() {
+                    for n in spend {
                         self.check_spend_against_limit(
                             CheckType::TotalLimit,
                             &mut new_spend_limits,
-                            spend[n].clone(),
+                            n.clone(),
                         )?;
                     }
                     new_wallet_configs[index].current_period_reset =
@@ -143,11 +143,11 @@ impl Admins {
             }
         } else {
             let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
-            for n in 0..spend.len() {
+            for n in spend {
                 self.check_spend_against_limit(
                     CheckType::RemainingLimit,
                     &mut new_spend_limits,
-                    spend[n].clone(),
+                    n.clone(),
                 )?;
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
@@ -159,7 +159,7 @@ impl Admins {
     fn check_spend_against_limit(
         &self,
         check_type: CheckType,
-        new_spend_limits: &mut Vec<CoinLimit>,
+        new_spend_limits: &mut [CoinLimit],
         spend: Coin,
     ) -> Result<(), ContractError> {
         let i = new_spend_limits
@@ -279,7 +279,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                bad_spender.clone(),
+                bad_spender,
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(1_000_000u128),
@@ -388,7 +388,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                bad_spender.clone(),
+                bad_spender,
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(1_000_000u128),
