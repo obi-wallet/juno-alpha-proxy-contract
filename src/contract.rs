@@ -10,11 +10,13 @@ use cw2::set_contract_version;
 use cw20::Cw20ExecuteMsg;
 
 use crate::error::ContractError;
-use crate::msg::{AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, QueryMsg};
+use crate::msg::{
+    AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 use crate::state::{Admins, HotWallet, ADMINS, PENDING};
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:cw1-whitelist";
+const CONTRACT_NAME: &str = "obi-proxy-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -30,6 +32,12 @@ pub fn instantiate(
         hot_wallets: msg.hot_wallets,
     };
     ADMINS.save(deps.storage, &cfg)?;
+    Ok(Response::default())
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    // No state migrations performed right now, just return a Response
     Ok(Response::default())
 }
 

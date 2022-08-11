@@ -254,27 +254,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw1-whitelist"
-version = "0.13.4"
-dependencies = [
- "anyhow",
- "assert_matches",
- "chrono",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test",
- "cw-storage-plus",
- "cw-utils",
- "cw1",
- "cw2",
- "cw20",
- "derivative",
- "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "cw2"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -528,6 +507,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "obi-proxy-contract"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assert_matches",
+ "chrono",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-storage-plus",
+ "cw-utils",
+ "cw1",
+ "cw2",
+ "cw20",
+ "derivative",
+ "schemars",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

@@ -155,8 +155,10 @@ export interface HotWalletsResponse {
 }
 export interface InstantiateMsg {
   admin: string;
+  hot_wallets: HotWallet[];
   [k: string]: unknown;
 }
+export type MigrateMsg = string;
 export type QueryMsg = {
   admin: {
     [k: string]: unknown;

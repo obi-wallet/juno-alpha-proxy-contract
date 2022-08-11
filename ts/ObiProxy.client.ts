@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { AdminResponse, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, WasmMsg, Binary, Addr, Timestamp, Uint64, PeriodType, Coin, Empty, HotWallet, CoinLimit, HotWalletsResponse, InstantiateMsg, QueryMsg } from "./ObiProxy.types";
+import { AdminResponse, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, WasmMsg, Binary, Addr, Timestamp, Uint64, PeriodType, Coin, Empty, HotWallet, CoinLimit, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg } from "./ObiProxy.types";
 export interface ObiProxyReadOnlyInterface {
   contractAddress: string;
   admin: () => Promise<AdminResponse>;
