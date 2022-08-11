@@ -13,8 +13,7 @@ pub struct InstantiateMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ExecuteMsg
-{
+pub enum ExecuteMsg {
     /// Execute requests the contract to re-dispatch all these messages with the
     /// contract's address as sender. Every implementation has it's own logic to
     /// determine in
@@ -37,8 +36,7 @@ pub enum ExecuteMsg
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg
-{
+pub enum QueryMsg {
     /// Shows all admins and whether or not it is mutable
     Admin {},
     /// Checks permissions of the caller on this proxy.

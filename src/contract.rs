@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Response, StdError, StdResult, WasmMsg,
+    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -62,8 +62,7 @@ pub fn execute_execute(
     env: Env,
     info: MessageInfo,
     msgs: Vec<CosmosMsg>,
-) -> Result<Response, ContractError>
-{
+) -> Result<Response, ContractError> {
     let mut cfg = ADMINS.load(deps.storage)?;
     if cfg.is_admin(info.sender.to_string()) {
         let res = Response::new()
@@ -152,12 +151,7 @@ pub fn execute_execute(
                     BankMsg::Send {
                         to_address: _,
                         amount,
-                    } if cfg.can_spend(
-                        env.block.time,
-                        info.sender.as_ref(),
-                        amount.clone(),
-                    )? =>
-                    {
+                    } if cfg.can_spend(env.block.time, info.sender.as_ref(), amount.clone())? => {
                         let res = Response::new()
                             .add_messages(vec![this_msg.clone()])
                             .add_attribute("action", "execute");
@@ -295,11 +289,13 @@ pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
 
 #[cfg(test)]
 mod tests {
-    use crate::state::{PeriodType, CoinLimit};
+    use crate::state::{CoinLimit, PeriodType};
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
-    use cosmwasm_std::{coin, coins, BankMsg, Empty, StakingMsg, SubMsg, Addr, Uint128, OwnedDeps, MemoryStorage};
+    use cosmwasm_std::{
+        coin, coins, Addr, BankMsg, Empty, MemoryStorage, OwnedDeps, StakingMsg, SubMsg, Uint128,
+    };
     //use cosmwasm_std::WasmMsg;
 
     const ADMIN: &str = "alice";
@@ -330,7 +326,7 @@ mod tests {
 
         // but alice can propose an update
         let msg = ExecuteMsg::ProposeUpdateAdmin {
-            new_admin: NEW_ADMIN.to_string()
+            new_admin: NEW_ADMIN.to_string(),
         };
         let info = mock_info(ADMIN, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -398,7 +394,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
         instantiate_contract(&mut deps, current_env);
-        
+
         // let us make some queries... different msg types by owner and by other
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
             to_address: ANYONE.to_string(),
@@ -435,8 +431,7 @@ mod tests {
         // this helper includes a hotwallet
 
         // query to see we have "hotcarl" as hot wallet
-        let res = query_hot_wallets(deps.as_ref())
-        .unwrap();
+        let res = query_hot_wallets(deps.as_ref()).unwrap();
         assert!(res.hot_wallets.len() == 1);
         assert!(res.hot_wallets[0].address.to_string() == HOT_WALLET);
 
@@ -446,35 +441,51 @@ mod tests {
             amount: coins(999_000u128, "testtokens"), // only 1_000 left!
         });
         let info = mock_info(ADMIN, &[]);
-        let res = execute_execute(deps.as_mut(), current_env.clone(), info.clone(), vec![send_msg.clone()])
+        let res = execute_execute(
+            deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            vec![send_msg.clone()],
+        )
         .unwrap();
         assert!(res.messages.len() == 1);
         let submsg = res.messages[0].clone();
         match submsg.msg {
-            CosmosMsg::Bank(BankMsg::Send { to_address: _, amount: _ }) => (),
-            _ => { panic!("We sent a send bankmsg but that's not the first submessage for some reason"); }
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: _,
+                amount: _,
+            }) => (),
+            _ => {
+                panic!(
+                    "We sent a send bankmsg but that's not the first submessage for some reason"
+                );
+            }
         }
 
         // add a second hot wallet
-        let execute_msg = ExecuteMsg::AddHotWallet { new_hot_wallet: HotWallet {
-            address: Addr::unchecked("hot_diane"),
-            current_period_reset: current_env.block.time,
-            period_type: PeriodType::DAYS,
-            period_multiple: 1,
-            spend_limits: vec![
-                CoinLimit {
+        let execute_msg = ExecuteMsg::AddHotWallet {
+            new_hot_wallet: HotWallet {
+                address: Addr::unchecked("hot_diane"),
+                current_period_reset: current_env.block.time,
+                period_type: PeriodType::DAYS,
+                period_multiple: 1,
+                spend_limits: vec![CoinLimit {
                     coin_limit: Coin {
                         denom: "testtokens".to_string(),
                         amount: Uint128::from(1_000_000u128),
                     },
                     limit_remaining: Uint128::from(1_000_000u128),
-                }
-            ]
-        }};
-        let _res = execute(deps.as_mut(), current_env.clone(), info.clone(), execute_msg)
+                }],
+            },
+        };
+        let _res = execute(
+            deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            execute_msg,
+        )
         .unwrap();
-        let res = query_hot_wallets(deps.as_ref())
-        .unwrap();
+        let res = query_hot_wallets(deps.as_ref()).unwrap();
         assert!(res.hot_wallets.len() == 2);
 
         // rm the hot wallet
@@ -482,42 +493,43 @@ mod tests {
         let execute_msg = ExecuteMsg::RmHotWallet {
             doomed_hot_wallet: HOT_WALLET.to_string(),
         };
-        let _res = execute(deps.as_mut(), current_env.clone(), bad_info, execute_msg.clone())
+        let _res = execute(
+            deps.as_mut(),
+            current_env.clone(),
+            bad_info,
+            execute_msg.clone(),
+        )
         .unwrap_err();
-        let _res = execute(deps.as_mut(), current_env, info, execute_msg)
-        .unwrap();
+        let _res = execute(deps.as_mut(), current_env, info, execute_msg).unwrap();
 
         // query hot wallets again, should be 0
-        let res = query_hot_wallets(deps.as_ref())
-        .unwrap();
+        let res = query_hot_wallets(deps.as_ref()).unwrap();
         println!("hot wallets are: {:?}", res.hot_wallets);
         assert!(res.hot_wallets.len() == 1);
     }
 
-    fn instantiate_contract (deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>, env: Env) {
+    fn instantiate_contract(
+        deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
+        env: Env,
+    ) {
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
             admin: ADMIN.to_string(),
-            hot_wallets: vec![
-                HotWallet {
-                    address: Addr::unchecked(HOT_WALLET),
-                    current_period_reset: env.block.time, // this is fine since it will calc on first spend
-                    period_type: PeriodType::DAYS,
-                    period_multiple: 1,
-                    spend_limits: vec![
-                        CoinLimit {
-                            coin_limit: Coin {
-                                denom: "testtokens".to_string(),
-                                amount: Uint128::from(1_000_000u128),
-                            },
-                            limit_remaining: Uint128::from(1_000_000u128),
-                        }
-                    ]
-                }
-            ]
+            hot_wallets: vec![HotWallet {
+                address: Addr::unchecked(HOT_WALLET),
+                current_period_reset: env.block.time, // this is fine since it will calc on first spend
+                period_type: PeriodType::DAYS,
+                period_multiple: 1,
+                spend_limits: vec![CoinLimit {
+                    coin_limit: Coin {
+                        denom: "testtokens".to_string(),
+                        amount: Uint128::from(1_000_000u128),
+                    },
+                    limit_remaining: Uint128::from(1_000_000u128),
+                }],
+            }],
         };
         let info = mock_info(ADMIN, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
     }
-
 }

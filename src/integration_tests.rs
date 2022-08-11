@@ -45,16 +45,17 @@ impl Suite {
     }
 
     #[allow(dead_code)]
-    pub fn instantiate_cw1_contract(&mut self, admin: String, hot_wallets: Vec<crate::state::HotWallet>) -> Cw1Contract {
+    pub fn instantiate_cw1_contract(
+        &mut self,
+        admin: String,
+        hot_wallets: Vec<crate::state::HotWallet>,
+    ) -> Cw1Contract {
         let contract = self
             .app
             .instantiate_contract(
                 self.cw1_id,
                 Addr::unchecked(self.owner.clone()),
-                &InstantiateMsg {
-                    admin,
-                    hot_wallets,
-                },
+                &InstantiateMsg { admin, hot_wallets },
                 &[],
                 "Whitelist",
                 None,
