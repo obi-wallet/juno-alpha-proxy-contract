@@ -29,6 +29,8 @@ where
         new_admin: String,
     },
     ConfirmUpdateAdmin {},
+    AddHotWallet { new_hot_wallet: HotWallet },
+    RmHotWallet { doomed_hot_wallet: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -43,6 +45,7 @@ where
     /// If CanExecute returns true then a call to `Execute` with the same message,
     /// before any further state changes, should also succeed.
     CanExecute { sender: String, msg: CosmosMsg<T> },
+    HotWallets { },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
