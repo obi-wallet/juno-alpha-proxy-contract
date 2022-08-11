@@ -1,8 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
-use cosmwasm_std::{CosmosMsg, Empty};
+use cosmwasm_std::CosmosMsg;
 
 use crate::state::HotWallet;
 
@@ -14,15 +13,13 @@ pub struct InstantiateMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ExecuteMsg<T = Empty>
-where
-    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+pub enum ExecuteMsg
 {
     /// Execute requests the contract to re-dispatch all these messages with the
     /// contract's address as sender. Every implementation has it's own logic to
     /// determine in
     Execute {
-        msgs: Vec<CosmosMsg<T>>,
+        msgs: Vec<CosmosMsg>,
     },
     /// UpdateAdmins will change the admin set of the contract, must be called by an existing admin,
     /// and only works if the contract is mutable
@@ -40,9 +37,7 @@ where
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg<T = Empty>
-where
-    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+pub enum QueryMsg
 {
     /// Shows all admins and whether or not it is mutable
     Admin {},
@@ -51,7 +46,7 @@ where
     /// before any further state changes, should also succeed.
     CanExecute {
         sender: String,
-        msg: CosmosMsg<T>,
+        msg: CosmosMsg,
     },
     HotWallets {},
 }

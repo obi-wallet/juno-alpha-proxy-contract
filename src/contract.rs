@@ -1,10 +1,7 @@
-use schemars::JsonSchema;
-use std::fmt;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
+    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Response, StdError, StdResult, WasmMsg,
 };
 
@@ -43,8 +40,8 @@ pub fn execute(
     info: MessageInfo,
     // Note: implement this function with different type to add support for custom messages
     // and then import the rest of this contract code.
-    msg: ExecuteMsg<Empty>,
-) -> Result<Response<Empty>, ContractError> {
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs),
         ExecuteMsg::AddHotWallet { new_hot_wallet } => {
@@ -60,17 +57,15 @@ pub fn execute(
     }
 }
 
-pub fn execute_execute<T>(
+pub fn execute_execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    msgs: Vec<CosmosMsg<T>>,
-) -> Result<Response<T>, ContractError>
-where
-    T: Clone + fmt::Debug + PartialEq + JsonSchema,
+    msgs: Vec<CosmosMsg>,
+) -> Result<Response, ContractError>
 {
-    let mut admins = ADMINS.load(deps.storage)?;
-    if admins.is_admin(info.sender.to_string()) {
+    let mut cfg = ADMINS.load(deps.storage)?;
+    if cfg.is_admin(info.sender.to_string()) {
         let res = Response::new()
             .add_messages(msgs)
             .add_attribute("action", "execute");
@@ -102,7 +97,7 @@ where
                                             recipient: _,
                                             amount,
                                         } => {
-                                            if admins.can_spend(
+                                            if cfg.can_spend(
                                                 env.block.time,
                                                 info.sender.as_ref(),
                                                 vec![Coin {
@@ -113,6 +108,7 @@ where
                                                 let res = Response::new()
                                                     .add_messages(vec![this_msg.clone()])
                                                     .add_attribute("action", "execute");
+                                                ADMINS.save(deps.storage, &cfg)?;
                                                 return Ok(res);
                                             }
                                         }
@@ -121,7 +117,7 @@ where
                                             amount,
                                             msg: _,
                                         } => {
-                                            if admins.can_spend(
+                                            if cfg.can_spend(
                                                 env.block.time,
                                                 info.sender.as_ref(),
                                                 vec![Coin {
@@ -132,6 +128,7 @@ where
                                                 let res = Response::new()
                                                     .add_messages(vec![this_msg.clone()])
                                                     .add_attribute("action", "execute");
+                                                ADMINS.save(deps.storage, &cfg)?;
                                                 return Ok(res);
                                             }
                                         }
@@ -155,7 +152,7 @@ where
                     BankMsg::Send {
                         to_address: _,
                         amount,
-                    } if admins.can_spend(
+                    } if cfg.can_spend(
                         env.block.time,
                         info.sender.as_ref(),
                         amount.clone(),
@@ -164,6 +161,7 @@ where
                         let res = Response::new()
                             .add_messages(vec![this_msg.clone()])
                             .add_attribute("action", "execute");
+                        ADMINS.save(deps.storage, &cfg)?;
                         return Ok(res);
                     }
                     _ => {
@@ -197,6 +195,7 @@ pub fn add_hot_wallet(
         Err(ContractError::HotWalletExists {})
     } else {
         cfg.add_hot_wallet(new_hot_wallet);
+        ADMINS.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "add_hot_wallet"))
     }
 }
@@ -218,6 +217,7 @@ pub fn rm_hot_wallet(
         Err(ContractError::HotWalletDoesNotExist {})
     } else {
         cfg.rm_hot_wallet(doomed_hot_wallet);
+        ADMINS.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
     }
 }
@@ -299,7 +299,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
-    use cosmwasm_std::{coin, coins, BankMsg, StakingMsg, SubMsg, Timestamp, Addr, Uint128, OwnedDeps, MemoryStorage};
+    use cosmwasm_std::{coin, coins, BankMsg, Empty, StakingMsg, SubMsg, Addr, Uint128, OwnedDeps, MemoryStorage};
     //use cosmwasm_std::WasmMsg;
 
     const ADMIN: &str = "alice";
@@ -431,24 +431,77 @@ mod tests {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
 
-        instantiate_contract(&mut deps, current_env);
+        instantiate_contract(&mut deps, current_env.clone());
         // this helper includes a hotwallet
 
-        // query to see we have a hot wallet
+        // query to see we have "hotcarl" as hot wallet
         let res = query_hot_wallets(deps.as_ref())
         .unwrap();
         assert!(res.hot_wallets.len() == 1);
+        assert!(res.hot_wallets[0].address.to_string() == HOT_WALLET);
 
+        // spend as the hot wallet
+        let send_msg = CosmosMsg::Bank(BankMsg::Send {
+            to_address: RECEIVER.to_string(),
+            amount: coins(999_000u128, "testtokens"), // only 1_000 left!
+        });
+        let info = mock_info(ADMIN, &[]);
+        let res = execute_execute(deps.as_mut(), current_env.clone(), info.clone(), vec![send_msg.clone()])
+        .unwrap();
+        assert!(res.messages.len() == 1);
+        let submsg = res.messages[0].clone();
+        match submsg.msg {
+            CosmosMsg::Bank(BankMsg::Send { to_address: _, amount: _ }) => (),
+            _ => { panic!("We sent a send bankmsg but that's not the first submessage for some reason"); }
+        }
+
+        // add a second hot wallet
+        let execute_msg = ExecuteMsg::AddHotWallet { new_hot_wallet: HotWallet {
+            address: Addr::unchecked("hot_diane"),
+            current_period_reset: current_env.block.time,
+            period_type: PeriodType::DAYS,
+            period_multiple: 1,
+            spend_limits: vec![
+                CoinLimit {
+                    coin_limit: Coin {
+                        denom: "testtokens".to_string(),
+                        amount: Uint128::from(1_000_000u128),
+                    },
+                    limit_remaining: Uint128::from(1_000_000u128),
+                }
+            ]
+        }};
+        let _res = execute(deps.as_mut(), current_env.clone(), info.clone(), execute_msg)
+        .unwrap();
+        let res = query_hot_wallets(deps.as_ref())
+        .unwrap();
+        assert!(res.hot_wallets.len() == 2);
+
+        // rm the hot wallet
+        let bad_info = mock_info(ANYONE, &[]);
+        let execute_msg = ExecuteMsg::RmHotWallet {
+            doomed_hot_wallet: HOT_WALLET.to_string(),
+        };
+        let _res = execute(deps.as_mut(), current_env.clone(), bad_info, execute_msg.clone())
+        .unwrap_err();
+        let _res = execute(deps.as_mut(), current_env, info, execute_msg)
+        .unwrap();
+
+        // query hot wallets again, should be 0
+        let res = query_hot_wallets(deps.as_ref())
+        .unwrap();
+        println!("hot wallets are: {:?}", res.hot_wallets);
+        assert!(res.hot_wallets.len() == 1);
     }
 
-    fn instantiate_contract (deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>, _env: Env) {
+    fn instantiate_contract (deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>, env: Env) {
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
             admin: ADMIN.to_string(),
             hot_wallets: vec![
                 HotWallet {
                     address: Addr::unchecked(HOT_WALLET),
-                    current_period_reset: Timestamp::from_seconds(0u64),
+                    current_period_reset: env.block.time, // this is fine since it will calc on first spend
                     period_type: PeriodType::DAYS,
                     period_multiple: 1,
                     spend_limits: vec![
