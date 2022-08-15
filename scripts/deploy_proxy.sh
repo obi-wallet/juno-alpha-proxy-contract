@@ -10,7 +10,7 @@ MSIG1=$(junod keys show $1 --address)
 # later we might clean these up at end of script
 let RAND1=$RANDOM*$RANDOM
 let RAND2=$RAND1+1
-let MSIG_WALLET_NAME=multisigtest
+MSIG_WALLET_NAME=multisigtest
 
 # pinched and adapted from DA0DA0
 IMAGE_TAG=${2:-"v9.0.0"}
