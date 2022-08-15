@@ -10,7 +10,7 @@ MSIG1=$(junod keys show $1 --address)
 # later we might clean these up at end of script
 let RAND1=$RANDOM*$RANDOM
 let RAND2=$RAND1+1
-let MSIG_WALLET_NAME="multisigtest"
+let MSIG_WALLET_NAME=multisigtest
 
 # pinched and adapted from DA0DA0
 IMAGE_TAG=${2:-"v9.0.0"}
@@ -18,20 +18,26 @@ CONTAINER_NAME="juno_obiproxy"
 BINARY="junod"
 DENOM='ujunox'
 CHAIN_ID='uni-3'
-RPC='https://rpc.uni.juno.deuslabs.fi:443'
+RPC='https://rpc.uni.junomint.com:443/'
+GAS1=--gas=auto
+GAS2=--gas-prices=0.025ujunox
+GAS3=--gas-adjustment=1.3
+
 BLOCK_GAS_LIMIT=${GAS_LIMIT:-100000000} # should mirror mainnet
 
 # create the other keys to be used in msig
 echo "Adding new keys to wallet: $RAND1 and $RAND2"
-echo "Info saved in named text files"
+echo "Storing wallet info in numbered plaintext files"
 junod keys add $RAND1 > ./$RAND1.txt
 MSIG2=$(grep -o '\bjuno\w*' $RAND1.txt)
 junod keys add $RAND2 > ./$RAND2.txt
 MSIG3=$(grep -o '\bjuno\w*' $RAND2.txt)
 
 # fund the other accounts a little
-junod tx bank send $1 $MSIG2 16000ujunox --fees 8000ujunox --chain-id=$CHAIN_ID --node=$RPC
-junod tx bank send $1 $MSIG3 16000ujunox --fees 8000ujunox --chain-id=$CHAIN_ID --node=$RPC
+junod tx bank send $1 $MSIG2 10000ujunox --fees 8000ujunox --chain-id=$CHAIN_ID --node=$RPC
+# recommended that you wait between sends to avoid tx sequence mismatch
+# TODO: mismatch handling
+junod tx bank send $1 $MSIG3 10000ujunox --fees 8000ujunox --chain-id=$CHAIN_ID --node=$RPC
 
 # legacy multisig. Note we can upgrade to whatever kinds of multisig later
 # as wallets are proxy contracts
@@ -48,17 +54,17 @@ docker run --rm -v "$(pwd)":/code \
   cosmwasm/rust-optimizer:0.12.5
 
 # wallet addr
-ADDRCHECK=$($BINARY keys show $MSIGADDY --address)
-echo "Wallet address:"
-echo $ADDRCHECK
+echo "Wallet to store contract: "
+echo $MSIG1
 
-BALANCE_1=$($BINARY q bank balances $MSIGADDY)
-echo "Pre-store balance:"
+BALANCE_1=$($BINARY q bank balances $MSIG1 --node=$RPC --chain-id=$CHAIN_ID)
+echo "Pre-store balance for storer:"
 echo $BALANCE_1
 
-echo "Wallet to deploy contract: $MSIGADDY"
+ADDRCHECK=$($BINARY keys show $MSIGADDY --address)
+echo "Wallet to instantiate contract: $ADDRCHECK"
 
-CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" --from $MSIG_WALLET_NAME --node $RPC --chain-id $CHAIN_ID --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 echo "Stored: $CONTRACT_CODE"
 
 # instantiate the CW721
