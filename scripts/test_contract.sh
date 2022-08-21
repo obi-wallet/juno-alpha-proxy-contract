@@ -39,7 +39,7 @@ $BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" --from=$CONTRACT
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+3600
 echo "TX 3) Admin adds a new hot wallet. Should succeed."
-ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ujunox","amount":45000,"limit_remaining":45000}]}}}')
+ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ujunox","amount":10000,"limit_remaining":10000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 echo "Arguments: $ADD_HOT_WALLET_ARGS_V2"
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
