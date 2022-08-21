@@ -63,7 +63,7 @@ sleep 10s
 echo "TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed."
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+36
-ADD2_HOT_WALLET_ARGS=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg reset $RESET_TIME '{"add_hot_wallet": {"new_hot_wallet": {"address":"$newaddy", "current_period_reset":$reset, "period_type":"DAILY", "period_multiple":1, "spend_limits":{"coin_limit":{"denom":"ujunox","amount":"45000"},"limit_remaining":"45000"}}}}')
+ADD2_HOT_WALLET_ARGS=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg reset $RESET_TIME '{"add_hot_wallet": {"new_hot_wallet": {"address":"$newaddy", "current_period_reset":$reset, "period_type":"DAYS", "period_multiple":1, "spend_limits":{[{"coin_limit":{"denom":"ujunox","amount":45000},"limit_remaining":45000}]}}}}')
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD2_HOT_WALLET_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
 
 echo "Please complete the follow two transactions within 60 seconds so we can test reset."
