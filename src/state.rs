@@ -31,7 +31,7 @@ pub struct CoinLimit {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct HotWallet {
     pub address: Addr,
-    pub current_period_reset: Timestamp,
+    pub current_period_reset: u64, //seconds
     pub period_type: PeriodType,
     pub period_multiple: u16,
     pub spend_limits: Vec<CoinLimit>,
@@ -80,7 +80,7 @@ impl Admins {
         let mut new_wallet_configs = self.hot_wallets.clone();
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
-        if current_time.seconds() > wallet_config.current_period_reset.seconds() {
+        if current_time.seconds() > wallet_config.current_period_reset {
             // get a current NaiveDateTime so we can easily find the next
             // reset threshold
             let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
@@ -127,7 +127,7 @@ impl Admins {
                         )?;
                     }
                     new_wallet_configs[index].current_period_reset =
-                        Timestamp::from_seconds(dt.timestamp() as u64);
+                        dt.timestamp() as u64;
                     new_wallet_configs[index].spend_limits = new_spend_limits;
                     self.hot_wallets = new_wallet_configs;
                     Ok(true)
@@ -230,7 +230,7 @@ mod tests {
             admin: admin.to_string(),
             hot_wallets: vec![HotWallet {
                 address: spender.clone(),
-                current_period_reset: Timestamp::from_seconds(dt.timestamp() as u64),
+                current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::DAYS,
                 period_multiple: 3,
                 spend_limits: vec![
@@ -336,7 +336,7 @@ mod tests {
             admin: admin.to_string(),
             hot_wallets: vec![HotWallet {
                 address: spender.clone(),
-                current_period_reset: Timestamp::from_seconds(dt.timestamp() as u64),
+                current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::MONTHS,
                 period_multiple: 38,
                 spend_limits: vec![

@@ -508,7 +508,7 @@ mod tests {
         let execute_msg = ExecuteMsg::AddHotWallet {
             new_hot_wallet: HotWallet {
                 address: Addr::unchecked("hot_diane"),
-                current_period_reset: current_env.block.time,
+                current_period_reset: current_env.block.time.seconds() as u64,
                 period_type: PeriodType::DAYS,
                 period_multiple: 1,
                 spend_limits: vec![CoinLimit {
@@ -559,7 +559,7 @@ mod tests {
             admin: ADMIN.to_string(),
             hot_wallets: vec![HotWallet {
                 address: Addr::unchecked(HOT_WALLET),
-                current_period_reset: env.block.time, // this is fine since it will calc on first spend
+                current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
                 period_type: PeriodType::DAYS,
                 period_multiple: 1,
                 spend_limits: vec![CoinLimit {
