@@ -501,10 +501,8 @@ mod tests {
                 period_type: PeriodType::DAYS,
                 period_multiple: 1,
                 spend_limits: vec![CoinLimit {
-                    coin_limit: Coin {
-                        denom: "testtokens".to_string(),
-                        amount: Uint128::from(1_000_000u128),
-                    },
+                    denom: "testtokens".to_string(),
+                    amount: Uint128::from(1_000_000u128),
                     limit_remaining: Uint128::from(1_000_000u128),
                 }],
             },
@@ -552,10 +550,8 @@ mod tests {
                 period_type: PeriodType::DAYS,
                 period_multiple: 1,
                 spend_limits: vec![CoinLimit {
-                    coin_limit: Coin {
-                        denom: "testtokens".to_string(),
-                        amount: Uint128::from(1_000_000u128),
-                    },
+                    denom: "testtokens".to_string(),
+                    amount: Uint128::from(1_000_000u128),
                     limit_remaining: Uint128::from(1_000_000u128),
                 }],
             }],

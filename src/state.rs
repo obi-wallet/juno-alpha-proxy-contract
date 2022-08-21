@@ -22,7 +22,8 @@ enum CheckType {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct CoinLimit {
-    pub coin_limit: Coin,
+    pub denom: String,
+    pub amount: Uint128,
     pub limit_remaining: Uint128,
 }
 
@@ -153,7 +154,7 @@ impl Admins {
     ) -> Result<(), ContractError> {
         let i = new_spend_limits
             .iter()
-            .position(|limit| limit.coin_limit.denom == spend.denom);
+            .position(|limit| limit.denom == spend.denom);
         match i {
             None => {
                 return Err(ContractError::CannotSpendThisAsset(spend.denom));
@@ -161,10 +162,7 @@ impl Admins {
             Some(i) => {
                 // spend can't be bigger than total spend limit
                 let limit_remaining = match check_type {
-                    CheckType::TotalLimit => new_spend_limits[i]
-                        .coin_limit
-                        .amount
-                        .checked_sub(spend.amount),
+                    CheckType::TotalLimit => new_spend_limits[i].amount.checked_sub(spend.amount),
                     CheckType::RemainingLimit => new_spend_limits[i]
                         .limit_remaining
                         .checked_sub(spend.amount),
@@ -176,10 +174,8 @@ impl Admins {
                     }
                 };
                 new_spend_limits[i] = CoinLimit {
-                    coin_limit: Coin {
-                        denom: new_spend_limits[i].coin_limit.denom.clone(),
-                        amount: new_spend_limits[i].coin_limit.amount,
-                    },
+                    denom: new_spend_limits[i].denom.clone(),
+                    amount: new_spend_limits[i].amount,
                     limit_remaining,
                 }
             }
@@ -231,24 +227,18 @@ mod tests {
                 period_multiple: 3,
                 spend_limits: vec![
                     CoinLimit {
-                        coin_limit: Coin {
-                            amount: Uint128::from(100_000_000u128),
-                            denom: "ujuno".to_string(),
-                        },
+                        amount: Uint128::from(100_000_000u128),
+                        denom: "ujuno".to_string(),
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
                     CoinLimit {
-                        coin_limit: Coin {
-                            amount: Uint128::from(100_000_000u128),
-                            denom: "uaxlusdc".to_string(),
-                        },
+                        amount: Uint128::from(100_000_000u128),
+                        denom: "uaxlusdc".to_string(),
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
                     CoinLimit {
-                        coin_limit: Coin {
-                            amount: Uint128::from(9_000_000_000u128),
-                            denom: "uloop".to_string(),
-                        },
+                        amount: Uint128::from(9_000_000_000u128),
+                        denom: "uloop".to_string(),
                         limit_remaining: Uint128::from(9_000_000_000u128),
                     },
                 ], // 100 JUNO, 100 axlUSDC, 9000 LOOP
@@ -337,26 +327,19 @@ mod tests {
                 period_multiple: 38,
                 spend_limits: vec![
                     CoinLimit {
-                        coin_limit: Coin {
-                            amount: Uint128::from(7_000_000_000u128),
-                            denom: "ujuno".to_string(),
-                        },
+                        amount: Uint128::from(7_000_000_000u128),
+                        denom: "ujuno".to_string(),
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
                     CoinLimit {
-                        coin_limit: Coin {
-                            amount: Uint128::from(100_000_000u128),
-                            denom: "uaxlusdc".to_string(),
-                        },
+                        amount: Uint128::from(100_000_000u128),
+                        denom: "uaxlusdc".to_string(),
                         limit_remaining: Uint128::from(100_000_000u128),
                     },
                     CoinLimit {
-                        coin_limit: Coin {
-                            amount: Uint128::from(999_000_000_000u128),
-                            denom:
-                                "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
-                                    .to_string(),
-                        },
+                        amount: Uint128::from(999_000_000_000u128),
+                        denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
+                            .to_string(),
                         limit_remaining: Uint128::from(999_000_000_000u128),
                     },
                 ], // 100 JUNO, 100 axlUSDC, 9000 LOOP
