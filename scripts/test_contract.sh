@@ -8,7 +8,7 @@ GAS2=--gas-prices=0.025ujunox
 GAS3=--gas-adjustment=1.3
 
 # known address for latest (code 2854)
-CONTRACT_ADDRESS=juno1tek98z7vuwlpsuppr34kulxg9ur4qddmy259mat0ar82pwrc75dq45wl9e
+CONTRACT_ADDRESS=juno19u3g6cckp9whyt5h9m4f0jv3le6ry0x5xh6xzynv47f78a9sn7zq8l0xn2
 CONTRACT_ADMIN_WALLET=testnet-valley
 BAD_WALLET=public
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET --address)
