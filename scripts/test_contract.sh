@@ -35,6 +35,9 @@ echo "Should fail in other cases."
 RM_HOT_WALLET_ARGS=$(jq -n --arg doomed $BAD_WALLET_ADDRESS '{"rm_hot_wallet": {"doomed_hot_wallet":$doomed}}')
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
 
+echo "Waiting, to avoid sequence mismatch error..."
+sleep 10s
+
 # Add that other wallet as hot wallet for an hour
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+3600
@@ -64,7 +67,7 @@ echo "Waiting, to avoid sequence mismatch error..."
 sleep 10s
 echo "TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed."
 SECS_SINCE_EPOCH=$(date +%s)
-let RESET_TIME=$SECS_SINCE_EPOCH+36
+let RESET_TIME=$SECS_SINCE_EPOCH+60
 ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ujunox","amount":45000,"limit_remaining":45000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2$" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
