@@ -39,9 +39,10 @@ $BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" --from=$CONTRACT
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+3600
 echo "TX 3) Admin adds a new hot wallet. Should succeed."
-ADD_HOT_WALLET_ARGS=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg reset $RESET_TIME '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":$reset, "period_type":"DAILY", "period_multiple":1, "spend_limits":{"coin_limit":{"denom":"ujunox","amount":"10000"},"limit_remaining":"10000"}}}}')
-echo "Arguments: $ADD_HOT_WALLET_ARGS"
-$BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
+ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ujunox","amount":45000,"limit_remaining":45000}]}}}')
+ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
+echo "Arguments: $ADD_HOT_WALLET_ARGS_V2"
+$BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
 
 # Now try to run the spend with the previously unauthorized hot wallet
 # should FAIL since limit is too high
@@ -64,8 +65,9 @@ sleep 10s
 echo "TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed."
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+36
-ADD2_HOT_WALLET_ARGS=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg reset $RESET_TIME '{"add_hot_wallet": {"new_hot_wallet": {"address":"$newaddy", "current_period_reset":$reset, "period_type":"DAYS", "period_multiple":1, "spend_limits":{[{"coin_limit":{"denom":"ujunox","amount":45000},"limit_remaining":45000}]}}}}')
-$BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD2_HOT_WALLET_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
+ADD2_HOT_WALLET_ARGS_1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg reset $RESET_TIME '{"add_hot_wallet": {"new_hot_wallet": {"address":"$newaddy", "current_period_reset":')
+ADD2_HOT_WALLET_ARGS_2=$(jq -n ', "period_type":"DAYS", "period_multiple":1, "spend_limits":{[{"denom":"ujunox","amount":45000,"limit_remaining":45000}]}}}}')
+$BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD2_HOT_WALLET_ARGS_1$" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
 
 echo "Please complete the follow two transactions within 60 seconds so we can test reset."
 # we can send the 40000
