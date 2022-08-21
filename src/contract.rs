@@ -324,9 +324,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
-    use cosmwasm_std::{
-        coin, coins, BankMsg, Empty, MemoryStorage, OwnedDeps, StakingMsg, SubMsg, Uint128,
-    };
+    use cosmwasm_std::{coin, coins, BankMsg, Empty, MemoryStorage, OwnedDeps, StakingMsg, SubMsg};
     //use cosmwasm_std::WasmMsg;
 
     const ADMIN: &str = "alice";
@@ -502,8 +500,8 @@ mod tests {
                 period_multiple: 1,
                 spend_limits: vec![CoinLimit {
                     denom: "testtokens".to_string(),
-                    amount: Uint128::from(1_000_000u128),
-                    limit_remaining: Uint128::from(1_000_000u128),
+                    amount: 1_000_000u64,
+                    limit_remaining: 1_000_000u64,
                 }],
             },
         };
@@ -551,8 +549,8 @@ mod tests {
                 period_multiple: 1,
                 spend_limits: vec![CoinLimit {
                     denom: "testtokens".to_string(),
-                    amount: Uint128::from(1_000_000u128),
-                    limit_remaining: Uint128::from(1_000_000u128),
+                    amount: 1_000_000u64,
+                    limit_remaining: 1_000_000u64,
                 }],
             }],
         };
