@@ -138,43 +138,33 @@ fn try_wasm_send(
                         Cw20ExecuteMsg::Transfer {
                             recipient: _,
                             amount,
-                        } => {
-                            check_and_spend(
-                                deps,
-                                core_payload,
-                                vec![Coin {
-                                    denom: contract_addr.to_string(),
-                                    amount,
-                                }],
-                            )
-                        }
+                        } => check_and_spend(
+                            deps,
+                            core_payload,
+                            vec![Coin {
+                                denom: contract_addr.to_string(),
+                                amount,
+                            }],
+                        ),
                         Cw20ExecuteMsg::Send {
                             contract: _,
                             amount,
                             msg: _,
-                        } => {
-                            check_and_spend(
-                                deps,
-                                core_payload,
-                                vec![Coin {
-                                    denom: contract_addr.to_string(),
-                                    amount,
-                                }],
-                            )
-                        }
-                        _ => {
-                            Err(ContractError::OnlyTransferSendAllowed {})
-                        }
+                        } => check_and_spend(
+                            deps,
+                            core_payload,
+                            vec![Coin {
+                                denom: contract_addr.to_string(),
+                                amount,
+                            }],
+                        ),
+                        _ => Err(ContractError::OnlyTransferSendAllowed {}),
                     }
                 }
-                Err(_) => {
-                    Err(ContractError::ErrorDeserializingCw20Message {})
-                }
+                Err(_) => Err(ContractError::ErrorDeserializingCw20Message {}),
             }
         }
-        _ => {
-            Err(ContractError::WasmMsgMustBeExecute {})
-        }
+        _ => Err(ContractError::WasmMsgMustBeExecute {}),
     }
 }
 
@@ -187,9 +177,7 @@ fn try_bank_send(
         BankMsg::Send {
             to_address: _,
             amount,
-        } => {
-            check_and_spend(deps, core_payload, amount.clone())
-        }
+        } => check_and_spend(deps, core_payload, amount.clone()),
         _ => {
             //probably unreachable as can_spend throws
             Err(ContractError::SpendNotAuthorized {})

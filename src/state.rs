@@ -66,10 +66,7 @@ impl Admins {
         spend: Vec<Coin>,
     ) -> Result<bool, ContractError> {
         let addr = &addr;
-        let this_wallet_index = self
-            .hot_wallets
-            .iter()
-            .position(|a| &a.address == addr);
+        let this_wallet_index = self.hot_wallets.iter().position(|a| &a.address == addr);
         let index = match this_wallet_index {
             Some(index) => index,
             None => {
@@ -126,8 +123,7 @@ impl Admins {
                             n.clone(),
                         )?;
                     }
-                    new_wallet_configs[index].current_period_reset =
-                        dt.timestamp() as u64;
+                    new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
                     new_wallet_configs[index].spend_limits = new_spend_limits;
                     self.hot_wallets = new_wallet_configs;
                     Ok(true)
