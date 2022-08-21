@@ -204,7 +204,7 @@ fn check_and_spend(
 ) -> Result<Response, ContractError> {
     core_payload.cfg.can_spend(
         core_payload.current_time,
-        core_payload.info.sender.as_ref(),
+        core_payload.info.sender.to_string(),
         spend,
     )?;
     let res = Response::new()
@@ -230,6 +230,7 @@ pub fn add_hot_wallet(
     {
         Err(ContractError::HotWalletExists {})
     } else {
+        let _addrcheck = deps.api.addr_validate(&new_hot_wallet.address)?;
         cfg.add_hot_wallet(new_hot_wallet);
         ADMINS.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "add_hot_wallet"))
@@ -507,7 +508,7 @@ mod tests {
         // add a second hot wallet
         let execute_msg = ExecuteMsg::AddHotWallet {
             new_hot_wallet: HotWallet {
-                address: Addr::unchecked("hot_diane"),
+                address: "hot_diane".to_string(),
                 current_period_reset: current_env.block.time.seconds() as u64,
                 period_type: PeriodType::DAYS,
                 period_multiple: 1,
@@ -558,7 +559,7 @@ mod tests {
         let instantiate_msg = InstantiateMsg {
             admin: ADMIN.to_string(),
             hot_wallets: vec![HotWallet {
-                address: Addr::unchecked(HOT_WALLET),
+                address: HOT_WALLET.to_string(),
                 current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
                 period_type: PeriodType::DAYS,
                 period_multiple: 1,

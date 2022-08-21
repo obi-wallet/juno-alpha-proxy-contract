@@ -30,7 +30,7 @@ pub struct CoinLimit {
 // for more than 2-3 hot wallets at this time
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct HotWallet {
-    pub address: Addr,
+    pub address: String,
     pub current_period_reset: u64, //seconds
     pub period_type: PeriodType,
     pub period_multiple: u16,
@@ -62,14 +62,14 @@ impl Admins {
     pub fn can_spend(
         &mut self,
         current_time: Timestamp,
-        addr: impl AsRef<str>,
+        addr: String,
         spend: Vec<Coin>,
     ) -> Result<bool, ContractError> {
-        let addr = addr.as_ref();
+        let addr = &addr;
         let this_wallet_index = self
             .hot_wallets
             .iter()
-            .position(|a| a.address.as_ref() == addr);
+            .position(|a| &a.address == addr);
         let index = match this_wallet_index {
             Some(index) => index,
             None => {
@@ -229,7 +229,7 @@ mod tests {
         let mut config = Admins {
             admin: admin.to_string(),
             hot_wallets: vec![HotWallet {
-                address: spender.clone(),
+                address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::DAYS,
                 period_multiple: 3,
@@ -262,7 +262,7 @@ mod tests {
         assert!(config
             .can_spend(
                 now_env.block.time,
-                spender.clone(),
+                spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(1_000_000u128)
@@ -272,7 +272,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                bad_spender,
+                bad_spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(1_000_000u128),
@@ -282,7 +282,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                spender.clone(),
+                spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(99_500_000u128),
@@ -294,7 +294,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                spender.clone(),
+                spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(99_000_001u128),
@@ -309,7 +309,7 @@ mod tests {
         config
             .can_spend(
                 env_future.block.time,
-                spender,
+                spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(100_000_000u128),
@@ -335,7 +335,7 @@ mod tests {
         let mut config = Admins {
             admin: admin.to_string(),
             hot_wallets: vec![HotWallet {
-                address: spender.clone(),
+                address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::MONTHS,
                 period_multiple: 38,
@@ -370,7 +370,7 @@ mod tests {
         assert!(config
             .can_spend(
                 now_env.block.time,
-                spender.clone(),
+                spender.to_string(),
                 vec![Coin {
                     denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
                         .to_string(),
@@ -381,7 +381,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                bad_spender,
+                bad_spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
                     amount: Uint128::from(1_000_000u128),
@@ -391,7 +391,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                spender.clone(),
+                spender.to_string(),
                 vec![Coin {
                     denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
                         .to_string(),
@@ -404,7 +404,7 @@ mod tests {
         config
             .can_spend(
                 now_env.block.time,
-                spender.clone(),
+                spender.to_string(),
                 vec![Coin {
                     denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
                         .to_string(),
@@ -424,7 +424,7 @@ mod tests {
         config
             .can_spend(
                 env_future.block.time,
-                spender,
+                spender.to_string(),
                 vec![Coin {
                     denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
                         .to_string(),
