@@ -5,7 +5,7 @@ then
   echo "Usage: $0 1 arg required - local juno wallet with some coins for the 2 other multisig keys"
   exit
 fi
-MSIG1=$(junod keys show $1 --address)
+MSIG1=$($BINARY keys show $1 --address)
 # use some random numbers just to identify the wallets in local keychain
 # later we might clean these up at end of script
 let RAND1=$RANDOM*$RANDOM
@@ -89,7 +89,7 @@ echo "Wallet to instantiate contract: $ADDRCHECK"
 # store the contract code
 # CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 # or use a known code ID
-CONTRACT_CODE=2850
+CONTRACT_CODE=2853
 echo "Stored: $CONTRACT_CODE"
 
 OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
