@@ -337,7 +337,7 @@ mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
     use cosmwasm_std::{
-        coin, coins, Addr, BankMsg, Empty, MemoryStorage, OwnedDeps, StakingMsg, SubMsg, Uint128,
+        coin, coins, BankMsg, Empty, MemoryStorage, OwnedDeps, StakingMsg, SubMsg, Uint128,
     };
     //use cosmwasm_std::WasmMsg;
 

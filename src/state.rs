@@ -1,7 +1,7 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
+use cosmwasm_std::{Coin, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn daily_spend_limit() {
         let admin: &str = "bob";
-        let spender = Addr::unchecked("owner");
+        let spender = "owner";
         let bad_spender: &str = "medusa";
         let dt = NaiveDateTime::new(
             NaiveDate::from_ymd(2022, 6, 3),
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn monthly_spend_limit() {
         let admin: &str = "bob";
-        let spender = Addr::unchecked("owner");
+        let spender = "owner";
         let bad_spender: &str = "medusa";
         let dt = NaiveDateTime::new(
             NaiveDate::from_ymd(2022, 6, 3),
