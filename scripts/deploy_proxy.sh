@@ -87,9 +87,9 @@ ADDRCHECK=$($BINARY keys show $MSIGADDY --address)
 echo "Wallet to instantiate contract: $ADDRCHECK"
 
 # store the contract code
-# CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 # or use a known code ID
-CONTRACT_CODE=2853
+# CONTRACT_CODE=2853
 echo "Stored: $CONTRACT_CODE"
 
 OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
