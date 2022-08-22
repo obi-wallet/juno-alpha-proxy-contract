@@ -13,10 +13,6 @@ source ./scripts/current_contract.sh
 MSIG1=$($BINARY keys show $1 --address)
 MSIG_WALLET_NAME=multisigtest
 
-
-
-BLOCK_GAS_LIMIT=${GAS_LIMIT:-100000000} # should mirror mainnet
-
 read -p "Generate and fund new msig autokeys (n to use existing keys from previous run)? " -n 1 -r
 echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
@@ -61,8 +57,6 @@ MSIGADDY=$(grep -o '\bjuno\w*' ./current_msig.txt)
 $BINARY tx bank send $1 $MSIGADDY 500000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
 
 echo "Using multisig address: $MSIGADDY. Address saved in ./current_msig.txt."
-
-echo "Configured Block Gas Limit: $BLOCK_GAS_LIMIT"
 
 # compile
 docker run --rm -v "$(pwd)":/code \
