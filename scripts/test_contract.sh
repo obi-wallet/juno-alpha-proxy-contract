@@ -1,28 +1,19 @@
 #!/bin/bash
-BINARY="junod"
-DENOM='ujunox'
-CHAIN_ID='uni-3'
-RPC='https://rpc.uni.juno.deuslabs.fi:443'
-GAS1=--gas=auto
-GAS2=--gas-prices=0.025ujunox
-GAS3=--gas-adjustment=1.3
-
-# known address for latest (code 2854)
-CONTRACT_ADDRESS=juno19u3g6cckp9whyt5h9m4f0jv3le6ry0x5xh6xzynv47f78a9sn7zq8l0xn2
-CONTRACT_ADMIN_WALLET=testnet-valley
+source ./scripts/common.sh
+source ./scripts/current_contract.sh
 BAD_WALLET=public
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET --address)
 
 # fund the msig so it can send
 echo "Funding the multisig..."
-$BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS 200000ujunox --fees 5000ujunox --chain-id=$CHAIN_ID --node=$RPC
+$BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
 
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
 echo "Waiting, to avoid sequence mismatch error..."
 sleep 10s
 echo "TX 1) Admin sends the contract's funds. Should succeed."
-EXECUTE_ARGS=$(jq -n '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": "ujunox",amount: "40000"}]}}}]}}')
+EXECUTE_ARGS=$(jq -n '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": "$DENOM",amount: "40000"}]}}}]}}')
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
 
 # Now try to run with some other (unauthorized) wallet
@@ -42,7 +33,7 @@ sleep 10s
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+3600
 echo "TX 3) Admin adds a new hot wallet. Should succeed."
-ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ujunox","amount":10000,"limit_remaining":10000}]}}}')
+ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"$DENOM","amount":10000,"limit_remaining":10000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 echo "Arguments: $ADD_HOT_WALLET_ARGS_V2"
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
@@ -68,7 +59,7 @@ sleep 10s
 echo "TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed."
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+60
-ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ujunox","amount":45000,"limit_remaining":45000}]}}}')
+ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"$DENOM","amount":45000,"limit_remaining":45000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2$" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
 
