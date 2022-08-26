@@ -6,11 +6,11 @@ then
   exit
 fi
 
-#import common vars
+#import common vars and functions
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
 
-MSIG1=$($BINARY keys show $1 --address)
+MSIG1=$($BINARY keys show $1 $KR --address)
 MSIG_WALLET_NAME=multisigtest
 
 read -p "Generate and fund new msig autokeys (n to use existing keys from previous run)? " -n 1 -r
@@ -26,26 +26,27 @@ then
 
   # create the other keys to be used in msig
   echo "Adding new keys to wallet: autokey1.txt and autokey2.txt"
-  $BINARY keys add $RAND1 > ./autokey1.txt
-  $BINARY keys add $RAND2 > ./autokey2.txt
+  $BINARY keys add $KR $RAND1 > ./autokey1.txt
+  $BINARY keys add $KR $RAND2 > ./autokey2.txt
   MSIG2=$(grep -o '\bjuno\w*' ./autokey1.txt)
   MSIG3=$(grep -o '\bjuno\w*' ./autokey2.txt)
   # fund the other accounts a little
-  $BINARY tx bank send $1 $MSIG2 10000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+  RES=$($BINARY tx bank send $1 $MSIG2 10000$DENOM $KR --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
+  error_check "$RES" "Funding account $MSIG2 from $1 failed"
   # recommended that you wait between sends to avoid tx sequence mismatch
   # TODO: mismatch handling
-  $BINARY tx bank send $1 $MSIG3 10000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+  $BINARY tx bank send $1 $MSIG3 10000$DENOM $KR --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
 
   # ... aaaand in this implementation the other keys
   # need to also transact so that pubkeys are on chain.
   # Conveniently we return some testnet juno.
-  $BINARY tx bank send $MSIG2 $MSIG1 4000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
-  $BINARY tx bank send $MSIG3 $MSIG1 4000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+  $BINARY tx bank send $MSIG2 $MSIG1 4000$DENOM $KR --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+  $BINARY tx bank send $MSIG3 $MSIG1 4000$DENOM $KR --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
 
   # legacy multisig. Note we can upgrade to whatever kinds of multisig later
   # as wallets are proxy contracts
   # note that --no-sort is omitted so order doesn't matter
-  $BINARY keys add $MSIG_WALLET_NAME --multisig-threshold 2 --multisig $1,$RAND1,$RAND2 > ./current_msig.txt
+  $BINARY keys add $MSIG_WALLET_NAME $KR --multisig-threshold 2 --multisig $1,$RAND1,$RAND2 > ./current_msig.txt
 else
   MSIG2=$(grep -o '\bjuno\w*' ./autokey1.txt)
   MSIG3=$(grep -o '\bjuno\w*' ./autokey2.txt)
@@ -54,7 +55,7 @@ fi
 MSIGADDY=$(grep -o '\bjuno\w*' ./current_msig.txt)
 
 # fund the multisig so it can deploy
-$BINARY tx bank send $1 $MSIGADDY 500000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+$BINARY tx bank send $1 $MSIGADDY 500000$DENOM $KR --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
 
 echo "Using multisig address: $MSIGADDY. Address saved in ./current_msig.txt."
 
@@ -68,11 +69,11 @@ docker run --rm -v "$(pwd)":/code \
 echo "Wallet to store contract: "
 echo $MSIG1
 
-BALANCE_1=$($BINARY q bank balances $MSIG1 --node=$RPC --chain-id=$CHAIN_ID)
+BALANCE_1=$($BINARY q bank balances $MSIG1 $KR --node=$RPC --chain-id=$CHAIN_ID)
 echo "Pre-store balance for storer:"
 echo $BALANCE_1
 
-ADDRCHECK=$($BINARY keys show $MSIGADDY --address)
+ADDRCHECK=$($BINARY keys show $MSIGADDY $KR --address)
 echo "Wallet to instantiate contract: $ADDRCHECK"
 
 # store the contract code
@@ -83,13 +84,13 @@ read -p "Store updated code? (n to use existing code) " -n 1 -r
 echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+  CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 fi
 echo "Contract code is $CONTRACT_CODE"
 
 OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
 # test instantiate with just 1 address
-$BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" --from=$1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1
+$BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR --from=$1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1
 
 # instantiate the contract with multiple signers
 # generate the tx for others to sign with --generate-only
@@ -106,7 +107,7 @@ $BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" --from=$1 --node=$RPC
 # $BINARY tx broadcast ./completed_tx.json
 
 # get contract addr
-CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code --node=$RPC --chain-id=$CHAIN_ID $CONTRACT_CODE --output json | jq -r '.contracts[-1]')
+CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code $KR --node=$RPC --chain-id=$CHAIN_ID $CONTRACT_CODE --output json | jq -r '.contracts[-1]')
 echo "Contract instantiated to $CONTRACT_ADDRESS."
 
 rm -rf ./scripts/current_contract.sh

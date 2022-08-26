@@ -1,12 +1,13 @@
 #!/bin/bash
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
-BAD_WALLET=public
+BAD_WALLET=badtester
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET --address)
 
 # fund the msig so it can send
 echo "Funding the multisig..."
-$BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+RES=$BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC
+error_check($RES, "Multisig funding failed")
 
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
@@ -14,7 +15,8 @@ echo "Waiting, to avoid sequence mismatch error..."
 sleep 10s
 echo "TX 1) Admin sends the contract's funds. Should succeed."
 EXECUTE_ARGS=$(jq -n '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": "$DENOM",amount: "40000"}]}}}]}}')
-$BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check($RES, "Admin unable to send funds")
 
 # Now try to run with some other (unauthorized) wallet
 echo "TX 2) Unauthorized user sends the contract's funds. Should fail."
