@@ -1,4 +1,4 @@
 #!/bin/bash
 CONTRACT_CODE=3105
-CONTRACT_ADDRESS=juno173248a2kfmfcf8kw8h7jj9sul579tjkvakyagcdg80c4u4qjt5vscgytwk
+CONTRACT_ADDRESS=juno1mjmyy9zfttaxzy0dyh82u7at8ashwx5ctquhfpxufxxs4q80c4js0u7yvk
 CONTRACT_ADMIN_WALLET=juno1ad2ykdjntnkjcer760lefkj7dx38jlj3z858sr

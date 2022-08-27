@@ -1,8 +1,34 @@
 #!/bin/bash
+AUTOYES=0
+
+Help()
+{
+   # Display Help
+   echo "Auto multisig and contract storage+deployment script."
+   echo
+   echo "Syntax: ./scripts/deploy_proxy.sh <funding_wallet> [-h|y]"
+   echo "required arguments:"
+   echo "  funding_wallet     A juno wallet with some funds."
+   echo "options:"
+   echo "  h     Print this Help"
+   echo "  y     Auto-yes to script prompts (new msig keys, store new code)"
+   echo
+}
+
+# Get the options
+while getopts ":h" option; do
+   case $option in
+      h) # display Help
+         Help
+         exit;;
+      y) # auto-yes
+         AUTOYES=1
+   esac
+done
 
 if [ "$1" = "" ]
 then
-  echo "Usage: $0 1 arg required - local juno wallet with some coins for the 2 other multisig keys"
+  Help
   exit
 fi
 
@@ -13,8 +39,15 @@ source ./scripts/current_contract.sh
 MSIG1=$($BINARY keys show $1 $KR --address)
 MSIG_WALLET_NAME=multisigtest
 
-read -p "Generate and fund new msig autokeys (n to use existing keys from previous run)? " -n 1 -r
-echo    # (optional) move to a new line
+if [[ AUTOYES == 1 ]]
+then
+  REPLY=y
+fi
+if [[ AUTOYES == 0 ]]
+then
+  read -p "Generate and fund new msig autokeys (n to use existing keys from previous run)? " -n 1 -r
+  echo    # (optional) move to a new line
+fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
   # use some random numbers just to identify the new wallets in local keychain
@@ -29,8 +62,8 @@ then
 
   # create the other keys to be used in msig
   echo "Adding new keys to wallet: autokey1.txt and autokey2.txt... "
-  RES=$($BINARY keys add $KR $RAND1 > ./autokey1.txt)
-  RES=$($BINARY keys add $KR $RAND2 > ./autokey2.txt)
+  RES=$($BINARY keys add $RAND1 $KR --no-backup > ./autokey1.txt)
+  RES=$($BINARY keys add $RAND2 $KR --no-backup > ./autokey2.txt)
   MSIG2=$(grep -o '\bjuno\w*' ./autokey1.txt)
   MSIG3=$(grep -o '\bjuno\w*' ./autokey2.txt)
   # fund the other accounts a little
@@ -99,18 +132,26 @@ echo $BALANCE_1
 ADDRCHECK=$($BINARY keys show $MSIGADDY $KR --address 2>&1)
 error_check ADDRCHECK "Failed to verify address to instantiate contract"
 echo "Wallet to instantiate contract: $ADDRCHECK"
+echo "NOTE: for simplicity, the admin will just be a single signer for now."
 
 # store the contract code
 echo "Contract code currently stored at $CONTRACT_CODE."
-echo "Would you like to store updated contract code? This makes sense"
-echo "if there have been some contract updates."
-read -p "Store updated code? (n to use existing code) " -n 1 -r
-echo    # (optional) move to a new line
+if [[ AUTOYES == 1 ]]
+then
+  REPLY=y
+fi
+if [[ AUTOYES == 0 ]]
+then
+  echo "Would you like to store updated contract code? This makes sense"
+  echo "if there have been some contract updates."
+  read -p "Store updated code? (n to use existing code) " -n 1 -r
+  echo    # (optional) move to a new line
+fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
   CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+  echo "Contract code is $CONTRACT_CODE"
 fi
-echo "Contract code is $CONTRACT_CODE"
 
 OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
 # test instantiate with just 1 address
@@ -148,8 +189,16 @@ printf "$HEADER\n$CODE\n$ADDY\n$ADMIN" > ./scripts/current_contract.sh
 chmod +x ./scripts/current_contract.sh
 echo "Updated current_contract.sh to include new values."
 echo
-read -p "You're now ready for single-key admin contract tests. Proceed? " -n 1 -r
-echo
+if [[ AUTOYES == 1 ]]
+then
+  REPLY=y
+  echo "Proceeding to single-key admin contract tests."
+fi
+if [[ AUTOYES == 0 ]]
+then
+  read -p "You're now ready for single-key admin contract tests. Proceed? " -n 1 -r
+  echo
+fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
   ./scripts/test_contract.sh
