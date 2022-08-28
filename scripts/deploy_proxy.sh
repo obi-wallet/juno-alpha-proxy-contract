@@ -156,7 +156,7 @@ fi
 OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
 # test instantiate with just 1 address
 RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
-error_check $RES "Failed to instantiate contract"
+error_check "$RES" "Failed to instantiate contract"
 
 # instantiate the contract with multiple signers
 # generate the tx for others to sign with --generate-only
