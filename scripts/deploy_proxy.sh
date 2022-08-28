@@ -39,6 +39,8 @@ source ./scripts/current_contract.sh
 MSIG1=$($BINARY keys show $1 $KR --address)
 MSIG_WALLET_NAME=multisigtest
 
+echo -e "${YELLOW}Contract Optimization & Deployment Script${NC}"
+
 if [[ AUTOYES == 1 ]]
 then
   REPLY=y
@@ -188,7 +190,7 @@ ADMIN="CONTRACT_ADMIN_WALLET=$MSIG1"
 printf "$HEADER\n$CODE\n$ADDY\n$ADMIN" > ./scripts/current_contract.sh
 chmod +x ./scripts/current_contract.sh
 echo "Updated current_contract.sh to include new values."
-echo
+echo ""
 if [[ AUTOYES == 1 ]]
 then
   REPLY=y

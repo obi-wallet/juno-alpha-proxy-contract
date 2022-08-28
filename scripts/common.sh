@@ -8,11 +8,15 @@ GAS1=--gas=auto
 GAS2=--gas-prices=0.025ujunox
 GAS3=--gas-adjustment=1.3
 KR=--keyring-backend=test
+RED='\033[0;31m'
+LBLUE='\033[1;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
 error_check () {
   if [[ $3 != "" && $1 == *"$3"* ]];
   then
-    echo "Received expected error: $3"
+    echo "Received expected error: $3 ✅"
     return 0;
   fi
   if [[ $1 == *"not found: key not found"* ]]
@@ -126,4 +130,5 @@ error_check () {
     exit 1
   fi
   echo " Done ✅"
+  echo "$1" | grep -w "txhash"
 }
