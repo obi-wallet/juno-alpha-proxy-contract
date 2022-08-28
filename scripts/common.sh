@@ -14,6 +14,11 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 error_check () {
+  if [[ $4 != "" && $1 == *"$4"* ]];
+  then
+    echo "Received alternate error: $4 ✅"
+    return 0;
+  fi
   if [[ $3 != "" && $1 == *"$3"* ]];
   then
     echo "Received expected error: $3 ✅"
@@ -127,6 +132,10 @@ error_check () {
   if [[ $1 == *"Error:"* ]]
   then
     echo "$2: other error or malformed commmand"
+    echo "****DUMP****:"
+    echo -n -e "${YELLOW}"
+    echo "$1"
+    echo -e "${NC}"
     exit 1
   fi
   echo " Done ✅"

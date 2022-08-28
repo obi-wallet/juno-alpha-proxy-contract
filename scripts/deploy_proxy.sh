@@ -1,5 +1,5 @@
 #!/bin/bash
-AUTOYES=0
+AUTOYES=1
 
 Help()
 {
@@ -11,7 +11,6 @@ Help()
    echo "  funding_wallet     A juno wallet with some funds."
    echo "options:"
    echo "  h     Print this Help"
-   echo "  y     Auto-yes to script prompts (new msig keys, store new code)"
    echo
 }
 
@@ -19,10 +18,8 @@ Help()
 while getopts ":h" option; do
    case $option in
       h) # display Help
-         Help
-         exit;;
-      y) # auto-yes
-         AUTOYES=1
+        Help
+        exit;;
    esac
 done
 
@@ -41,11 +38,11 @@ MSIG_WALLET_NAME=multisigtest
 
 echo -e "${YELLOW}Contract Optimization & Deployment Script${NC}"
 
-if [[ AUTOYES == 1 ]]
+if [[ $AUTOYES == 1 ]]
 then
   REPLY=y
 fi
-if [[ AUTOYES == 0 ]]
+if [[ $AUTOYES == 0 ]]
 then
   read -p "Generate and fund new msig autokeys (n to use existing keys from previous run)? " -n 1 -r
   echo    # (optional) move to a new line
@@ -138,11 +135,11 @@ echo "NOTE: for simplicity, the admin will just be a single signer for now."
 
 # store the contract code
 echo "Contract code currently stored at $CONTRACT_CODE."
-if [[ AUTOYES == 1 ]]
+if [[ $AUTOYES == 1 ]]
 then
   REPLY=y
 fi
-if [[ AUTOYES == 0 ]]
+if [[ $AUTOYES == 0 ]]
 then
   echo "Would you like to store updated contract code? This makes sense"
   echo "if there have been some contract updates."
@@ -191,17 +188,17 @@ printf "$HEADER\n$CODE\n$ADDY\n$ADMIN" > ./scripts/current_contract.sh
 chmod +x ./scripts/current_contract.sh
 echo "Updated current_contract.sh to include new values."
 echo ""
-if [[ AUTOYES == 1 ]]
+if [[ $AUTOYES == 1 ]]
 then
   REPLY=y
   echo "Proceeding to single-key admin contract tests."
 fi
-if [[ AUTOYES == 0 ]]
+if [[ $AUTOYES == 0 ]]
 then
   read -p "You're now ready for single-key admin contract tests. Proceed? " -n 1 -r
   echo
 fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  ./scripts/test_contract.sh
+  bash ./scripts/test_contract.sh
 fi
