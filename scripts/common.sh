@@ -10,6 +10,11 @@ GAS3=--gas-adjustment=1.3
 KR=--keyring-backend=test
 
 error_check () {
+  if [[ $3 = "" && $1 = *"$3"* ]];
+  then
+    echo "Received expected error: $3"
+    return 0;
+  fi
   if [[ $1 = *"not found: key not found"* ]]
   then
     echo "$2: sending account does not exist yet"
