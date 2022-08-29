@@ -21,6 +21,7 @@ jobs:
           ref: v6.0.0
       - name: Installing Juno
         run: |
+          cd /home/runner/work/proxy_contract/proxy_contract
           cd juno
           make install
           cd ../
