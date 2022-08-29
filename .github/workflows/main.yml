@@ -22,7 +22,7 @@ jobs:
       - name: Installing Juno
         run: |
           cd /home/runner/work/proxy_contract/proxy_contract
-          cd juno
+          echo ls
           make install
           cd ../
         env:
