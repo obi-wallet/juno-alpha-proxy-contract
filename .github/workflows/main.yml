@@ -15,16 +15,8 @@ jobs:
           wget https://golang.org/dl/go1.18.2.linux-amd64.tar.gz
           mkdir /home/runner/goinstall
           sudo tar -C /home/runner/goinstall -xzf go1.18.2.linux-amd64.tar.gz
-      - uses: actions/checkout@v3
-        with:
-          repository: CosmosContracts/juno
-          ref: v6.0.0
       - name: Installing Juno
-        run: |
-          cd /home/runner/work/proxy_contract/proxy_contract
-          echo $(ls)
-          make install
-          cd ../
+        run: ./scripts/install_juno.sh
         env:
           GOROOT: /home/runner/goinstall/go
           GOPATH: /home/runner/go
