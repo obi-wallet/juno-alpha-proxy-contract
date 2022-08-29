@@ -9,7 +9,11 @@ jobs:
     environment: UniTests
     steps:
       - name: Install dependencies
-        run: sudo apt-get install make build-essential gcc git jq chrony -y golang-go expect
+        run: sudo apt-get install make build-essential gcc git jq chrony -y expect
+      - name: Install Go
+        run: |
+          wget https://golang.org/dl/go1.18.2.linux-amd64.tar.gz
+          sudo tar -C /home/runner/goinstall -xzf go1.18.2.linux-amd64.tar.gz
       - uses: actions/checkout@v2
       - name: Installing Juno
         run: |
@@ -19,8 +23,11 @@ jobs:
           git checkout v6.0.0
           make install
         env:
+          GOROOT: /home/runner/goinstall/go
+          GOPATH: /home/runner/go
           GO111MODULE: on
-          GOFLAGS: ""
+          PATH: $PATH:/usr/local/goinstall/go/bin:/home/runner/go/bin
+          GO111MODULE: on
       - name: Deploying and Testing
         run: |
           bash ./scripts/import_keys.sh
