@@ -19,10 +19,7 @@ jobs:
           git checkout v6.0.0
           make install
         env:
-          GOROOT: /usr/local/go
-          GOPATH: /home/runner/go
           GO111MODULE: on
-          PATH:$PATH: /usr/local/go/bin:/home/runner/go/bin
       - name: Deploying and Testing
         run: |
           bash ./scripts/import_keys.sh
