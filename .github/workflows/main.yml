@@ -17,7 +17,7 @@ jobs:
           sudo tar -C /home/runner/goinstall -xzf go1.18.2.linux-amd64.tar.gz
       - uses: actions/checkout@v3
         with:
-          name: obi-wallet/proxy_contract
+          repository: obi-wallet/proxy_contract
       - name: Installing Juno
         shell: bash
         run: ./scripts/install_juno.sh
