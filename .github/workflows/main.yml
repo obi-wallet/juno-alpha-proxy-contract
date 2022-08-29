@@ -27,7 +27,6 @@ jobs:
           GOPATH: /home/runner/go
           GO111MODULE: on
           PATH: $PATH:/usr/local/goinstall/go/bin:/home/runner/go/bin
-          GO111MODULE: on
       - name: Deploying and Testing
         run: |
           bash ./scripts/import_keys.sh
