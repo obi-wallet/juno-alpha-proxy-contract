@@ -1,0 +1,32 @@
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    environment: UniTests
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get install make build-essential gcc git jq chrony -y golang-go expect
+      - uses: actions/checkout@v2
+      - name: Installing Juno
+        run: |
+          git clone https://github.com/CosmosContracts/juno
+          cd juno
+          git fetch
+          git checkout v6.0.0
+          make install
+        env:
+          GOROOT: /usr/local/go
+          GOPATH: $HOME/go
+          GO111MODULE: on
+          PATH:$PATH: /usr/local/go/bin:$HOME/go/bin
+      - name: Deploying and Testing
+        run: |
+          bash ./scripts/import_keys.sh
+          bash ./scripts/deploy_proxy.sh
+        env:
+          BASHTESTER: ${{ secrets.BASHTESTER }}
+          BADTESTER: ${{ secrets.BADTESTER }}
