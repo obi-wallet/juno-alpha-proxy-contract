@@ -19,7 +19,8 @@ jobs:
         with:
           name: obi-wallet/proxy_contract
       - name: Installing Juno
-        run: bash ./scripts/install_juno.sh
+        shell: bash
+        run: ./scripts/install_juno.sh
         env:
           GOROOT: /home/runner/goinstall/go
           GOPATH: /home/runner/go
