@@ -9,7 +9,7 @@ jobs:
     environment: UniTests
     steps:
       - name: Install dependencies
-        run: sudo apt-get install make build-essential gcc git jq chrony -y expect
+        run: sudo apt-get install make build-essential gcc git jq chrony -y expect git
       - name: Install Go
         run: |
           wget https://golang.org/dl/go1.18.2.linux-amd64.tar.gz
