@@ -13,6 +13,7 @@ jobs:
       - name: Install Go
         run: |
           wget https://golang.org/dl/go1.18.2.linux-amd64.tar.gz
+          mkdir /home/runner/goinstall
           sudo tar -C /home/runner/goinstall -xzf go1.18.2.linux-amd64.tar.gz
       - uses: actions/checkout@v2
       - name: Installing Juno
