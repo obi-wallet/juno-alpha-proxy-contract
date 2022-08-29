@@ -20,6 +20,7 @@ jobs:
           make install
         env:
           GO111MODULE: on
+          GOFLAGS: ""
       - name: Deploying and Testing
         run: |
           bash ./scripts/import_keys.sh
