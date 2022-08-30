@@ -18,15 +18,15 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: obi-wallet/proxy_contract
-      - name: Installing Juno
+      - name: Install Juno
         shell: bash
         run: |
           ./scripts/install_juno.sh
-      - name: Installing CosmWasm go pkg
+      - name: Install CosmWasm go pkg
         shell: bash
         run: |
           ./scripts/install_cosmwasm.sh
-      - name: Deploying and Testing
+      - name: Deploy and Test
         run: |
           expect ./scripts/import_keys.sh
           expect ./scripts/deploy_proxy.sh
