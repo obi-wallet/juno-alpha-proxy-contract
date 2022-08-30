@@ -1,11 +1,4 @@
 #!/bin/bash
-GOROOT=/home/runner/goinstall/go
-GOPATH=/home/runner/go
-GO111MODULE=on
-PATH=$PATH:/usr/local/goinstall/go/bin:/home/runner/go/bin
-
-git clone https://github.com/CosmosContracts/juno
-cd juno
-git fetch
-git checkout v6.0.0 #uni-3 testnet
-make install
+wget https://www.dropbox.com/s/44fig40y3825g8u/junod?dl=1
+chmod +x ./junod
+alias junod=$(pwd)/junod
