@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BINARY="junod"
+BINARY="./junod"
 DENOM='ujunox'
 CHAIN_ID='uni-3'
 RPC='https://rpc.uni.juno.deuslabs.fi:443'
