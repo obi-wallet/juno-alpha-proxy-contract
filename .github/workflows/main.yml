@@ -27,6 +27,7 @@ jobs:
         run: |
           ./scripts/install_cosmwasm.sh
       - name: Deploy and Test
+        shell: bash
         run: |
           expect ./scripts/import_keys.sh
           expect ./scripts/deploy_proxy.sh
