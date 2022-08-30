@@ -19,8 +19,8 @@ jobs:
           ./scripts/install_juno.sh
       - name: Deploying and Testing
         run: |
-          bash ./scripts/import_keys.sh
-          bash ./scripts/deploy_proxy.sh
+          ./scripts/import_keys.sh
+          ./scripts/deploy_proxy.sh
         env:
           BASHTESTER: ${{ secrets.BASHTESTER }}
           BADTESTER: ${{ secrets.BADTESTER }}
