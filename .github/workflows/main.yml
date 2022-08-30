@@ -33,3 +33,7 @@ jobs:
         env:
           BASHTESTER: ${{ secrets.BASHTESTER }}
           BADTESTER: ${{ secrets.BADTESTER }}
+          GOROOT: /home/runner/goinstall/go
+          GOPATH: /home/runner/go
+          GO111MODULE: on
+          PATH: $PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin
