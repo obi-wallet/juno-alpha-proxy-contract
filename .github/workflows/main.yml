@@ -20,12 +20,8 @@ jobs:
           repository: obi-wallet/proxy_contract
       - name: Installing Juno
         shell: bash
-        run: ./scripts/install_juno.sh
-        env:
-          GOROOT: /home/runner/goinstall/go
-          GOPATH: /home/runner/go
-          GO111MODULE: on
-          PATH: $PATH:/usr/local/goinstall/go/bin:/home/runner/go/bin
+        run: |
+          ./scripts/install_juno.sh
       - name: Deploying and Testing
         run: |
           bash ./scripts/import_keys.sh
