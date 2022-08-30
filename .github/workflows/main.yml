@@ -22,11 +22,14 @@ jobs:
         shell: bash
         run: |
           ./scripts/install_juno.sh
-      - name: Deploying and Testing
-        shell: expect
+      - name: Installing CosmWasm go pkg
+        shell: bash
         run: |
-          ./scripts/import_keys.sh
-          ./scripts/deploy_proxy.sh
+          ./scripts/install_cosmwasm.sh
+      - name: Deploying and Testing
+        run: |
+          expect ./scripts/import_keys.sh
+          expect ./scripts/deploy_proxy.sh
         env:
           BASHTESTER: ${{ secrets.BASHTESTER }}
           BADTESTER: ${{ secrets.BADTESTER }}
