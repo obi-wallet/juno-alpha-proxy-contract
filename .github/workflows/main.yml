@@ -9,7 +9,7 @@ jobs:
     environment: UniTests
     steps:
       - name: Install dependencies
-        run: sudo apt-get install grep jq chrony expect -y
+        run: sudo apt-get install grep jq chrony docker expect -y
       - name: Install Go
         uses: actions/setup-go@v3
         with:
