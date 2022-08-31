@@ -26,7 +26,7 @@ echo $RES > latest_run_log.txt
 echo -n "Waiting to avoid sequence mismatch error..."
 sleep 10s && echo " Done."
 echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed...${NC}"
-EXECUTE_ARGS=$(jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "40000"}]}}}]}}')
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "40000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Admin unable to send funds"
 echo $RES > latest_run_log.txt
@@ -36,7 +36,7 @@ sleep 10s && echo " Done."
 
 echo -e "${LBLUE}TX 1a... try to remove hot wallet in case a previous run terminated early.${NC}"
 echo "Should fail in other cases."
-RM_HOT_WALLET_ARGS=$(jq -n --arg doomed $BAD_WALLET_ADDRESS '{"rm_hot_wallet": {"doomed_hot_wallet":$doomed}}')
+RM_HOT_WALLET_ARGS=$(/usr/bin/jq -n --arg doomed $BAD_WALLET_ADDRESS '{"rm_hot_wallet": {"doomed_hot_wallet":$doomed}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 echo $RES > latest_run_log.txt
 
@@ -56,7 +56,7 @@ sleep 10s && echo " Done."
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+3600
 echo -n -e "${LBLUE}TX 3) Admin adds a new hot wallet. Should succeed...${NC}"
-ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":10000,"limit_remaining":10000}]}}}')
+ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":10000,"limit_remaining":10000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3)
 error_check "$RES" "Failed to add hot wallet"
@@ -75,7 +75,7 @@ sleep 10s && echo " Done."
 
 # RM the new hot wallet (we'll add it back with higher spend limit)
 echo -n -e "${LBLUE}TX 5) Admin removes the hot wallet. Should succeed...${NC}"
-RM_HOT_WALLET_ARGS=$(jq -n --arg doomed $BAD_WALLET_ADDRESS '{"rm_hot_wallet": {"doomed_hot_wallet":$doomed}}')
+RM_HOT_WALLET_ARGS=$(/usr/bin/jq -n --arg doomed $BAD_WALLET_ADDRESS '{"rm_hot_wallet": {"doomed_hot_wallet":$doomed}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to remove hot wallet"
 
@@ -95,7 +95,7 @@ sleep 10s && echo " Done."
 echo -n -e "${LBLUE}TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed...${NC}"
 SECS_SINCE_EPOCH=$(date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+60
-ADD_HOT_WALLET_ARGS_V1=$(jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":50000,"limit_remaining":50000}]}}}')
+ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":50000,"limit_remaining":50000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to re-add hot wallet"
