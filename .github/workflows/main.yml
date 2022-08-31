@@ -50,7 +50,7 @@ jobs:
       - name: Deploy and Test
         shell: bash
         run: |
-          ./scripts/deploy_proxy.sh
+          ./scripts/deploy_proxy.sh scripttest
         env:
           GOROOT: "/home/runner/goinstall/go"
           GOPATH: "/home/runner/go"
