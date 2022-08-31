@@ -13,8 +13,8 @@ echo -e "${YELLOW}Contract Optimization & Deployment Script${NC}"
 echo "Adding new keys to wallet... "
 RES=$($BINARY keys add signer1 $KR --no-backup > ./signer1.txt)
 RES=$($BINARY keys add signer2 $KR --no-backup > ./signer2.txt)
-MSIG2=$(grep -o '\bjuno\w*' ./signer1.txt)
-MSIG3=$(grep -o '\bjuno\w*' ./signer2.txt)
+MSIG2=$($BINARY keys show signer1 $KR --address)
+MSIG3=$($BINARY keys show signer2 $KR --address)
 # fund the other accounts a little
 RES=$($BINARY tx bank send $WALLET $MSIG2 10000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
 error_check "$RES" "Funding msig2 account $MSIG2 from $WALLET failed"
