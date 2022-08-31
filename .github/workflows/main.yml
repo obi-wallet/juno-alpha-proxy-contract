@@ -47,7 +47,10 @@ jobs:
           GO111MODULE: "on"
           PATH: "$PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin"
           LD_LIBRARY_PATH: "/home/runner/go/pkg/mod/github.com/!cosm!wasm/wasmvm@v1.0.0/api"
-      - run: bash ./scripts/deploy_proxy.sh scripttest
+      - name: Deploy and Test
+        shell: bash
+        run: |
+          ./scripts/deploy_proxy.sh
         env:
           GOROOT: "/home/runner/goinstall/go"
           GOPATH: "/home/runner/go"

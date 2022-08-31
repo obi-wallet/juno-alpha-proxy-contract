@@ -1,39 +1,12 @@
 #!/bin/bash
 AUTOYES=1
-
-Help()
-{
-   # Display Help
-   echo "Auto multisig and contract storage+deployment script."
-   echo
-   echo "Syntax: ./scripts/deploy_proxy.sh <funding_wallet> [-h|y]"
-   echo "required arguments:"
-   echo "  funding_wallet     A juno wallet with some funds."
-   echo "options:"
-   echo "  h     Print this Help"
-   echo
-}
-
-# Get the options
-while getopts ":h" option; do
-   case $option in
-      h) # display Help
-        Help
-        exit;;
-   esac
-done
-
-if [ "$1" = "" ]
-then
-  Help
-  exit
-fi
+WALLET=scripttest
 
 #import common vars and functions
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
 
-MSIG1=$($BINARY keys show $1 $KR --address)
+MSIG1=$($BINARY keys show $WALLET $KR --address)
 MSIG_WALLET_NAME=multisigtest
 
 echo -e "${YELLOW}Contract Optimization & Deployment Script${NC}"
@@ -66,15 +39,15 @@ then
   MSIG2=$(grep -o '\bjuno\w*' ./autokey1.txt)
   MSIG3=$(grep -o '\bjuno\w*' ./autokey2.txt)
   # fund the other accounts a little
-  RES=$($BINARY tx bank send $1 $MSIG2 10000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
-  error_check "$RES" "Funding msig2 account $MSIG2 from $1 failed"
+  RES=$($BINARY tx bank send $WALLET $MSIG2 10000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
+  error_check "$RES" "Funding msig2 account $MSIG2 from $WALLET failed"
   # recommended that you wait between sends to avoid tx sequence mismatch
   # TODO: mismatch handling
   echo "Funded msig2 signer $MSIG2."
   echo -n "Waiting 10 seconds to fund msig3 signer $MSIG3..."
   sleep 10s && echo " Done."
-  RES=$($BINARY tx bank send $1 $MSIG3 10000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
-  error_check "$RES" "Funding msig3 account $MSIG3 from $1 failed"
+  RES=$($BINARY tx bank send $WALLET $MSIG3 10000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
+  error_check "$RES" "Funding msig3 account $MSIG3 from $WALLET failed"
 
   # ... aaaand in this implementation the other keys
   # need to also transact so that pubkeys are on chain.
@@ -83,16 +56,16 @@ then
   sleep 6s && echo " Done."
   echo -n "Now activating msig signers on-chain by sending some funds back..."
   RES=$($BINARY tx bank send $MSIG2 $MSIG1 4000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
-  error_check "$RES" "Sending from $MSIG2 back to $1 ($MSIG1) failed"
+  error_check "$RES" "Sending from $MSIG2 back to $WALLET ($MSIG1) failed"
   RES=$($BINARY tx bank send $MSIG3 $MSIG1 4000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
-  error_check "$RES" "Sending from $MSIG3 back to $1 ($MSIG1) failed"
+  error_check "$RES" "Sending from $MSIG3 back to $WALLET ($MSIG1) failed"
   echo " Done."
   # legacy multisig. Note we can upgrade to whatever kinds of multisig later
   # as wallets are proxy contracts
   # note that --no-sort is omitted so order doesn't matter
   echo ""
   echo -n "Creating new multisig..."
-  $BINARY keys add $MSIG_WALLET_NAME $KR --multisig-threshold 2 --multisig $1,$RAND1,$RAND2 > ./current_msig.txt
+  $BINARY keys add $MSIG_WALLET_NAME $KR --multisig-threshold 2 --multisig $WALLET,$RAND1,$RAND2 > ./current_msig.txt
 else
   MSIG2=$(grep -o '\bjuno\w*' ./autokey1.txt)
   MSIG3=$(grep -o '\bjuno\w*' ./autokey2.txt)
@@ -105,7 +78,7 @@ echo -n "Waiting 6 seconds to avoid sequence mismatch..."
 sleep 6s && echo " Done."
 # fund the multisig so it can deploy
 echo "Funding the multisig address itself..."
-RES=$($BINARY tx bank send $1 $MSIGADDY 500000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
+RES=$($BINARY tx bank send $WALLET $MSIGADDY 500000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
 error_check "$RES" "Funding multisig address failed"
 
 echo "Using multisig address: $MSIGADDY. Address saved in ./current_msig.txt."
@@ -148,13 +121,13 @@ then
 fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+  CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
   echo "Contract code is $CONTRACT_CODE"
 fi
 
 OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
 # test instantiate with just 1 address
-RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$1 --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
+RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
 error_check "$RES" "Failed to instantiate contract"
 
 # instantiate the contract with multiple signers
@@ -164,7 +137,7 @@ error_check "$RES" "Failed to instantiate contract"
 # echo "Transaction to sign in ./tx_to_sign.json"
 
 # sign with each address
-# $BINARY tx sign ./tx_to_sign.txt --multisig=$MSIGADDY --from=$1 --sign-mode=amino-json --node=$RPC --chain-id=$CHAIN_ID --output-document=sig1.json
+# $BINARY tx sign ./tx_to_sign.txt --multisig=$MSIGADDY --from=$WALLET --sign-mode=amino-json --node=$RPC --chain-id=$CHAIN_ID --output-document=sig1.json
 # $BINARY tx sign ./tx_to_sign.txt --multisig=$MSIGADDY --from=$RAND1 --sign-mode=amino-json --node=$RPC --chain-id=$CHAIN_ID --output-document=sig2.json
 # $BINARY tx sign ./tx_to_sign.txt --multisig=$MSIGADDY --from=$RAND2 --sign-mode=amino-json --node=$RPC --chain-id=$CHAIN_ID --output-document=sig3.json
 # we only need 2 of the 3 though
