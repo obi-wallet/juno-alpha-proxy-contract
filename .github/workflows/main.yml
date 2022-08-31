@@ -26,10 +26,7 @@ jobs:
         shell: bash
         run: |
           ./scripts/install_juno.sh
-      - name: Check GOPATH
-        shell: bash
-        run: |
-          echo "$GOPATH"
+      - run: echo "Gopath is $GOPATH"
       - name: Initialize Keys
         shell: bash
         run: |
