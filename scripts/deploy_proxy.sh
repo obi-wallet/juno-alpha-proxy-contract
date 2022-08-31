@@ -173,5 +173,5 @@ then
 fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  bash ./scripts/test_contract.sh
+  /usr/bin/bash ./scripts/test_contract.sh
 fi
