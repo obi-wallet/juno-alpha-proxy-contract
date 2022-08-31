@@ -44,7 +44,7 @@ echo ""
 echo -n "Creating new multisig..."
 $BINARY keys add $MSIG_WALLET_NAME $KR --multisig-threshold 2 --multisig $WALLET,$RAND1,$RAND2 > ./current_msig.txt
 
-MSIGADDY=$(grep -o '\bjuno\w*' ./current_msig.txt)
+MSIGADDY=$($BINARY keys show $MSIG_WALLET_NAME $KR --address)
 echo "Multisig address is $MSIGADDY. Stored in ./current_msig.txt"
 echo ""
 echo -n "Waiting 6 seconds to avoid sequence mismatch..."
