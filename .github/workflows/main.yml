@@ -40,7 +40,7 @@ jobs:
           GOPATH: "/home/runner/go"
           GO111MODULE: "on"
           PATH: "$PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin"
-          LD_LIBRARY_PATH: "home/runner/go/pkg/mod/github.com/!cosm!wasm/wasmvm@v1.0.0/api"
+          LD_LIBRARY_PATH: "/home/runner/go/pkg/mod/github.com/!cosm!wasm/wasmvm@v1.0.0/api"
       - name: Deploy and Test
         shell: bash
         run: |
