@@ -22,7 +22,7 @@ error_check "$RES" "Funding msig2 account $MSIG2 from $WALLET failed"
 # TODO: mismatch handling
 echo "Funded msig2 signer $MSIG2."
 echo -n "Waiting 10 seconds to fund msig3 signer $MSIG3..."
-sleep 10s && echo " Done."
+/usr/bin/sleep 10s && echo " Done."
 RES=$($BINARY tx bank send $WALLET $MSIG3 10000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
 error_check "$RES" "Funding msig3 account $MSIG3 from $WALLET failed"
 
@@ -30,7 +30,7 @@ error_check "$RES" "Funding msig3 account $MSIG3 from $WALLET failed"
 # need to also transact so that pubkeys are on chain.
 # Conveniently we return some testnet juno.
 echo -n "Waiting 6 seconds for nodes to update... "
-sleep 6s && echo " Done."
+/usr/bin/sleep 6s && echo " Done."
 echo -n "Now activating msig signers on-chain by sending some funds back..."
 RES=$($BINARY tx bank send $MSIG2 $MSIG1 4000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
 error_check "$RES" "Sending from $MSIG2 back to $WALLET ($MSIG1) failed"
@@ -48,7 +48,7 @@ MSIGADDY=$($BINARY keys show $MSIG_WALLET_NAME $KR --address)
 echo "Multisig address is $MSIGADDY. Stored in ./current_msig.txt"
 echo ""
 echo -n "Waiting 6 seconds to avoid sequence mismatch..."
-sleep 6s && echo " Done."
+/usr/bin/sleep 6s && echo " Done."
 # fund the multisig so it can deploy
 echo "Funding the multisig address itself..."
 RES=$($BINARY tx bank send $WALLET $MSIGADDY 500000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
@@ -92,7 +92,7 @@ error_check "$RES" "Failed to instantiate contract"
 
 echo ""
 echo -n "Waiting 6 seconds for nodes to update... "
-sleep 6s && echo " Done."
+/usr/bin/sleep 6s && echo " Done."
 CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code --node=$RPC --chain-id=$CHAIN_ID $CONTRACT_CODE --output json | jq -r '.contracts[-1]' 2>&1)
 error_check $CONTRACT_ADDRESS "Failed to get contract address"
 echo "Contract instantiated to $CONTRACT_ADDRESS."
