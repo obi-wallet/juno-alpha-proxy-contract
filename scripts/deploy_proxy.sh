@@ -152,13 +152,13 @@ CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code --node=$RPC --chain-id=$
 error_check $CONTRACT_ADDRESS "Failed to get contract address"
 echo "Contract instantiated to $CONTRACT_ADDRESS."
 
-rm -rf ./scripts/current_contract.sh
+# rm -rf ./scripts/current_contract.sh
 HEADER="#!/bin/bash"
 CODE="CONTRACT_CODE=$CONTRACT_CODE"
 ADDY="CONTRACT_ADDRESS=$CONTRACT_ADDRESS"
 ADMIN="CONTRACT_ADMIN_WALLET=$MSIG1"
 printf "$HEADER\n$CODE\n$ADDY\n$ADMIN" > ./scripts/current_contract.sh
-chmod +x ./scripts/current_contract.sh
+/usr/bin/chmod +x ./scripts/current_contract.sh
 echo "Updated current_contract.sh to include new values."
 echo ""
 if [[ $AUTOYES == 1 ]]
