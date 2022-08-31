@@ -1,4 +1,5 @@
 #!/bin/bash
+AUTOYES=1
 WALLET=scripttest
 
 #import common vars and functions
