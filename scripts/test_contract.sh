@@ -53,7 +53,7 @@ echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 10s && echo " Done."
 
 # Add that other wallet as hot wallet for an hour
-SECS_SINCE_EPOCH=$(date +%s)
+SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+3600
 echo -n -e "${LBLUE}TX 3) Admin adds a new hot wallet. Should succeed...${NC}"
 ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":10000,"limit_remaining":10000}]}}}')
@@ -93,7 +93,7 @@ error_check "$RES" "Failed as expected, but with unexpected error" "You cannot s
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 10s && echo " Done."
 echo -n -e "${LBLUE}TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed...${NC}"
-SECS_SINCE_EPOCH=$(date +%s)
+SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+60
 ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":50000,"limit_remaining":50000}]}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
