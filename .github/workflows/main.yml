@@ -26,11 +26,6 @@ jobs:
         shell: bash
         run: |
           ./scripts/install_juno.sh
-        env:
-          GOROOT: /home/runner/goinstall/go
-          GOPATH: /home/runner/go
-          GO111MODULE: on
-          PATH: $PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin
       - name: Initialize Keys
         shell: bash
         run: |
@@ -39,10 +34,6 @@ jobs:
         env:
           BASHTESTER: ${{ secrets.BASHTESTER }}
           BADTESTER: ${{ secrets.BADTESTER }}
-          GOROOT: /home/runner/goinstall/go
-          GOPATH: /home/runner/go
-          GO111MODULE: on
-          PATH: $PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin
       - name: Deploy and Test
         shell: bash
         run: |
