@@ -86,8 +86,7 @@ echo -n "Optimizing smart contract code..."
 # compile
 echo "Checking location..."
 echo $(pwd)
-echo $(ls -a)
-RES=$(docker run --rm -v "$(pwd)":/code \
+RES=$(/usr/bin/docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(/usr/bin/basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
   cosmwasm/rust-optimizer:0.12.5)
