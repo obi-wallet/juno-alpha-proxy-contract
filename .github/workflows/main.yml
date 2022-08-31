@@ -22,6 +22,8 @@ jobs:
         shell: bash
         run: |
           ./scripts/install_cosmwasm.sh
+        env:
+          GOPATH: "/home/runner/go"
       - name: Install Juno
         shell: bash
         run: |
@@ -50,7 +52,7 @@ jobs:
         run: |
           ./scripts/deploy_proxy.sh
         env:
-          GOROOT: /home/runner/goinstall/go
-          GOPATH: /home/runner/go
-          GO111MODULE: on
-          PATH: $PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin
+          GOROOT: "/home/runner/goinstall/go"
+          GOPATH: "/home/runner/go"
+          GO111MODULE: "on"
+          PATH: "$PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin"
