@@ -139,5 +139,5 @@ error_check () {
     exit 1
   fi
   echo " Done ✅"
-  echo "$1" | grep -w "txhash"
+  echo "$1" | /usr/bin/grep -w "txhash"
 }
