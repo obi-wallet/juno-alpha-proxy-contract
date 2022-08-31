@@ -119,11 +119,11 @@ then
 fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+  CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block -y --output json | /usr/bin/jq -r '.logs[0].events[-1].attributes[0].value')
   echo "Contract code is $CONTRACT_CODE"
 fi
 
-OBIPROX_INIT=$(jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
+OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
 # test instantiate with just 1 address
 RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
 error_check "$RES" "Failed to instantiate contract"
@@ -146,7 +146,7 @@ error_check "$RES" "Failed to instantiate contract"
 echo ""
 echo -n "Waiting 6 seconds for nodes to update... "
 /usr/bin/sleep 6s && echo " Done."
-CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code --node=$RPC --chain-id=$CHAIN_ID $CONTRACT_CODE --output json | jq -r '.contracts[-1]' 2>&1)
+CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code --node=$RPC --chain-id=$CHAIN_ID $CONTRACT_CODE --output json | /usr/bin/jq -r '.contracts[-1]' 2>&1)
 error_check $CONTRACT_ADDRESS "Failed to get contract address"
 echo "Contract instantiated to $CONTRACT_ADDRESS."
 
