@@ -28,8 +28,6 @@ then
   # which we don't care about
   let RAND1=$RANDOM*$RANDOM
   let RAND2=$RAND1+1
-  mv -f ./autokey1.txt ./backup_autokey$RAND1.txt
-  mv -f ./autokey2.txt ./backup_autokey$RAND2.txt
 
   # create the other keys to be used in msig
   echo "Adding new keys to wallet: autokey1.txt and autokey2.txt... "
