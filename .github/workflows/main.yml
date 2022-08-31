@@ -26,10 +26,13 @@ jobs:
         shell: bash
         run: |
           ./scripts/install_juno.sh
-      - name: Initialize Keys
+      - name: Check GOPATH
         shell: bash
         run: |
           echo $GOPATH
+      - name: Initialize Keys
+        shell: bash
+        run: |
           ./scripts/expect_wrapper.sh
         env:
           BASHTESTER: ${{ secrets.BASHTESTER }}
