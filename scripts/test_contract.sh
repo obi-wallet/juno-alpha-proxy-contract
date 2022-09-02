@@ -119,3 +119,40 @@ echo "Done. Transaction should succeed now."
 echo -n -e "${LBLUE}TX 10) Hot wallet tries to spend the same again after spend limit reset. Should succeed...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend after reset time"
+
+# ok let's rm the wallet again and add it...
+# but this time with a unified USDC-denominated limit
+echo -n -e "${LBLUE}TX 11) Admin removes the hot wallet. Should succeed...${NC}"
+RM_HOT_WALLET_ARGS=$(/usr/bin/jq -n --arg doomed $BAD_WALLET_ADDRESS '{"rm_hot_wallet": {"doomed_hot_wallet":$doomed}}')
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed to remove hot wallet"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 5s && echo " Done."
+
+echo -n -e "${LBLUE}TX 12) Admin adds the hot wallet back, with a USDC-denominated limit. Should succeed...${NC}"
+SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
+let RESET_TIME=$SECS_SINCE_EPOCH+60
+ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":$denom,"amount":50000,"limit_remaining":50000, "usdc_denom":"true"}]}}}')
+ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed to re-add hot wallet"
+
+# this spend should succeed
+# tho it might fail if JUNO really skyrockets in value...
+echo -n -e "${LBLUE}TX 13) Spend some JUNO... and see it run against the USDC spend limit${NC}"
+# the dummy price contract returns:
+# asset "ujunox" at a LOOP price of 137_000_000
+# asset "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" at a LOOP price of 30_000_000
+# so spending 1 JUNO should spend 137 LOOP, which is 137/30 ≈ 4.566 USDC.
+# To save on testnet faucet usage, let's spend only 0.01 JUNO... which should ≈ 0.04566 USDC or 45,600 uUSDC.
+# (against a spend limit of 50000)
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed to spend with hot wallet limited in USDC"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 7s && echo " Done."
+
+echo -n -e "${LBLUE}TX 14) Second spend should fail as we've used most of our spend limit${NC}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed as expected" "You cannot spend more than your available spend limit"
