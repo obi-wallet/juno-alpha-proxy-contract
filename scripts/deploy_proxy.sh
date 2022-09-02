@@ -124,7 +124,7 @@ then
   echo "TX we are trying for code store is $BINARY tx wasm store './artifacts/obi_proxy_contract.wasm' $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block --output json"
   RES=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block --output json 2>&1)
   error_check $RES "Failed to store code"
-  CONTRACT_CODE=$($RES | /usr/bin/jq -r '.logs[0].events[-1].attributes[0].value')
+  CONTRACT_CODE=$(echo $RES | /usr/bin/jq -r '.logs[0].events[-1].attributes[0].value')
   echo "Contract code is $CONTRACT_CODE"
 fi
 
