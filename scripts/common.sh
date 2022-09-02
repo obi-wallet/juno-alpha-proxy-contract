@@ -1,5 +1,6 @@
 #!/bin/bash
 
+DUMMYPRICECONTRACT="juno1dmwfwqvke4hew5s93ut8h4tgu6sxv67zjw0y3hskgkfpy3utnpvseqyjs7"
 BINARY="./junod"
 DENOM='ujunox'
 CHAIN_ID='uni-3'
