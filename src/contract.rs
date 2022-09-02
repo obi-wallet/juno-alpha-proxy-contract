@@ -2,8 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, QueryRequest, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
-    WasmQuery,
+    MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -12,8 +11,8 @@ use cw20::Cw20ExecuteMsg;
 
 use crate::error::ContractError;
 use crate::msg::{
-    AdminResponse, Asset, AssetInfo, DexQueryMsg, ExecuteMsg, HotWalletsResponse, InstantiateMsg,
-    MigrateMsg, QueryMsg, SimulationMsg, SimulationResponse,
+    AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg,
+    MigrateMsg, QueryMsg,
 };
 use crate::state::{HotWallet, State, STATE};
 
