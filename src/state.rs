@@ -1,7 +1,7 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Coin, Timestamp};
+use cosmwasm_std::{Coin, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -36,15 +36,18 @@ pub struct HotWallet {
     pub period_type: PeriodType,
     pub period_multiple: u16,
     pub spend_limits: Vec<CoinLimit>,
+    pub usdc_denom: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
-pub struct Admins {
+pub struct State {
     pub admin: String,
+    pub pending: String,
     pub hot_wallets: Vec<HotWallet>,
+    pub debt: Coin, // waiting to pay back fees
 }
 
-impl Admins {
+impl State {
     pub fn add_hot_wallet(&mut self, new_hot_wallet: HotWallet) {
         self.hot_wallets.push(new_hot_wallet);
     }
@@ -58,6 +61,12 @@ impl Admins {
     pub fn is_admin(&self, addr: String) -> bool {
         let addr: &str = &addr;
         self.admin == addr
+    }
+
+    /// returns true if the address is pending to become a registered admin
+    pub fn is_pending(&self, addr: String) -> bool {
+        let addr: &str = &addr;
+        self.pending == addr
     }
 
     pub fn can_spend(
@@ -122,6 +131,7 @@ impl Admins {
                             CheckType::TotalLimit,
                             &mut new_spend_limits,
                             n.clone(),
+                            new_wallet_configs[index].usdc_denom.clone(),
                         )?;
                     }
                     new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
@@ -138,6 +148,7 @@ impl Admins {
                     CheckType::RemainingLimit,
                     &mut new_spend_limits,
                     n.clone(),
+                    new_wallet_configs[index].usdc_denom.clone(),
                 )?;
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
@@ -146,15 +157,38 @@ impl Admins {
         }
     }
 
+    // get mainnet price of JUNO in LOOP
+    // junod q wasm contract-state smart juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07 $MAINNODE $MAINID '{"simulation":{"offer_asset":{"amount":"1000000","info":{"token":{"contract_addr":"juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2"}}}}}'
+
+    // get mainnet price of LOOP in USDC
+    // junod q wasm contract-state smart juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q $MAINNODE $MAINID '{"simulation":{"offer_asset":{"amount":"1000000","info":{"native_token":{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"}}}}}'
+
+    // a "reverse_simulation" exists as well but may not be necessary
+    fn convert_coin_to_usdc(&self, spend: Coin) -> Result<Coin, ContractError> {
+        Ok(Coin {
+            denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                .to_string(),
+            amount: Uint128::from(1_000u128),
+        })
+    }
+
     fn check_spend_against_limit(
         &self,
         check_type: CheckType,
         new_spend_limits: &mut [CoinLimit],
         spend: Coin,
+        usdc_denom: Option<bool>,
     ) -> Result<(), ContractError> {
-        let i = new_spend_limits
-            .iter()
-            .position(|limit| limit.denom == spend.denom);
+        let i = match usdc_denom {
+            Some(true) => new_spend_limits.iter().position(|limit| {
+                limit.denom
+                    == "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string()
+            }),
+            _ => new_spend_limits
+                .iter()
+                .position(|limit| limit.denom == spend.denom),
+        };
         match i {
             None => {
                 return Err(ContractError::CannotSpendThisAsset(spend.denom));
@@ -186,8 +220,7 @@ impl Admins {
     }
 }
 
-pub const ADMINS: Item<Admins> = Item::new("admins");
-pub const PENDING: Item<Admins> = Item::new("pending");
+pub const STATE: Item<State> = Item::new("state");
 
 #[cfg(test)]
 mod tests {
@@ -199,9 +232,15 @@ mod tests {
     #[test]
     fn is_admin() {
         let admin: &str = "bob";
-        let config = Admins {
+        let config = State {
             admin: admin.to_string(),
+            pending: admin.to_string(),
             hot_wallets: vec![],
+            debt: Coin {
+                amount: Uint128::from(0u128),
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_string(),
+            },
         };
 
         assert!(config.is_admin(admin.to_string()));
@@ -220,8 +259,9 @@ mod tests {
         let mut now_env = mock_env();
         now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
         // 3 day spend limit period
-        let mut config = Admins {
+        let mut config = State {
             admin: admin.to_string(),
+            pending: admin.to_string(),
             hot_wallets: vec![HotWallet {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
@@ -243,8 +283,16 @@ mod tests {
                         denom: "uloop".to_string(),
                         limit_remaining: 9_000_000_000u64,
                     },
-                ], // 100 JUNO, 100 axlUSDC, 9000 LOOP
+                ],
+                usdc_denom: Some(false), // to avoid breaking local tests for now
+                                         // 100 JUNO, 100 axlUSDC, 9000 LOOP – but really only the USDC matters
+                                         // since usdc_denom is true
             }],
+            debt: Coin {
+                amount: Uint128::from(0u128),
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_string(),
+            },
         };
 
         assert!(config
@@ -320,8 +368,9 @@ mod tests {
 
         // Let's do a 38 month spend limit period
         // and for kicks use a contract address for LOOP
-        let mut config = Admins {
+        let mut config = State {
             admin: admin.to_string(),
+            pending: admin.to_string(),
             hot_wallets: vec![HotWallet {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
@@ -344,8 +393,14 @@ mod tests {
                             .to_string(),
                         limit_remaining: 999_000_000_000u64,
                     },
-                ], // 100 JUNO, 100 axlUSDC, 9000 LOOP
+                ],
+                usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
             }],
+            debt: Coin {
+                amount: Uint128::from(0u128),
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_string(),
+            },
         };
 
         assert!(config

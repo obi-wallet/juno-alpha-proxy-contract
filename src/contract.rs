@@ -2,7 +2,8 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Response, StdError, StdResult, Timestamp, WasmMsg,
+    MessageInfo, QueryRequest, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    WasmQuery,
 };
 
 use cw1::CanExecuteResponse;
@@ -11,16 +12,17 @@ use cw20::Cw20ExecuteMsg;
 
 use crate::error::ContractError;
 use crate::msg::{
-    AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
+    AdminResponse, Asset, AssetInfo, DexQueryMsg, ExecuteMsg, HotWalletsResponse, InstantiateMsg,
+    MigrateMsg, QueryMsg, SimulationMsg, SimulationResponse,
 };
-use crate::state::{Admins, HotWallet, ADMINS, PENDING};
+use crate::state::{HotWallet, State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 struct CorePayload {
-    cfg: Admins,
+    cfg: State,
     info: MessageInfo,
     this_msg: CosmosMsg,
     current_time: Timestamp,
@@ -34,11 +36,28 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let cfg = Admins {
-        admin: deps.api.addr_validate(&msg.admin)?.to_string(),
+    let valid_admin: String = deps.api.addr_validate(&msg.admin)?.to_string();
+    #[cfg(not(test))]
+    let cfg = State {
+        admin: valid_admin.clone(),
+        pending: valid_admin,
         hot_wallets: msg.hot_wallets,
+        debt: Coin {
+            denom: "ujuno".to_string(),
+            amount: Uint128::from(50_000u128),
+        },
     };
-    ADMINS.save(deps.storage, &cfg)?;
+    #[cfg(test)]
+    let cfg = State {
+        admin: valid_admin.clone(),
+        pending: valid_admin,
+        hot_wallets: msg.hot_wallets,
+        debt: Coin {
+            denom: "ujuno".to_string(),
+            amount: Uint128::from(0u128),
+        },
+    };
+    STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
 }
 
@@ -67,6 +86,7 @@ pub fn execute(
             propose_update_admin(deps, env, info, new_admin)
         }
         ExecuteMsg::ConfirmUpdateAdmin {} => confirm_update_admin(deps, env, info),
+        ExecuteMsg::CancelUpdateAdmin {} => confirm_update_admin(deps, env, info),
     }
 }
 
@@ -76,7 +96,7 @@ pub fn execute_execute(
     info: MessageInfo,
     msgs: Vec<CosmosMsg>,
 ) -> Result<Response, ContractError> {
-    let cfg = ADMINS.load(deps.storage)?;
+    let cfg = STATE.load(deps.storage)?;
     if cfg.is_admin(info.sender.to_string()) {
         let res = Response::new()
             .add_messages(msgs)
@@ -100,6 +120,7 @@ pub fn execute_execute(
                     res = res.add_message(partial_res.messages[0].msg.clone());
                 }
                 // otherwise it must be a bank transfer
+                // also, we will repay the debt if exists
                 CosmosMsg::Bank(bank) => {
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
                     res = res.add_message(partial_res.messages[0].msg.clone());
@@ -168,6 +189,22 @@ fn try_wasm_send(
     }
 }
 
+fn check_and_repay_debt(deps: &mut DepsMut) -> Result<Option<BankMsg>, ContractError> {
+    let state: State = STATE.load(deps.storage)?;
+    if state.debt.amount > Uint128::from(0u128) {
+        println!(
+            "Repaying juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 the amount of {:?},",
+            state.debt
+        );
+        Ok(Some(BankMsg::Send {
+            to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
+            amount: vec![state.debt],
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
 fn try_bank_send(
     deps: &mut DepsMut,
     bank: &BankMsg,
@@ -177,7 +214,16 @@ fn try_bank_send(
         BankMsg::Send {
             to_address: _,
             amount,
-        } => check_and_spend(deps, core_payload, amount.clone()),
+        } => {
+            let attach_repay_msg = check_and_repay_debt(deps)?;
+            let res = check_and_spend(deps, core_payload, amount.clone())?;
+            match attach_repay_msg {
+                None => Ok(res),
+                Some(msg) => Ok(res
+                    .add_attribute("note", "repaying one-time fee debt")
+                    .add_message(msg)),
+            }
+        }
         _ => {
             //probably unreachable as can_spend throws
             Err(ContractError::SpendNotAuthorized {})
@@ -198,7 +244,7 @@ fn check_and_spend(
     let res = Response::new()
         .add_messages(vec![core_payload.this_msg.clone()])
         .add_attribute("action", "execute");
-    ADMINS.save(deps.storage, &core_payload.cfg)?;
+    STATE.save(deps.storage, &core_payload.cfg)?;
     Ok(res)
 }
 
@@ -208,7 +254,7 @@ pub fn add_hot_wallet(
     info: MessageInfo,
     new_hot_wallet: HotWallet,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMINS.load(deps.storage)?;
+    let mut cfg = STATE.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else if cfg
@@ -220,7 +266,7 @@ pub fn add_hot_wallet(
     } else {
         let _addrcheck = deps.api.addr_validate(&new_hot_wallet.address)?;
         cfg.add_hot_wallet(new_hot_wallet);
-        ADMINS.save(deps.storage, &cfg)?;
+        STATE.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "add_hot_wallet"))
     }
 }
@@ -231,7 +277,7 @@ pub fn rm_hot_wallet(
     info: MessageInfo,
     doomed_hot_wallet: String,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMINS.load(deps.storage)?;
+    let mut cfg = STATE.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else if !cfg
@@ -242,7 +288,7 @@ pub fn rm_hot_wallet(
         Err(ContractError::HotWalletDoesNotExist {})
     } else {
         cfg.rm_hot_wallet(doomed_hot_wallet);
-        ADMINS.save(deps.storage, &cfg)?;
+        STATE.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
     }
 }
@@ -253,12 +299,12 @@ pub fn propose_update_admin(
     info: MessageInfo,
     new_admin: String,
 ) -> Result<Response, ContractError> {
-    let mut cfg = ADMINS.load(deps.storage)?;
+    let mut cfg = STATE.load(deps.storage)?;
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
-        cfg.admin = deps.api.addr_validate(&new_admin)?.to_string();
-        PENDING.save(deps.storage, &cfg)?;
+        cfg.pending = deps.api.addr_validate(&new_admin)?.to_string();
+        STATE.save(deps.storage, &cfg)?;
 
         let res = Response::new().add_attribute("action", "propose_update_admin");
         Ok(res)
@@ -270,11 +316,32 @@ pub fn confirm_update_admin(
     _env: Env,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
-    let cfg = PENDING.load(deps.storage)?;
-    if !cfg.is_admin(info.sender.to_string()) {
+    execute_update_admin(deps, _env, info, false)
+}
+
+pub fn cancel_update_admin(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    execute_update_admin(deps, _env, info, true)
+}
+
+fn execute_update_admin(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    cancel: bool,
+) -> Result<Response, ContractError> {
+    let mut cfg = STATE.load(deps.storage)?;
+    if !cfg.is_pending(info.sender.to_string()) {
         Err(ContractError::CallerIsNotPendingNewAdmin {})
     } else {
-        ADMINS.save(deps.storage, &cfg)?;
+        match cancel {
+            true => cfg.pending = cfg.admin.clone(),
+            false => cfg.admin = cfg.pending.clone(),
+        };
+        STATE.save(deps.storage, &cfg)?;
 
         let res = Response::new().add_attribute("action", "confirm_update_admin");
         Ok(res)
@@ -282,7 +349,7 @@ pub fn confirm_update_admin(
 }
 
 fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
-    let cfg = ADMINS.load(deps.storage)?;
+    let cfg = STATE.load(deps.storage)?;
     let can = cfg.is_admin(sender.to_string());
     Ok(can)
 }
@@ -297,7 +364,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 pub fn query_admin(deps: Deps) -> StdResult<AdminResponse> {
-    let cfg = ADMINS.load(deps.storage)?;
+    let cfg = STATE.load(deps.storage)?;
     Ok(AdminResponse { admin: cfg.admin })
 }
 
@@ -312,7 +379,7 @@ pub fn query_can_execute(
 }
 
 pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
-    let cfg = ADMINS.load(deps.storage)?;
+    let cfg = STATE.load(deps.storage)?;
     Ok(HotWalletsResponse {
         hot_wallets: cfg.hot_wallets,
     })
@@ -503,6 +570,7 @@ mod tests {
                     amount: 1_000_000u64,
                     limit_remaining: 1_000_000u64,
                 }],
+                usdc_denom: Some(false),
             },
         };
         let _res = execute(
@@ -552,6 +620,7 @@ mod tests {
                     amount: 1_000_000u64,
                     limit_remaining: 1_000_000u64,
                 }],
+                usdc_denom: Some(true),
             }],
         };
         let info = mock_info(ADMIN, &[]);

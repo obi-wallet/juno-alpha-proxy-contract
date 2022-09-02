@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::CosmosMsg;
+use cosmwasm_std::{CosmosMsg, Uint128};
 
 use crate::state::HotWallet;
 
@@ -23,6 +23,9 @@ pub enum ExecuteMsg {
     /// Confirms a proposed admin - must be called by the new admin.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
     ConfirmUpdateAdmin {},
+    /// Cancels a proposed admin - must be called by current admin.
+    /// This can be used to cancel during a waiting period.
+    CancelUpdateAdmin {},
     /// Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg
     /// transactions if within the known recurring spend limit.
     AddHotWallet { new_hot_wallet: HotWallet },
@@ -42,6 +45,47 @@ pub enum QueryMsg {
     CanExecute { sender: String, msg: CosmosMsg },
     /// Gets an array of all the active HotWallets for this proxy.
     HotWallets {},
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DexQueryMsg {
+    Simulation(SimulationMsg),
+    ReverseSimulation(ReverseSimulationMsg),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct SimulationMsg {
+    pub offer_asset: Asset,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Asset {
+    pub info: AssetInfo,
+    pub amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetInfo {
+    Token { contract_addr: String },
+    NativeToken { denom: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct ReverseSimulationMsg {
+    pub ask_asset: AssetInfo,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct SimulationResponse {
+    pub commission_amount: Uint128,
+    pub return_amount: Uint128,
+    pub spread_amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
