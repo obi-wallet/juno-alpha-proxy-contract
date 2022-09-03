@@ -117,8 +117,9 @@ pub fn execute_execute(
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
                     let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
-                    res = res.add_message(partial_res.messages[0].msg.clone())
-                    .add_attribute("action", "execute_spend_limit");
+                    res = res
+                        .add_message(partial_res.messages[0].msg.clone())
+                        .add_attribute("action", "execute_spend_limit");
                 }
                 // otherwise it must be a bank transfer
                 // also, we will repay the debt if exists
@@ -129,7 +130,8 @@ pub fn execute_execute(
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
-                        res = res.add_attribute("action", "execute_execute")
+                        res = res
+                            .add_attribute("action", "execute_execute")
                             .add_message(this_msg)
                             .add_attribute("action", "execute_execute");
                     } else {

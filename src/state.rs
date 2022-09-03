@@ -38,7 +38,7 @@ pub struct HotWallet {
     pub period_type: PeriodType,
     pub period_multiple: u16,
     pub spend_limits: Vec<CoinLimit>,
-    pub usdc_denom: Option<bool>,
+    pub usdc_denom: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
@@ -135,7 +135,7 @@ impl State {
                             CheckType::TotalLimit,
                             &mut new_spend_limits,
                             n.clone(),
-                            new_wallet_configs[index].usdc_denom,
+                            new_wallet_configs[index].usdc_denom.clone(),
                         )?;
                     }
                     new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
@@ -153,7 +153,7 @@ impl State {
                     CheckType::RemainingLimit,
                     &mut new_spend_limits,
                     n.clone(),
-                    new_wallet_configs[index].usdc_denom,
+                    new_wallet_configs[index].usdc_denom.clone(),
                 )?;
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
@@ -191,13 +191,15 @@ impl State {
         check_type: CheckType,
         new_spend_limits: &mut [CoinLimit],
         spend: Coin,
-        usdc_denom: Option<bool>,
+        usdc_denom: Option<String>,
     ) -> Result<(), ContractError> {
-        let i = match usdc_denom {
-            Some(true) => new_spend_limits.iter().position(|limit| {
-                limit.denom
-                    == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-            }),
+        let i = match usdc_denom.clone() {
+            Some(setting) if setting == *"true" => {
+                new_spend_limits.iter().position(|limit| {
+                    limit.denom
+                        == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                })
+            }
             _ => new_spend_limits
                 .iter()
                 .position(|limit| limit.denom == spend.denom),
@@ -208,7 +210,7 @@ impl State {
             }
             Some(i) => {
                 let converted_spend_amt = match usdc_denom {
-                    Some(true) => self.convert_coin_to_usdc(deps, spend)?,
+                    Some(setting) if setting == "true" => self.convert_coin_to_usdc(deps, spend)?,
                     _ => spend,
                 };
                 // spend can't be bigger than total spend limit
@@ -302,9 +304,9 @@ mod tests {
                         limit_remaining: 9_000_000_000u64,
                     },
                 ],
-                usdc_denom: Some(false), // to avoid breaking local tests for now
-                                         // 100 JUNO, 100 axlUSDC, 9000 LOOP – but really only the USDC matters
-                                         // since usdc_denom is true
+                usdc_denom: Some("false".to_string()), // to avoid breaking local tests for now
+                                                       // 100 JUNO, 100 axlUSDC, 9000 LOOP – but really only the USDC matters
+                                                       // since usdc_denom is true
             }],
             debt: Coin {
                 amount: Uint128::from(0u128),

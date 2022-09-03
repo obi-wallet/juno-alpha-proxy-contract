@@ -5,7 +5,7 @@ use cosmwasm_std::{CosmosMsg, Uint128};
 
 use crate::state::HotWallet;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     pub admin: String,
     pub hot_wallets: Vec<HotWallet>,
@@ -98,7 +98,7 @@ pub struct AdminResponse {
     pub admin: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct HotWalletsResponse {
     pub hot_wallets: Vec<HotWallet>,
 }

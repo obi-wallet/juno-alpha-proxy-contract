@@ -1,6 +1,8 @@
 use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
 use anyhow::{anyhow, Result};
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, Empty, QueryRequest, StdError, WasmMsg, WasmQuery, Uint128};
+use cosmwasm_std::{
+    to_binary, Addr, CosmosMsg, Empty, QueryRequest, StdError, Uint128, WasmMsg, WasmQuery,
+};
 use cw1::Cw1Contract;
 use cw_multi_test::{App, AppResponse, Contract, ContractWrapper, Executor};
 use derivative::Derivative;
@@ -55,7 +57,11 @@ impl Suite {
             .instantiate_contract(
                 self.cw1_id,
                 Addr::unchecked(self.owner.clone()),
-                &InstantiateMsg { admin, hot_wallets, usd_fee_debt: Uint128::from(0u128) },
+                &InstantiateMsg {
+                    admin,
+                    hot_wallets,
+                    usd_fee_debt: Uint128::from(0u128),
+                },
                 &[],
                 "Whitelist",
                 None,

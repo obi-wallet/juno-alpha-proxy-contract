@@ -219,7 +219,7 @@ mod tests {
                     amount: 1_000_000u64,
                     limit_remaining: 1_000_000u64,
                 }],
-                usdc_denom: Some(false),
+                usdc_denom: Some("false".to_string()),
             },
         };
         let _res = execute(
@@ -270,13 +270,13 @@ mod tests {
                     amount: 100_000_000u64,
                     limit_remaining: 100_000_000u64,
                 }],
-                usdc_denom: Some(true),
+                usdc_denom: Some("true".to_string()),
             },
         };
         let _res = execute(
             deps.as_mut(),
             current_env.clone(),
-            info.clone(),
+            info,
             execute_msg,
         )
         .unwrap();
@@ -295,7 +295,7 @@ mod tests {
         let res = execute_execute(
             &mut deps.as_mut(),
             current_env.clone(),
-            info.clone(),
+            info,
             vec![send_msg],
         )
         .unwrap();
@@ -323,7 +323,7 @@ mod tests {
         let res = execute_execute(
             &mut deps.as_mut(),
             current_env.clone(),
-            info.clone(),
+            info,
             vec![send_msg],
         )
         .unwrap();
@@ -350,8 +350,8 @@ mod tests {
         let info = mock_info(HOT_USDC_WALLET, &[]);
         let _res = execute_execute(
             &mut deps.as_mut(),
-            current_env.clone(),
-            info.clone(),
+            current_env,
+            info,
             vec![send_msg],
         )
         .unwrap_err();
@@ -373,14 +373,12 @@ mod tests {
 
         // under test conditions, "testtokens" are worth 100 USDC each
         // so this $1 debt is covered with 0.01 testtokens appended to first send out
-        
-        let msgs = vec![
-            BankMsg::Send {
-                to_address: RECEIVER.to_string(),
-                amount: coins(10000, "testtokens"),
-            }
-            .into(),
-        ];
+
+        let msgs = vec![BankMsg::Send {
+            to_address: RECEIVER.to_string(),
+            amount: coins(10000, "testtokens"),
+        }
+        .into()];
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
         let info = mock_info(ADMIN, &[]);
@@ -392,7 +390,6 @@ mod tests {
             msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
         );
         assert_eq!(res.attributes, [("action", "execute_execute")]);
-        
     }
 
     fn instantiate_contract(
@@ -413,7 +410,7 @@ mod tests {
                     amount: 1_000_000u64,
                     limit_remaining: 1_000_000u64,
                 }],
-                usdc_denom: Some(true),
+                usdc_denom: Some("true".to_string()),
             }],
             usd_fee_debt: starting_debt.amount,
         };
