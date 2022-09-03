@@ -1,12 +1,16 @@
 #[cfg(test)]
 mod tests {
+    use crate::contract::{
+        execute, execute_execute, instantiate, query_admin, query_can_execute, query_hot_wallets,
+    };
+    use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
+    use crate::state::{CoinLimit, HotWallet, PeriodType};
     use crate::ContractError;
-    use crate::contract::{execute, query_admin, query_can_execute, query_hot_wallets, instantiate, execute_execute};
-    use crate::msg::{ExecuteMsg, AdminResponse, InstantiateMsg};
-    use crate::state::{CoinLimit, PeriodType, HotWallet};
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
-    use cosmwasm_std::{coin, coins, BankMsg, Empty, MemoryStorage, OwnedDeps, StakingMsg, SubMsg, CosmosMsg, Env};
+    use cosmwasm_std::{
+        coin, coins, BankMsg, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps, StakingMsg, SubMsg,
+    };
     //use cosmwasm_std::WasmMsg;
 
     const ADMIN: &str = "alice";

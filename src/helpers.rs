@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, Deps, QueryRequest, Uint128, WasmQuery, StdError};
+use cosmwasm_std::{to_binary, Deps, QueryRequest, StdError, Uint128, WasmQuery};
 
 use crate::{
     msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg, SimulationResponse},
@@ -41,7 +41,11 @@ fn get_pair_contract(asset: String) -> Result<String, ContractError> {
     */
 }
 
-pub fn get_current_price(deps: Deps, asset: String, amount: Uint128) -> Result<Uint128, ContractError> {
+pub fn get_current_price(
+    deps: Deps,
+    asset: String,
+    amount: Uint128,
+) -> Result<Uint128, ContractError> {
     // TODO: if asset is source base token, return 1
     let query_msg: DexQueryMsg = DexQueryMsg::Simulation(SimulationMsg {
         offer_asset: Asset {

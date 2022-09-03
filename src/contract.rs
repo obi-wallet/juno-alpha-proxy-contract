@@ -11,8 +11,7 @@ use cw20::Cw20ExecuteMsg;
 
 use crate::error::ContractError;
 use crate::msg::{
-    AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg,
-    MigrateMsg, QueryMsg,
+    AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use crate::state::{HotWallet, State, STATE};
 
