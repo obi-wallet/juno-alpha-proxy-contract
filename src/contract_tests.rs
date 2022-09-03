@@ -18,6 +18,7 @@ mod tests {
     const HOT_WALLET: &str = "hotcarl";
     const ANYONE: &str = "anyone";
     const RECEIVER: &str = "diane";
+    const HOT_USDC_WALLET: &str = "hotearl";
 
     #[test]
     fn instantiate_and_modify_admin() {
@@ -214,12 +215,117 @@ mod tests {
             execute_msg.clone(),
         )
         .unwrap_err();
-        let _res = execute(deps.as_mut(), current_env, info, execute_msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            execute_msg,
+        )
+        .unwrap();
 
-        // query hot wallets again, should be 0
+        // query hot wallets again, should be 1
         let res = query_hot_wallets(deps.as_ref()).unwrap();
         println!("hot wallets are: {:?}", res.hot_wallets);
         assert!(res.hot_wallets.len() == 1);
+
+        // add another hot wallet, this time with USDC spend limit
+        let execute_msg = ExecuteMsg::AddHotWallet {
+            new_hot_wallet: HotWallet {
+                address: HOT_USDC_WALLET.to_string(),
+                current_period_reset: current_env.block.time.seconds() as u64,
+                period_type: PeriodType::DAYS,
+                period_multiple: 1,
+                spend_limits: vec![CoinLimit {
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
+                    amount: 100_000_000u64,
+                    limit_remaining: 100_000_000u64,
+                }],
+                usdc_denom: Some(true),
+            },
+        };
+        let _res = execute(
+            deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            execute_msg,
+        )
+        .unwrap();
+        let res = query_hot_wallets(deps.as_ref()).unwrap();
+        assert!(res.hot_wallets.len() == 2);
+
+        // now spend ... local tests will force price to be 1 = 100 USDC
+        // so our spend limit of 100_000_000 will equal 1_000_000 testtokens
+
+        // three tests here: 1. we can spend a small amount
+        let send_msg = CosmosMsg::Bank(BankMsg::Send {
+            to_address: RECEIVER.to_string(),
+            amount: coins(1_000u128, "testtokens"), // 999_000 left
+        });
+        let info = mock_info(HOT_USDC_WALLET, &[]);
+        let res = execute_execute(
+            &mut deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            vec![send_msg],
+        )
+        .unwrap();
+        println!("{:?}", res);
+        assert!(res.messages.len() == 1);
+        let submsg = res.messages[0].clone();
+        match submsg.msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: _,
+                amount: _,
+            }) => (),
+            _ => {
+                panic!(
+                    "We sent a send bankmsg but that's not the first submessage for some reason"
+                );
+            }
+        }
+
+        // 2. we can spend up to limit
+        let send_msg = CosmosMsg::Bank(BankMsg::Send {
+            to_address: RECEIVER.to_string(),
+            amount: coins(999_000u128, "testtokens"), // 0 left
+        });
+        let info = mock_info(HOT_USDC_WALLET, &[]);
+        let res = execute_execute(
+            &mut deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            vec![send_msg],
+        )
+        .unwrap();
+        println!("{:?}", res);
+        assert!(res.messages.len() == 1);
+        let submsg = res.messages[0].clone();
+        match submsg.msg {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: _,
+                amount: _,
+            }) => (),
+            _ => {
+                panic!(
+                    "We sent a send bankmsg but that's not the first submessage for some reason"
+                );
+            }
+        }
+
+        // 3. now our limit is spent and we cannot spend anything
+        let send_msg = CosmosMsg::Bank(BankMsg::Send {
+            to_address: RECEIVER.to_string(),
+            amount: coins(1u128, "testtokens"), // -1 left
+        });
+        let info = mock_info(HOT_USDC_WALLET, &[]);
+        let _res = execute_execute(
+            &mut deps.as_mut(),
+            current_env.clone(),
+            info.clone(),
+            vec![send_msg],
+        )
+        .unwrap_err();
     }
 
     fn instantiate_contract(

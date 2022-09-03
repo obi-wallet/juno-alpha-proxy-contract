@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
+#[allow(unused_imports)]
 use crate::helpers::get_current_price;
 use crate::ContractError;
 
@@ -168,8 +169,15 @@ impl State {
     // junod q wasm contract-state smart juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q $MAINNODE $MAINID '{"simulation":{"offer_asset":{"amount":"1000000","info":{"native_token":{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"}}}}}'
 
     // a "reverse_simulation" exists as well but may not be necessary
+    #[allow(unused_variables)]
     fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<Coin, ContractError> {
         let usdc = "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
+        #[cfg(test)]
+        return Ok(Coin {
+            denom: usdc.to_string(),
+            amount: spend.amount.saturating_mul(Uint128::from(100u128)),
+        });
+        #[cfg(not(test))]
         Ok(Coin {
             denom: usdc.to_string(),
             amount: get_current_price(deps, spend.denom, spend.amount)?
