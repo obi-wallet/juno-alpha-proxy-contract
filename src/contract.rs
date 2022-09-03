@@ -236,6 +236,7 @@ fn check_and_spend(
     spend: Vec<Coin>,
 ) -> Result<Response, ContractError> {
     core_payload.cfg.can_spend(
+        deps.as_ref(),
         core_payload.current_time,
         core_payload.info.sender.to_string(),
         spend,

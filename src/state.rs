@@ -1,15 +1,16 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Coin, Timestamp, Uint128};
+use cosmwasm_std::{Coin, Timestamp, Deps};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
 use crate::ContractError;
+use crate::helpers::get_current_price;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum PeriodType {
     DAYS,
     MONTHS,
@@ -20,7 +21,7 @@ enum CheckType {
     RemainingLimit,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct CoinLimit {
     pub denom: String,
     pub amount: u64,
@@ -29,7 +30,7 @@ pub struct CoinLimit {
 
 // could do hot wallets as Map or even IndexedMap, but this contract
 // for more than 2-3 hot wallets at this time
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct HotWallet {
     pub address: String,
     pub current_period_reset: u64, //seconds
@@ -71,6 +72,7 @@ impl State {
 
     pub fn can_spend(
         &mut self,
+        deps: Deps,
         current_time: Timestamp,
         addr: String,
         spend: Vec<Coin>,
@@ -128,10 +130,11 @@ impl State {
                     let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
                     for n in spend {
                         self.check_spend_against_limit(
+                            deps,
                             CheckType::TotalLimit,
                             &mut new_spend_limits,
                             n.clone(),
-                            new_wallet_configs[index].usdc_denom,
+                            new_wallet_configs[index].usdc_denom.clone(),
                         )?;
                     }
                     new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
@@ -145,10 +148,11 @@ impl State {
             let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
             for n in spend {
                 self.check_spend_against_limit(
+                    deps,
                     CheckType::RemainingLimit,
                     &mut new_spend_limits,
                     n.clone(),
-                    new_wallet_configs[index].usdc_denom,
+                    new_wallet_configs[index].usdc_denom.clone(),
                 )?;
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
@@ -164,43 +168,53 @@ impl State {
     // junod q wasm contract-state smart juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q $MAINNODE $MAINID '{"simulation":{"offer_asset":{"amount":"1000000","info":{"native_token":{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"}}}}}'
 
     // a "reverse_simulation" exists as well but may not be necessary
-    fn convert_coin_to_usdc(&self, _spend: Coin) -> Result<Coin, ContractError> {
+    fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<Coin, ContractError> {
+        let usdc = "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
         Ok(Coin {
-            denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                .to_string(),
-            amount: Uint128::from(1_000u128),
+            denom: usdc.to_string(),
+            amount: get_current_price(deps, spend.denom)? / get_current_price(deps, usdc.to_string())?,
         })
     }
 
     fn check_spend_against_limit(
         &self,
+        deps: Deps,
         check_type: CheckType,
         new_spend_limits: &mut [CoinLimit],
         spend: Coin,
         usdc_denom: Option<bool>,
     ) -> Result<(), ContractError> {
         let i = match usdc_denom {
-            Some(true) => new_spend_limits.iter().position(|limit| {
-                limit.denom
-                    == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-            }),
-            _ => new_spend_limits
-                .iter()
-                .position(|limit| limit.denom == spend.denom),
+            Some(true) => {
+                new_spend_limits.iter().position(|limit| {
+                    limit.denom
+                        == "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                            .to_string()
+                })
+            }
+            _ => {
+                new_spend_limits
+                    .iter()
+                    .position(|limit| limit.denom == spend.denom)
+            }
         };
         match i {
             None => {
                 return Err(ContractError::CannotSpendThisAsset(spend.denom));
             }
             Some(i) => {
+                let converted_spend_amt = match usdc_denom {
+                    Some(true) => { self.convert_coin_to_usdc(deps, spend)? },
+                    _ => spend,
+                };
                 // spend can't be bigger than total spend limit
                 let limit_remaining = match check_type {
                     CheckType::TotalLimit => new_spend_limits[i]
                         .amount
-                        .checked_sub(spend.amount.u128() as u64),
+                        .checked_sub(converted_spend_amt.amount.u128() as u64),
                     CheckType::RemainingLimit => new_spend_limits[i]
                         .limit_remaining
-                        .checked_sub(spend.amount.u128() as u64),
+                        .checked_sub(converted_spend_amt.amount.u128() as u64),
                 };
                 let limit_remaining = match limit_remaining {
                     Some(remaining) => remaining,
@@ -225,7 +239,7 @@ pub const STATE: Item<State> = Item::new("state");
 mod tests {
     use super::*;
     use chrono::NaiveTime;
-    use cosmwasm_std::testing::mock_env;
+    use cosmwasm_std::testing::{mock_env, mock_dependencies};
     use cosmwasm_std::Uint128;
 
     #[test]
@@ -248,6 +262,7 @@ mod tests {
 
     #[test]
     fn daily_spend_limit() {
+        let deps = mock_dependencies();
         let admin: &str = "bob";
         let spender = "owner";
         let bad_spender: &str = "medusa";
@@ -296,6 +311,7 @@ mod tests {
 
         assert!(config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -306,6 +322,7 @@ mod tests {
             .unwrap());
         config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 bad_spender.to_string(),
                 vec![Coin {
@@ -316,6 +333,7 @@ mod tests {
             .unwrap_err();
         config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -328,6 +346,7 @@ mod tests {
         // now we shouldn't be able to total just over our spend limit
         config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -343,6 +362,7 @@ mod tests {
             Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);
         config
             .can_spend(
+                deps.as_ref(),
                 env_future.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -355,6 +375,7 @@ mod tests {
 
     #[test]
     fn monthly_spend_limit() {
+        let deps = mock_dependencies();
         let admin: &str = "bob";
         let spender = "owner";
         let bad_spender: &str = "medusa";
@@ -404,6 +425,7 @@ mod tests {
 
         assert!(config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -415,6 +437,7 @@ mod tests {
             .unwrap());
         config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 bad_spender.to_string(),
                 vec![Coin {
@@ -425,6 +448,7 @@ mod tests {
             .unwrap_err();
         config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -438,6 +462,7 @@ mod tests {
         // now we shouldn't be able to total just over our spend limit
         config
             .can_spend(
+                deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
@@ -458,6 +483,7 @@ mod tests {
         env_future.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
         config
             .can_spend(
+                deps.as_ref(),
                 env_future.block.time,
                 spender.to_string(),
                 vec![Coin {

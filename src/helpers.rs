@@ -42,6 +42,7 @@ fn get_pair_contract(asset: String) -> Result<String, ContractError> {
 }
 
 pub fn get_current_price(deps: Deps, asset: String) -> Result<Uint128, ContractError> {
+    // TODO: if asset is source base token, return 1
     let query_msg: DexQueryMsg = DexQueryMsg::Simulation(SimulationMsg {
         offer_asset: Asset {
             info: AssetInfo::NativeToken {
