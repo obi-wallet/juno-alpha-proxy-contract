@@ -1,14 +1,14 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Coin, Timestamp, Deps};
+use cosmwasm_std::{Coin, Deps, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
-use crate::ContractError;
 use crate::helpers::get_current_price;
+use crate::ContractError;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum PeriodType {
@@ -172,7 +172,8 @@ impl State {
         let usdc = "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
         Ok(Coin {
             denom: usdc.to_string(),
-            amount: get_current_price(deps, spend.denom)? / get_current_price(deps, usdc.to_string())?,
+            amount: get_current_price(deps, spend.denom, spend.amount)?
+                / get_current_price(deps, usdc.to_string(), Uint128::from(1_000_000u128))?,
         })
     }
 
@@ -185,18 +186,14 @@ impl State {
         usdc_denom: Option<bool>,
     ) -> Result<(), ContractError> {
         let i = match usdc_denom {
-            Some(true) => {
-                new_spend_limits.iter().position(|limit| {
-                    limit.denom
-                        == "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                            .to_string()
-                })
-            }
-            _ => {
-                new_spend_limits
-                    .iter()
-                    .position(|limit| limit.denom == spend.denom)
-            }
+            Some(true) => new_spend_limits.iter().position(|limit| {
+                limit.denom
+                    == "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string()
+            }),
+            _ => new_spend_limits
+                .iter()
+                .position(|limit| limit.denom == spend.denom),
         };
         match i {
             None => {
@@ -204,7 +201,7 @@ impl State {
             }
             Some(i) => {
                 let converted_spend_amt = match usdc_denom {
-                    Some(true) => { self.convert_coin_to_usdc(deps, spend)? },
+                    Some(true) => self.convert_coin_to_usdc(deps, spend)?,
                     _ => spend,
                 };
                 // spend can't be bigger than total spend limit
@@ -239,7 +236,7 @@ pub const STATE: Item<State> = Item::new("state");
 mod tests {
     use super::*;
     use chrono::NaiveTime;
-    use cosmwasm_std::testing::{mock_env, mock_dependencies};
+    use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::Uint128;
 
     #[test]

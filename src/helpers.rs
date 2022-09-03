@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, Deps, QueryRequest, Uint128, WasmQuery};
+use cosmwasm_std::{to_binary, Deps, QueryRequest, Uint128, WasmQuery, StdError};
 
 use crate::{
     msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg, SimulationResponse},
@@ -41,20 +41,23 @@ fn get_pair_contract(asset: String) -> Result<String, ContractError> {
     */
 }
 
-pub fn get_current_price(deps: Deps, asset: String) -> Result<Uint128, ContractError> {
+pub fn get_current_price(deps: Deps, asset: String, amount: Uint128) -> Result<Uint128, ContractError> {
     // TODO: if asset is source base token, return 1
     let query_msg: DexQueryMsg = DexQueryMsg::Simulation(SimulationMsg {
         offer_asset: Asset {
             info: AssetInfo::NativeToken {
                 denom: asset.clone(),
             },
-            amount: Uint128::from(1_000_000u128),
+            amount,
         },
     }); // no cw20 support yet (expect for the base asset)
-    let query_response: SimulationResponse =
+    let query_response: Result<SimulationResponse, StdError> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: get_pair_contract(asset)?,
+            contract_addr: get_pair_contract(asset.clone())?,
             msg: to_binary(&query_msg)?,
-        }))?;
-    Ok(query_response.return_amount + query_response.commission_amount)
+        }));
+    match query_response {
+        Ok(res) => Ok(res.return_amount + res.commission_amount),
+        Err(_) => Err(ContractError::PriceCheckFailed(asset)),
+    }
 }
