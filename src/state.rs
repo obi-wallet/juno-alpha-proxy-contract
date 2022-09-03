@@ -10,7 +10,7 @@ use cw_storage_plus::Item;
 use crate::helpers::get_current_price;
 use crate::ContractError;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum PeriodType {
     DAYS,
     MONTHS,
@@ -21,7 +21,7 @@ enum CheckType {
     RemainingLimit,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct CoinLimit {
     pub denom: String,
     pub amount: u64,
@@ -30,7 +30,7 @@ pub struct CoinLimit {
 
 // could do hot wallets as Map or even IndexedMap, but this contract
 // for more than 2-3 hot wallets at this time
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct HotWallet {
     pub address: String,
     pub current_period_reset: u64, //seconds
@@ -134,7 +134,7 @@ impl State {
                             CheckType::TotalLimit,
                             &mut new_spend_limits,
                             n.clone(),
-                            new_wallet_configs[index].usdc_denom.clone(),
+                            new_wallet_configs[index].usdc_denom,
                         )?;
                     }
                     new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
@@ -152,7 +152,7 @@ impl State {
                     CheckType::RemainingLimit,
                     &mut new_spend_limits,
                     n.clone(),
-                    new_wallet_configs[index].usdc_denom.clone(),
+                    new_wallet_configs[index].usdc_denom,
                 )?;
             }
             new_wallet_configs[index].spend_limits = new_spend_limits;
@@ -188,8 +188,7 @@ impl State {
         let i = match usdc_denom {
             Some(true) => new_spend_limits.iter().position(|limit| {
                 limit.denom
-                    == "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                        .to_string()
+                    == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
             }),
             _ => new_spend_limits
                 .iter()
