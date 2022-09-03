@@ -95,36 +95,46 @@ pub fn execute_execute(
     msgs: Vec<CosmosMsg>,
 ) -> Result<Response, ContractError> {
     let cfg = STATE.load(deps.storage)?;
-    if cfg.is_admin(info.sender.to_string()) {
-        let res = Response::new()
+    let mut res = Response::new();
+    if cfg.debt.amount == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
+        // if there is no debt AND user is admin, process immediately
+        res = res
             .add_messages(msgs)
             .add_attribute("action", "execute_execute");
         Ok(res)
     } else {
+        // otherwise, we need to do some checking
         let mut core_payload = CorePayload {
-            cfg,
-            info,
+            cfg: cfg.clone(),
+            info: info.clone(),
             this_msg: CosmosMsg::Custom(Empty {}),
             current_time: env.block.time,
         };
         //make sure the message is a send of some kind
-        let mut res = Response::new().add_attribute("action", "execute_spend_limit");
         for this_msg in msgs {
             core_payload.this_msg = this_msg.clone();
             match &this_msg {
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
                     let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
-                    res = res.add_message(partial_res.messages[0].msg.clone());
+                    res = res.add_message(partial_res.messages[0].msg.clone())
+                    .add_attribute("action", "execute_spend_limit");
                 }
                 // otherwise it must be a bank transfer
                 // also, we will repay the debt if exists
                 CosmosMsg::Bank(bank) => {
+                    res = res.add_attribute("action", "execute_spend_limit");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
                     res = res.add_message(partial_res.messages[0].msg.clone());
                 }
                 _ => {
-                    return Err(ContractError::BadMessageType {});
+                    if cfg.is_admin(info.sender.to_string()) {
+                        res = res.add_attribute("action", "execute_execute")
+                            .add_message(this_msg)
+                            .add_attribute("action", "execute_execute");
+                    } else {
+                        return Err(ContractError::BadMessageType {});
+                    }
                 }
             };
         }

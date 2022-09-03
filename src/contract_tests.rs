@@ -9,7 +9,8 @@ mod tests {
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
     use cosmwasm_std::{
-        coin, coins, BankMsg, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps, StakingMsg, SubMsg,
+        coin, coins, BankMsg, Coin, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps, StakingMsg,
+        SubMsg, Uint128,
     };
     //use cosmwasm_std::WasmMsg;
 
@@ -24,7 +25,14 @@ mod tests {
     fn instantiate_and_modify_admin() {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
-        instantiate_contract(&mut deps, current_env);
+        instantiate_contract(
+            &mut deps,
+            current_env,
+            Coin {
+                amount: Uint128::from(0u128),
+                denom: "ujunox".to_string(),
+            },
+        );
 
         // ensure expected config
         let expected = AdminResponse {
@@ -69,7 +77,14 @@ mod tests {
     fn execute_messages_has_proper_permissions() {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
-        instantiate_contract(&mut deps, current_env);
+        instantiate_contract(
+            &mut deps,
+            current_env,
+            Coin {
+                amount: Uint128::from(0u128),
+                denom: "ujunox".to_string(),
+            },
+        );
 
         let msgs = vec![
             BankMsg::Send {
@@ -109,7 +124,14 @@ mod tests {
     fn can_execute_query_works() {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
-        instantiate_contract(&mut deps, current_env);
+        instantiate_contract(
+            &mut deps,
+            current_env,
+            Coin {
+                amount: Uint128::from(0u128),
+                denom: "ujunox".to_string(),
+            },
+        );
 
         // let us make some queries... different msg types by owner and by other
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
@@ -143,7 +165,14 @@ mod tests {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
 
-        instantiate_contract(&mut deps, current_env.clone());
+        instantiate_contract(
+            &mut deps,
+            current_env.clone(),
+            Coin {
+                amount: Uint128::from(0u128),
+                denom: "ujunox".to_string(),
+            },
+        );
         // this helper includes a hotwallet
 
         // query to see we have "hotcarl" as hot wallet
@@ -328,9 +357,48 @@ mod tests {
         .unwrap_err();
     }
 
+    #[test]
+    fn repay_fee_debt() {
+        let mut deps = mock_dependencies();
+        let current_env = mock_env();
+        instantiate_contract(
+            &mut deps,
+            current_env,
+            Coin {
+                amount: Uint128::from(1_000_000u128),
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_string(),
+            },
+        );
+
+        // under test conditions, "testtokens" are worth 100 USDC each
+        // so this $1 debt is covered with 0.01 testtokens appended to first send out
+        
+        let msgs = vec![
+            BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(10000, "testtokens"),
+            }
+            .into(),
+        ];
+        let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
+
+        let info = mock_info(ADMIN, &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
+        // this old assert shouldn't work since there are more messages
+        println!("res messages: {:?}", res.messages);
+        assert_eq!(
+            res.messages,
+            msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
+        );
+        assert_eq!(res.attributes, [("action", "execute_execute")]);
+        
+    }
+
     fn instantiate_contract(
         deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
         env: Env,
+        starting_debt: Coin,
     ) {
         // instantiate the contract
         let instantiate_msg = InstantiateMsg {
@@ -347,6 +415,7 @@ mod tests {
                 }],
                 usdc_denom: Some(true),
             }],
+            usd_fee_debt: starting_debt.amount,
         };
         let info = mock_info(ADMIN, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();

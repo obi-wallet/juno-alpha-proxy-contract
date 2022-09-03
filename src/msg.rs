@@ -9,6 +9,7 @@ use crate::state::HotWallet;
 pub struct InstantiateMsg {
     pub admin: String,
     pub hot_wallets: Vec<HotWallet>,
+    pub usd_fee_debt: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
