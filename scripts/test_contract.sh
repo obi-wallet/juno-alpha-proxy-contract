@@ -133,7 +133,7 @@ echo -n "Waiting to avoid sequence mismatch error..."
 echo -n -e "${LBLUE}TX 12) Admin adds the hot wallet back, with a USDC-denominated limit. Should succeed...${NC}"
 SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+60
-ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034","amount":50000,"limit_remaining":50000, "usdc_denom":"true"}]}}}')
+ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS --arg denom $DENOM '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034","amount":50000,"limit_remaining":50000}], "usdc_denom":"true"}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to re-add hot wallet"
