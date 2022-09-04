@@ -202,14 +202,31 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
                 amount: state.uusd_fee_debt,
                 denom: asset.denom,
             },
-            "ujuno" | "ujunox" | "testtokens" => Coin {
-                amount: get_current_price(deps.as_ref(), USDC.to_string(), state.uusd_fee_debt)?
-                    / get_current_price(deps.as_ref(), asset.denom.clone(), Uint128::from(1u128))?,
-                denom: asset.denom,
-            },
+            "ujuno" | "ujunox" | "testtokens" => {
+                let this_amount =
+                    get_current_price(deps.as_ref(), USDC.to_string(), state.uusd_fee_debt)?
+                        .checked_div(get_current_price(
+                            deps.as_ref(),
+                            asset.denom.clone(),
+                            Uint128::from(1000000u128),
+                        )?);
+                let checked_amount = match this_amount {
+                    Ok(amt) => amt,
+                    Err(_) => {
+                        return Err(ContractError::PriceCheckFailed(asset.denom));
+                    }
+                };
+                Coin {
+                    amount: checked_amount,
+                    denom: asset.denom,
+                }
+            }
             _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
         };
         println!("which converts to {:?}", payment_coin);
+        let mut new_state = state;
+        new_state.uusd_fee_debt = Uint128::from(0u128);
+        STATE.save(deps.storage, &new_state)?;
         Ok(Some(BankMsg::Send {
             to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
             amount: vec![payment_coin],
