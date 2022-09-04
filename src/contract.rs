@@ -115,7 +115,9 @@ pub fn execute_execute(
                 CosmosMsg::Bank(bank) => {
                     res = res.add_attribute("action", "execute_spend_limit");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
-                    res = res.add_message(partial_res.messages[0].msg.clone());
+                    for submsg in partial_res.messages {
+                        res = res.add_message(submsg.msg.clone());
+                    }
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
