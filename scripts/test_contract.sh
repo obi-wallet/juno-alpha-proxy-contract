@@ -128,7 +128,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --f
 error_check "$RES" "Failed to remove hot wallet"
 
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 5s && echo " Done."
+/usr/bin/sleep 10s && echo " Done."
 
 echo -n -e "${LBLUE}TX 12) Admin adds the hot wallet back, with a USDC-denominated limit. Should succeed...${NC}"
 SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
