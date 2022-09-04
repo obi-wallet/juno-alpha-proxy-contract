@@ -49,7 +49,14 @@ pub fn get_current_price(
     amount: Uint128,
 ) -> Result<Uint128, ContractError> {
     #[cfg(test)]
-    return Ok(Uint128::from(100u128));
+    match &*asset {
+        "testtokens" => {
+            return Ok(Uint128::from(100u128));
+        }
+        _ => {
+            return Ok(Uint128::from(1u128));
+        }
+    }
     // TODO: if asset is source base token, return 1
     let query_msg: DexQueryMsg = DexQueryMsg::Simulation(SimulationMsg {
         offer_asset: Asset {

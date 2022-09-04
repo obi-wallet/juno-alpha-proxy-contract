@@ -373,7 +373,7 @@ mod tests {
             }),
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
-                amount: coins(1, "testtokens"),
+                amount: coins(10000, "testtokens"),
             }),
         ];
         let execute_msg = ExecuteMsg::Execute { msgs };

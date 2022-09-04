@@ -1,1 +1,1 @@
-4e3ecc45a0c943eef38eb0b66c48faa0ef2281234d83e5009cc393f76ca09b43  obi_proxy_contract.wasm
+c52e56cf1e4730b720b6ad9631204b655ca7dfa960c80c976db4901c87bbc965  obi_proxy_contract.wasm
