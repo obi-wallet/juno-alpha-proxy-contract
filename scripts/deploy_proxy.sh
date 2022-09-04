@@ -121,11 +121,13 @@ then
 fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
+  # uncomment this line if there have been contract updates!
   CONTRACT_CODE=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block --output json | /usr/bin/jq -r '.logs[0].events[-1].attributes[0].value')
   echo "Contract code is $CONTRACT_CODE"
 fi
 
-OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[], "uusd_fee_debt": "0"}')
+# only $0.05 debt for test
+OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[], "uusd_fee_debt": "5000"}')
 # test instantiate with just 1 address
 RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
 error_check "$RES" "Failed to instantiate contract"

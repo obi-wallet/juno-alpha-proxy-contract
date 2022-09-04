@@ -10,10 +10,12 @@ use cw2::set_contract_version;
 use cw20::Cw20ExecuteMsg;
 
 use crate::error::ContractError;
+use crate::helpers::get_current_price;
 use crate::msg::{
     AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use crate::state::{HotWallet, State, STATE};
+use crate::USDC;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -35,19 +37,11 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let valid_admin: String = deps.api.addr_validate(&msg.admin)?.to_string();
-    #[cfg(not(test))]
     let cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
         uusd_fee_debt: msg.uusd_fee_debt,
-    };
-    #[cfg(test)]
-    let cfg = State {
-        admin: valid_admin.clone(),
-        pending: valid_admin,
-        hot_wallets: msg.hot_wallets,
-        uusd_fee_debt: Uint128::from(0u128),
     };
     STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
@@ -97,7 +91,9 @@ pub fn execute_execute(
             .add_attribute("action", "execute_execute");
         Ok(res)
     } else {
-        // otherwise, we need to do some checking
+        // otherwise, we need to do some checking. Note that attaching
+        // fee repayment is handled in the try_bank_send and (todo)
+        // the try_wasm_send functions
         let mut core_payload = CorePayload {
             cfg: cfg.clone(),
             info: info.clone(),
@@ -116,7 +112,6 @@ pub fn execute_execute(
                         .add_attribute("action", "execute_spend_limit");
                 }
                 // otherwise it must be a bank transfer
-                // also, we will repay the debt if exists
                 CosmosMsg::Bank(bank) => {
                     res = res.add_attribute("action", "execute_spend_limit");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
@@ -193,20 +188,29 @@ fn try_wasm_send(
     }
 }
 
-fn check_and_repay_debt(deps: &mut DepsMut) -> Result<Option<BankMsg>, ContractError> {
+fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMsg>, ContractError> {
     let state: State = STATE.load(deps.storage)?;
     if state.uusd_fee_debt > Uint128::from(0u128) {
         println!(
-            "Repaying juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 the amount of {:?},",
+            "Repaying juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 the USD amount of {:?},",
             state.uusd_fee_debt
         );
+        let payment_coin = match &*asset.denom {
+            USDC => Coin {
+                amount: state.uusd_fee_debt,
+                denom: asset.denom,
+            },
+            "ujuno" | "ujunox" | "testtokens" => Coin {
+                amount: get_current_price(deps.as_ref(), USDC.to_string(), state.uusd_fee_debt)?
+                    / get_current_price(deps.as_ref(), asset.denom.clone(), Uint128::from(1u128))?,
+                denom: asset.denom,
+            },
+            _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
+        };
+        println!("which converts to {:?}", payment_coin);
         Ok(Some(BankMsg::Send {
             to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
-            amount: vec![Coin {
-                amount: state.uusd_fee_debt,
-                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                    .to_string(),
-            }],
+            amount: vec![payment_coin],
         }))
     } else {
         Ok(None)
@@ -223,7 +227,7 @@ fn try_bank_send(
             to_address: _,
             amount,
         } => {
-            let attach_repay_msg = check_and_repay_debt(deps)?;
+            let attach_repay_msg = check_and_repay_debt(deps, amount[0].clone())?;
             let res = check_and_spend(deps, core_payload, amount.clone())?;
             match attach_repay_msg {
                 None => Ok(res),

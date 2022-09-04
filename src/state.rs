@@ -78,87 +78,93 @@ impl State {
         addr: String,
         spend: Vec<Coin>,
     ) -> Result<bool, ContractError> {
-        let addr = &addr;
-        let this_wallet_index = self.hot_wallets.iter().position(|a| &a.address == addr);
-        let index = match this_wallet_index {
-            Some(index) => index,
-            None => {
-                return Err(ContractError::HotWalletDoesNotExist {});
-            }
-        };
-        let wallet_config = self.hot_wallets[index].clone();
-        let mut new_wallet_configs = self.hot_wallets.clone();
-        // check if we should reset to full spend limit again
-        // (i.e. reset time has passed)
-        if current_time.seconds() > wallet_config.current_period_reset {
-            // get a current NaiveDateTime so we can easily find the next
-            // reset threshold
-            let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
-            // how far ahead we set new current_period_reset to
-            // depends on the spend limit period (type and multiple)
-            let new_dt: Result<NaiveDateTime, ContractError> = match wallet_config.period_type {
-                PeriodType::DAYS => {
-                    let working_dt = new_dt.checked_add_signed(chrono::Duration::days(
-                        wallet_config.period_multiple as i64,
-                    ));
-                    match working_dt {
-                        Some(dt) => Ok(dt),
-                        None => {
-                            return Err(ContractError::DayUpdateError {});
-                        }
-                    }
-                }
-                PeriodType::MONTHS => {
-                    let working_month = new_dt.month() as u16 + wallet_config.period_multiple;
-                    match working_month {
-                        2..=12 => Ok(NaiveDate::from_ymd(new_dt.year(), working_month as u32, 1)
-                            .and_hms(0, 0, 0)),
-                        13..=268 => {
-                            let year_increment: i32 = (working_month / 12u16) as i32;
-                            Ok(NaiveDate::from_ymd(
-                                new_dt.year() + year_increment,
-                                working_month as u32 % 12,
-                                1,
-                            )
-                            .and_hms(0, 0, 0))
-                        }
-                        _ => Err(ContractError::MonthUpdateError {}),
-                    }
+        if self.is_admin(addr.clone()) {
+            Ok(true)
+        } else {
+            let addr = &addr;
+            let this_wallet_index = self.hot_wallets.iter().position(|a| &a.address == addr);
+            let index = match this_wallet_index {
+                Some(index) => index,
+                None => {
+                    return Err(ContractError::HotWalletDoesNotExist {});
                 }
             };
-            match new_dt {
-                Ok(dt) => {
-                    let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
-                    for n in spend {
-                        self.check_spend_against_limit(
-                            deps,
-                            CheckType::TotalLimit,
-                            &mut new_spend_limits,
-                            n.clone(),
-                            new_wallet_configs[index].usdc_denom.clone(),
-                        )?;
+            let wallet_config = self.hot_wallets[index].clone();
+            let mut new_wallet_configs = self.hot_wallets.clone();
+            // check if we should reset to full spend limit again
+            // (i.e. reset time has passed)
+            if current_time.seconds() > wallet_config.current_period_reset {
+                // get a current NaiveDateTime so we can easily find the next
+                // reset threshold
+                let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
+                // how far ahead we set new current_period_reset to
+                // depends on the spend limit period (type and multiple)
+                let new_dt: Result<NaiveDateTime, ContractError> = match wallet_config.period_type {
+                    PeriodType::DAYS => {
+                        let working_dt = new_dt.checked_add_signed(chrono::Duration::days(
+                            wallet_config.period_multiple as i64,
+                        ));
+                        match working_dt {
+                            Some(dt) => Ok(dt),
+                            None => {
+                                return Err(ContractError::DayUpdateError {});
+                            }
+                        }
                     }
-                    new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
-                    new_wallet_configs[index].spend_limits = new_spend_limits;
-                    self.hot_wallets = new_wallet_configs;
-                    Ok(true)
+                    PeriodType::MONTHS => {
+                        let working_month = new_dt.month() as u16 + wallet_config.period_multiple;
+                        match working_month {
+                            2..=12 => {
+                                Ok(NaiveDate::from_ymd(new_dt.year(), working_month as u32, 1)
+                                    .and_hms(0, 0, 0))
+                            }
+                            13..=268 => {
+                                let year_increment: i32 = (working_month / 12u16) as i32;
+                                Ok(NaiveDate::from_ymd(
+                                    new_dt.year() + year_increment,
+                                    working_month as u32 % 12,
+                                    1,
+                                )
+                                .and_hms(0, 0, 0))
+                            }
+                            _ => Err(ContractError::MonthUpdateError {}),
+                        }
+                    }
+                };
+                match new_dt {
+                    Ok(dt) => {
+                        let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
+                        for n in spend {
+                            self.check_spend_against_limit(
+                                deps,
+                                CheckType::TotalLimit,
+                                &mut new_spend_limits,
+                                n.clone(),
+                                new_wallet_configs[index].usdc_denom.clone(),
+                            )?;
+                        }
+                        new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
+                        new_wallet_configs[index].spend_limits = new_spend_limits;
+                        self.hot_wallets = new_wallet_configs;
+                        Ok(true)
+                    }
+                    Err(e) => Err(e),
                 }
-                Err(e) => Err(e),
+            } else {
+                let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
+                for n in spend {
+                    self.check_spend_against_limit(
+                        deps,
+                        CheckType::RemainingLimit,
+                        &mut new_spend_limits,
+                        n.clone(),
+                        new_wallet_configs[index].usdc_denom.clone(),
+                    )?;
+                }
+                new_wallet_configs[index].spend_limits = new_spend_limits;
+                self.hot_wallets = new_wallet_configs;
+                Ok(true)
             }
-        } else {
-            let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
-            for n in spend {
-                self.check_spend_against_limit(
-                    deps,
-                    CheckType::RemainingLimit,
-                    &mut new_spend_limits,
-                    n.clone(),
-                    new_wallet_configs[index].usdc_denom.clone(),
-                )?;
-            }
-            new_wallet_configs[index].spend_limits = new_spend_limits;
-            self.hot_wallets = new_wallet_configs;
-            Ok(true)
         }
     }
 

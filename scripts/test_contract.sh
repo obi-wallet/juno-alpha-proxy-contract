@@ -21,18 +21,31 @@ RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 20000
 error_check "$RES" "Multisig funding failed"
 echo $RES > latest_run_log.txt
 
+# this is the address that will receive the "fee repay"
+BALANCE_1=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
+echo "Balance of fee repay receipt wallet is $BALANCE_1"
+
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 10s && echo " Done."
-echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed...${NC}"
-EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "40000"}]}}}]}}')
+echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed, with fee repaid...${NC}"
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "30000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Admin unable to send funds"
 echo $RES > latest_run_log.txt
 
-echo -n "Waiting to avoid sequence mismatch error..."
+echo -n "Waiting to avoid sequence mismatch error and to update nodes..."
 /usr/bin/sleep 10s && echo " Done."
+
+BALANCE_2=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+error_check BALANCE_2 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
+if [[ "$BALANCE_1" == "$BALANCE_2" ]]
+then
+  echo "Uhoh, it seems fees owed were not repaid"
+  exit 1
+fi
 
 echo -e "${LBLUE}TX 1a... try to remove hot wallet in case a previous run terminated early.${NC}"
 echo "Should fail in other cases."
