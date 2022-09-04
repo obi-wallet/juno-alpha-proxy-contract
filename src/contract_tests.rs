@@ -362,23 +362,28 @@ mod tests {
 
         // under test conditions, "testtokens" are worth 100 USDC each
         // so this $1 debt is covered with 0.01 testtokens appended to first send out
-
-        let msgs = vec![BankMsg::Send {
+        let msgs: Vec<CosmosMsg> = vec![CosmosMsg::Bank(BankMsg::Send {
             to_address: RECEIVER.to_string(),
             amount: coins(10000, "testtokens"),
-        }
-        .into()];
-        let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
+        })];
+        let test_msgs: Vec<CosmosMsg> = vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(10000, "testtokens"),
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
+                amount: coins(1, "testtokens"),
+            }),
+        ];
+        let execute_msg = ExecuteMsg::Execute { msgs };
 
         let info = mock_info(ADMIN, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
-        // this old assert shouldn't work since there are more messages
-        println!("res messages: {:?}", res.messages);
         assert_eq!(
             res.messages,
-            msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
+            test_msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
         );
-        assert_eq!(res.attributes, [("action", "execute_execute")]);
     }
 
     fn instantiate_contract(

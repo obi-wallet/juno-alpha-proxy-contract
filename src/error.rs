@@ -55,6 +55,9 @@ pub enum ContractError {
     #[error("Caller is not pending new admin. Propose new admin first.")]
     CallerIsNotPendingNewAdmin {},
 
-    #[error("Unable to get current asset price to check spend limit for asset {0}. If this transaction is urgent, use your multisig to sign.")]
+    #[error("Unable to get current asset price to check spend limit for asset . If this transaction is urgent, use your multisig to sign.")]
     PriceCheckFailed(String),
+
+    #[error("Please repay your fee debt (USD {0}) before sending funds.")]
+    RepayFeesFirst(u128),
 }
