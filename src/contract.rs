@@ -121,6 +121,10 @@ pub fn execute_execute(
                     res = res.add_attribute("action", "execute_spend_limit");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
                     res = res.add_message(partial_res.messages[0].msg.clone());
+                    match check_and_repay_debt(deps)? {
+                        Some(debt_msg) => { res = res.add_message(debt_msg); },
+                        None => {}
+                    };
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
