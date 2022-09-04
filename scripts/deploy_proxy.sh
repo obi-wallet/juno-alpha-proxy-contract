@@ -125,7 +125,7 @@ then
   echo "Contract code is $CONTRACT_CODE"
 fi
 
-OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[]}')
+OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 '{"admin":$msigaddy,"hot_wallets":[], "usd_fee_debt": "0"}')
 # test instantiate with just 1 address
 RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
 error_check "$RES" "Failed to instantiate contract"
