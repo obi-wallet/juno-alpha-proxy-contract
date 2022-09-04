@@ -273,13 +273,7 @@ mod tests {
                 usdc_denom: Some("true".to_string()),
             },
         };
-        let _res = execute(
-            deps.as_mut(),
-            current_env.clone(),
-            info,
-            execute_msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), current_env.clone(), info, execute_msg).unwrap();
         let res = query_hot_wallets(deps.as_ref()).unwrap();
         assert!(res.hot_wallets.len() == 2);
 
@@ -348,13 +342,8 @@ mod tests {
             amount: coins(1u128, "testtokens"), // -1 left
         });
         let info = mock_info(HOT_USDC_WALLET, &[]);
-        let _res = execute_execute(
-            &mut deps.as_mut(),
-            current_env,
-            info,
-            vec![send_msg],
-        )
-        .unwrap_err();
+        let _res =
+            execute_execute(&mut deps.as_mut(), current_env, info, vec![send_msg]).unwrap_err();
     }
 
     #[test]
@@ -412,7 +401,7 @@ mod tests {
                 }],
                 usdc_denom: Some("true".to_string()),
             }],
-            usd_fee_debt: starting_debt.amount,
+            uusd_fee_debt: starting_debt.amount,
         };
         let info = mock_info(ADMIN, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();

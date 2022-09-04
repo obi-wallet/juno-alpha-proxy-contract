@@ -41,12 +41,12 @@ pub struct HotWallet {
     pub usdc_denom: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, Default)]
 pub struct State {
     pub admin: String,
     pub pending: String,
     pub hot_wallets: Vec<HotWallet>,
-    pub debt: Coin, // waiting to pay back fees
+    pub uusd_fee_debt: Uint128, // waiting to pay back fees
 }
 
 impl State {
@@ -194,12 +194,10 @@ impl State {
         usdc_denom: Option<String>,
     ) -> Result<(), ContractError> {
         let i = match usdc_denom.clone() {
-            Some(setting) if setting == *"true" => {
-                new_spend_limits.iter().position(|limit| {
-                    limit.denom
-                        == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                })
-            }
+            Some(setting) if setting == *"true" => new_spend_limits.iter().position(|limit| {
+                limit.denom
+                    == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+            }),
             _ => new_spend_limits
                 .iter()
                 .position(|limit| limit.denom == spend.denom),
@@ -255,11 +253,7 @@ mod tests {
             admin: admin.to_string(),
             pending: admin.to_string(),
             hot_wallets: vec![],
-            debt: Coin {
-                amount: Uint128::from(0u128),
-                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                    .to_string(),
-            },
+            uusd_fee_debt: Uint128::from(0u128),
         };
 
         assert!(config.is_admin(admin.to_string()));
@@ -308,11 +302,7 @@ mod tests {
                                                        // 100 JUNO, 100 axlUSDC, 9000 LOOP – but really only the USDC matters
                                                        // since usdc_denom is true
             }],
-            debt: Coin {
-                amount: Uint128::from(0u128),
-                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                    .to_string(),
-            },
+            uusd_fee_debt: Uint128::from(0u128),
         };
 
         assert!(config
@@ -422,11 +412,7 @@ mod tests {
                 ],
                 usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
             }],
-            debt: Coin {
-                amount: Uint128::from(0u128),
-                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                    .to_string(),
-            },
+            uusd_fee_debt: Uint128::from(0u128),
         };
 
         assert!(config

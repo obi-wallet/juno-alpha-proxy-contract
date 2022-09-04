@@ -40,20 +40,14 @@ pub fn instantiate(
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
-        debt: Coin {
-            denom: "ujuno".to_string(),
-            amount: Uint128::from(50_000u128),
-        },
+        uusd_fee_debt: msg.uusd_fee_debt,
     };
     #[cfg(test)]
     let cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
-        debt: Coin {
-            denom: "ujuno".to_string(),
-            amount: Uint128::from(0u128),
-        },
+        uusd_fee_debt: Uint128::from(0u128),
     };
     STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
@@ -96,7 +90,7 @@ pub fn execute_execute(
 ) -> Result<Response, ContractError> {
     let cfg = STATE.load(deps.storage)?;
     let mut res = Response::new();
-    if cfg.debt.amount == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
+    if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
         // if there is no debt AND user is admin, process immediately
         res = res
             .add_messages(msgs)
@@ -201,14 +195,18 @@ fn try_wasm_send(
 
 fn check_and_repay_debt(deps: &mut DepsMut) -> Result<Option<BankMsg>, ContractError> {
     let state: State = STATE.load(deps.storage)?;
-    if state.debt.amount > Uint128::from(0u128) {
+    if state.uusd_fee_debt > Uint128::from(0u128) {
         println!(
             "Repaying juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 the amount of {:?},",
-            state.debt
+            state.uusd_fee_debt
         );
         Ok(Some(BankMsg::Send {
             to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
-            amount: vec![state.debt],
+            amount: vec![Coin {
+                amount: state.uusd_fee_debt,
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_string(),
+            }],
         }))
     } else {
         Ok(None)

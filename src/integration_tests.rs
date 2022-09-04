@@ -60,7 +60,7 @@ impl Suite {
                 &InstantiateMsg {
                     admin,
                     hot_wallets,
-                    usd_fee_debt: Uint128::from(0u128),
+                    uusd_fee_debt: Uint128::from(0u128),
                 },
                 &[],
                 "Whitelist",
