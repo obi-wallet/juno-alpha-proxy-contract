@@ -129,7 +129,7 @@ fi
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
   # uncomment below if contract code has changed
-  RES=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block --output text /usr/bin/jq -r | '.logs[0].events[-1].attributes[0].value')
+  # RES=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block --output text /usr/bin/jq -r | '.logs[0].events[-1].attributes[0].value')
   echo "Contract code is $CONTRACT_CODE"
 fi
 
