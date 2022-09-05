@@ -131,7 +131,7 @@ then
   # uncomment below if contract code has changed
   RES=$($BINARY tx wasm store "./artifacts/obi_proxy_contract.wasm" $KR -y --from $WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --broadcast-mode block --output json 2>&1)
   error_check "$RES" "Failed to store code"
-  CONTRACT_CODE = $(echo "$RES" > /usr/bin/jq -r '.logs[0].events[-1].attributes[0].value')
+  CONTRACT_CODE = $(/usr/bin/jq -r '.logs[0].events[-1].attributes[0].value' <<< "$RES")
   echo "Contract code is $CONTRACT_CODE"
 fi
 
