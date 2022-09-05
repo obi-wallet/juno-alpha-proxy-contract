@@ -28,7 +28,7 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
         }
         "juno-1" => {
             match &asset[..] {
-                "ujunox" => Ok(
+                "ujuno" => Ok(
                     "juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07".to_owned(),
                 ),
                 "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" => Ok(
@@ -80,7 +80,7 @@ pub fn get_current_price(
     match query_response {
         Ok(res) => Ok(res.return_amount + res.commission_amount),
         Err(e) => Err(ContractError::PriceCheckFailed(
-            format!("{:?}", query_msg),
+            format!("{:?}", to_binary(&query_msg)?),
             e.to_string(),
         )),
     }

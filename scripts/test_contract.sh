@@ -100,7 +100,7 @@ echo -n "Waiting for nodes to update..."
 echo -n -e "${LBLUE}TX 6) Removed hot wallet tries to spend. Should fail - with error that it is not a hot wallet at all...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 # once again, seems error is flipped here...
-error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit" "This address is not authorized as a spend limit Hot Wallet"
+error_check "$RES" "Failed as expected, but with unexpected error" "This address is not authorized as a spend limit Hot Wallet" "You cannot spend more than your available spend limit"
 
 # add the wallet again, this time with a higher limit
 # we'll do just ten blocks (60 seconds) so we can wait for limit to reset
