@@ -66,10 +66,10 @@ pub fn get_current_price(
     let cfg = STATE.load(deps.storage)?;
     let query_msg: DexQueryMsg = DexQueryMsg::Simulation(SimulationMsg {
         offer_asset: Asset {
+            amount,
             info: AssetInfo::NativeToken {
                 denom: asset.clone(),
             },
-            amount,
         },
     }); // no cw20 support yet (expect for the base asset)
     let query_response: Result<SimulationResponse, StdError> =
