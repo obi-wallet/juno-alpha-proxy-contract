@@ -2,11 +2,12 @@
 
 DUMMYPRICECONTRACT="juno1dmwfwqvke4hew5s93ut8h4tgu6sxv67zjw0y3hskgkfpy3utnpvseqyjs7"
 BINARY="./junod"
-DENOM='ujunox'
-CHAIN_ID='uni-3'
-RPC='https://rpc.uni.juno.deuslabs.fi:443'
+# These should be provided by environment
+# DENOM='ujunox'
+# CHAIN_ID='uni-3'
+# RPC='https://rpc.uni.juno.deuslabs.fi:443'
 GAS1=--gas=auto
-GAS2=--gas-prices=0.025ujunox
+GAS2="--gas-prices=0.025$DENOM"
 GAS3=--gas-adjustment=1.3
 KR=--keyring-backend=test
 RED='\033[0;31m'

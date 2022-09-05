@@ -16,20 +16,19 @@ echo "╚██████╔╝██████╔╝██║"
 echo " ╚═════╝ ╚═════╝ ╚═╝"
 echo ""
 echo -e "${YELLOW}Single Signer Proxy Wallet Contract Tests${NC}"
-echo -n -e "${LBLUE}Funding the multisig...${NC}"
+echo -n -e "${LBLUE}Funding the contract...${NC}"
 RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
-error_check "$RES" "Multisig funding failed"
+error_check "$RES" "Contract funding failed"
 echo $RES > latest_run_log.txt
 
 # this is the address that will receive the "fee repay"
 BALANCE_1=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
-echo "Balance of fee repay receipt wallet is $BALANCE_1"
 
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed, with fee repaid...${NC}"
 EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "30000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
@@ -37,8 +36,9 @@ error_check "$RES" "Admin unable to send funds"
 echo $RES > latest_run_log.txt
 
 echo -n "Waiting to avoid sequence mismatch error and to update nodes..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
+echo -n "Checking that fees were repaid..."
 BALANCE_2=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 error_check BALANCE_2 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
 if [[ "$BALANCE_1" == "$BALANCE_2" ]]
@@ -46,6 +46,7 @@ then
   echo "Uhoh, it seems fees owed were not repaid"
   exit 1
 fi
+ echo " Done."
 
 echo -e "${LBLUE}TX 1a... try to remove hot wallet in case a previous run terminated early.${NC}"
 echo "Should fail in other cases."
@@ -54,7 +55,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --f
 echo $RES > latest_run_log.txt
 
 echo -n "Waiting for nodes to update..."
-/usr/bin/sleep 5s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 # Now try to run with some other (unauthorized) wallet
 echo -n -e "${LBLUE}TX 2) Unauthorized user sends the contract's funds. Should fail...${NC}"
@@ -63,7 +64,7 @@ error_check "$RES" "Admin unable to send funds" "This address is not authorized 
 echo $RES > latest_run_log.txt
 
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 # Add that other wallet as hot wallet for an hour
 SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
@@ -84,7 +85,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_
 error_check "$RES" "Failed as expected, but with unexpected error" "This address is not authorized as a spend limit Hot Wallet"
 
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 # RM the new hot wallet (we'll add it back with higher spend limit)
 echo -n -e "${LBLUE}TX 5) Admin removes the hot wallet. Should succeed...${NC}"
@@ -93,18 +94,18 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --f
 error_check "$RES" "Failed to remove hot wallet"
 
 echo -n "Waiting for nodes to update..."
-/usr/bin/sleep 5s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 # error should once again read that this wallet doesn't have any hot wallet privs
 echo -n -e "${LBLUE}TX 6) Removed hot wallet tries to spend. Should fail - with error that it is not a hot wallet at all...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 # once again, seems error is flipped here...
-error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit" "This address is not authorized as a spend limit Hot Wallet"
+error_check "$RES" "Failed as expected, but with unexpected error" "This address is not authorized as a spend limit Hot Wallet" "You cannot spend more than your available spend limit"
 
 # add the wallet again, this time with a higher limit
 # we'll do just ten blocks (60 seconds) so we can wait for limit to reset
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 7) Admin adds the hot wallet back, with a higher limit. Should succeed...${NC}"
 SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+60
@@ -115,13 +116,24 @@ error_check "$RES" "Failed to re-add hot wallet"
 
 # we can send the 40000
 echo -n "Waiting for nodes to update..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 8) Hot wallet spends most of its limit. Should succeed...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend with hot wallet"
 # but then we cannot do it again since limit hasn't reset yet
-echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 10s && echo " Done."
+echo -n "Waiting to avoid sequence mismatch error and update nodes..."
+/usr/bin/sleep 15s && echo " Done."
+
+echo -n "Checking to make sure that fees are not being redundantly repaid..."
+BALANCE_3=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+error_check BALANCE_3 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
+if [[ "$BALANCE_3" != "$BALANCE_2" ]]
+then
+  echo "Uhoh, looks like fees are still being repaid even though they shouldn't be"
+  exit 1
+fi
+echo " Done."
+
 echo -n -e "${LBLUE}TX 9) Hot wallet tries to spend the same again. Should fail...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit"
@@ -141,7 +153,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$RM_HOT_WALLET_ARGS" $KR -y --f
 error_check "$RES" "Failed to remove hot wallet"
 
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 echo -n -e "${LBLUE}TX 12) Admin adds the hot wallet back, with a USDC-denominated limit. Should succeed...${NC}"
 SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
@@ -152,7 +164,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y
 error_check "$RES" "Failed to re-add hot wallet"
 
 echo -n "Waiting for nodes to update..."
-/usr/bin/sleep 10s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 # this spend should succeed
 # tho it might fail if JUNO really skyrockets in value...
@@ -167,7 +179,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$B
 error_check "$RES" "Failed to spend with hot wallet limited in USDC"
 
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 7s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 echo -n -e "${LBLUE}TX 14) Second spend should fail as we've used most of our spend limit${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
