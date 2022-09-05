@@ -74,6 +74,7 @@ else
 fi
 
 if [[ $AUTOYES == 0 ]]
+then
   MSIGADDY=$(/usr/bin/grep -o '\bjuno\w*' ./current_msig.txt)
   echo "Multisig address is $MSIGADDY. Stored in ./current_msig.txt"
   echo ""
