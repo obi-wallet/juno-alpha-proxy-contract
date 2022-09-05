@@ -32,7 +32,7 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
                     "juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07".to_owned(),
                 ),
                 "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" => Ok(
-                    "juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q4".to_owned(),
+                    "juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q".to_owned(),
                 ),
                 _ => {
                     // this should probably fail quietly – if we're dealing with an entirely unknown asset,

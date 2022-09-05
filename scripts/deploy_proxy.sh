@@ -155,8 +155,8 @@ error_check "$RES" "Failed to instantiate contract"
 
 # get contract addr
 echo ""
-echo -n "Waiting 6 seconds for nodes to update... "
-/usr/bin/sleep 6s && echo " Done."
+echo -n "Waiting 10 seconds for nodes to update... "
+/usr/bin/sleep 10s && echo " Done."
 CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code --node=$RPC --chain-id=$CHAIN_ID $CONTRACT_CODE --output json | /usr/bin/jq -r '.contracts[-1]' 2>&1)
 error_check $CONTRACT_ADDRESS "Failed to get contract address"
 echo "Contract instantiated to $CONTRACT_ADDRESS."
