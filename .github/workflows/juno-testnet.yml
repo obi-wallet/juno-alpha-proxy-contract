@@ -66,3 +66,4 @@ jobs:
           DENOM: ${{ secrets.DENOM }}
           CHAIN_ID: ${{ secrets.CHAIN_ID }}
           RPC: ${{ secrets.RPC }}
+          CONTRACT_CODE: ${{ secrets.CONTRACT_CODE }}
