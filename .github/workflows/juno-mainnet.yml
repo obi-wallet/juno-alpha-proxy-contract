@@ -5,9 +5,9 @@ on:
 
 jobs:
   deploy:
-    name: Build & Test on Testnet
+    name: Build & Test on Mainnet
     runs-on: ubuntu-latest
-    environment: UniTests
+    environment: Juno1
     steps:
       - name: Install first
         run: sudo apt-get install grep jq chrony ca-certificates curl gnupg lsb-release expect -y
