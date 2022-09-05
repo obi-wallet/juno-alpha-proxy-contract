@@ -24,7 +24,6 @@ echo $RES > latest_run_log.txt
 # this is the address that will receive the "fee repay"
 BALANCE_1=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
-echo "Balance of fee repay receipt wallet is $BALANCE_1"
 
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
@@ -39,6 +38,7 @@ echo $RES > latest_run_log.txt
 echo -n "Waiting to avoid sequence mismatch error and to update nodes..."
 /usr/bin/sleep 10s && echo " Done."
 
+echo -n "Checking that fees were repaid..."
 BALANCE_2=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 error_check BALANCE_2 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
 if [[ "$BALANCE_1" == "$BALANCE_2" ]]
@@ -46,6 +46,7 @@ then
   echo "Uhoh, it seems fees owed were not repaid"
   exit 1
 fi
+ echo " Done."
 
 echo -e "${LBLUE}TX 1a... try to remove hot wallet in case a previous run terminated early.${NC}"
 echo "Should fail in other cases."
@@ -123,14 +124,15 @@ error_check "$RES" "Failed to spend with hot wallet"
 echo -n "Waiting to avoid sequence mismatch error and update nodes..."
 /usr/bin/sleep 10s && echo " Done."
 
-echo -n "Checking to make sure that fees are not being repaid now..."
-BALANCE_2=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
-error_check BALANCE_2 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
-if [[ "$BALANCE_1" != "$BALANCE_2" ]]
+echo -n "Checking to make sure that fees are not being redundantly repaid..."
+BALANCE_3=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+error_check BALANCE_3 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
+if [[ "$BALANCE_3" != "$BALANCE_2" ]]
 then
   echo "Uhoh, looks like fees are still being repaid even though they shouldn't be"
   exit 1
 fi
+echo " Done."
 
 echo -n -e "${LBLUE}TX 9) Hot wallet tries to spend the same again. Should fail...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
