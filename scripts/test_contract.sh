@@ -179,7 +179,7 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$B
 error_check "$RES" "Failed to spend with hot wallet limited in USDC"
 
 echo -n "Waiting to avoid sequence mismatch error..."
-/usr/bin/sleep 7s && echo " Done."
+/usr/bin/sleep 15s && echo " Done."
 
 echo -n -e "${LBLUE}TX 14) Second spend should fail as we've used most of our spend limit${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
