@@ -80,7 +80,7 @@ pub fn get_current_price(
     match query_response {
         Ok(res) => Ok(res.return_amount + res.commission_amount),
         Err(e) => Err(ContractError::PriceCheckFailed(
-            format!("{:?}", query_msg),
+            format!("{:?}", to_binary(&query_msg)?),
             e.to_string(),
         )),
     }
