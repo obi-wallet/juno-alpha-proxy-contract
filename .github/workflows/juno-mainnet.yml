@@ -1,13 +1,13 @@
 on:
   push:
     branches:
-      - main
+      - develop-main
 
 jobs:
   deploy:
-    name: Build & Test on Testnet
+    name: Build & Test on Mainnet
     runs-on: ubuntu-latest
-    environment: UniTests
+    environment: Juno1
     steps:
       - name: Install first
         run: sudo apt-get install grep jq chrony ca-certificates curl gnupg lsb-release expect -y
@@ -63,6 +63,7 @@ jobs:
           GO111MODULE: "on"
           PATH: "$PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin"
           LD_LIBRARY_PATH: "/home/runner/go/pkg/mod/github.com/!cosm!wasm/wasmvm@v1.0.0/api"
-          DENOM: ${{ secrets.DENOM }}
-          CHAIN_ID: ${{ secrets.CHAIN_ID }}
-          RPC: ${{ secrets.RPC }}
+          DENOM: ${{ secrets.MAIN_DENOM }}
+          CHAIN_ID: ${{ secrets.MAIN_CHAIN_ID }}
+          RPC: ${{ secrets.MAIN_RPC }}
+          CONTRACT_CODE: ${{ secrets.MAIN_CONTRACT_CODE }}

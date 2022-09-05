@@ -207,7 +207,9 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
                         USDC.to_string(),
                         Uint128::from(1000000u128),
                     )?)
-                    .map_err(|_| ContractError::PriceCheckFailed(asset.denom.clone()))?
+                    .map_err(|e| {
+                        ContractError::PriceCheckFailed(asset.denom.clone(), e.to_string())
+                    })?
                     .checked_div(get_current_price(
                         deps.as_ref(),
                         asset.denom.clone(),
@@ -215,8 +217,8 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
                     )?);
                 let checked_amount = match this_amount {
                     Ok(amt) => amt,
-                    Err(_) => {
-                        return Err(ContractError::PriceCheckFailed(asset.denom));
+                    Err(e) => {
+                        return Err(ContractError::PriceCheckFailed(asset.denom, e.to_string()));
                     }
                 };
                 Coin {
