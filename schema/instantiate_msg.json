@@ -4,11 +4,19 @@
   "type": "object",
   "required": [
     "admin",
+    "fee_lend_repay_wallet",
+    "home_network",
     "hot_wallets",
     "uusd_fee_debt"
   ],
   "properties": {
     "admin": {
+      "type": "string"
+    },
+    "fee_lend_repay_wallet": {
+      "type": "string"
+    },
+    "home_network": {
       "type": "string"
     },
     "hot_wallets": {

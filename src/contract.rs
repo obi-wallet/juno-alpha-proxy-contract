@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
+    from_binary, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
     MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
@@ -22,7 +22,6 @@ const CONTRACT_NAME: &str = "obi-proxy-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 struct CorePayload {
-    cfg: State,
     info: MessageInfo,
     this_msg: CosmosMsg,
     current_time: Timestamp,
@@ -36,12 +35,15 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let valid_admin: String = deps.api.addr_validate(&msg.admin)?.to_string();
+    let valid_admin: Addr = deps.api.addr_validate(&msg.admin)?;
+    let valid_repay_wallet: Addr = deps.api.addr_validate(&msg.fee_lend_repay_wallet)?;
     let cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
         uusd_fee_debt: msg.uusd_fee_debt,
+        fee_lend_repay_wallet: valid_repay_wallet,
+        home_network: msg.home_network,
     };
     STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
@@ -95,7 +97,6 @@ pub fn execute_execute(
         // fee repayment is handled in the try_bank_send and (todo)
         // the try_wasm_send functions
         let mut core_payload = CorePayload {
-            cfg: cfg.clone(),
             info: info.clone(),
             this_msg: CosmosMsg::Custom(Empty {}),
             current_time: env.block.time,
@@ -192,11 +193,7 @@ fn try_wasm_send(
 
 fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMsg>, ContractError> {
     let state: State = STATE.load(deps.storage)?;
-    if state.uusd_fee_debt > Uint128::from(0u128) {
-        println!(
-            "Repaying juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 the USD amount of {:?},",
-            state.uusd_fee_debt
-        );
+    if state.uusd_fee_debt.u128() > 0u128 {
         let payment_coin = match &*asset.denom {
             USDC => Coin {
                 amount: state.uusd_fee_debt,
@@ -229,12 +226,11 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
             }
             _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
         };
-        println!("which converts to {:?}", payment_coin);
-        let mut new_state = state;
+        let mut new_state = state.clone();
         new_state.uusd_fee_debt = Uint128::from(0u128);
         STATE.save(deps.storage, &new_state)?;
         Ok(Some(BankMsg::Send {
-            to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
+            to_address: state.fee_lend_repay_wallet.to_string(),
             amount: vec![payment_coin],
         }))
     } else {
@@ -273,7 +269,8 @@ fn check_and_spend(
     core_payload: &mut CorePayload,
     spend: Vec<Coin>,
 ) -> Result<Response, ContractError> {
-    core_payload.cfg.can_spend(
+    let mut cfg = STATE.load(deps.storage)?;
+    cfg.can_spend(
         deps.as_ref(),
         core_payload.current_time,
         core_payload.info.sender.to_string(),
@@ -282,7 +279,7 @@ fn check_and_spend(
     let res = Response::new()
         .add_messages(vec![core_payload.this_msg.clone()])
         .add_attribute("action", "execute");
-    STATE.save(deps.storage, &core_payload.cfg)?;
+    STATE.save(deps.storage, &cfg)?;
     Ok(res)
 }
 
@@ -341,7 +338,7 @@ pub fn propose_update_admin(
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
-        cfg.pending = deps.api.addr_validate(&new_admin)?.to_string();
+        cfg.pending = deps.api.addr_validate(&new_admin)?;
         STATE.save(deps.storage, &cfg)?;
 
         let res = Response::new().add_attribute("action", "propose_update_admin");
@@ -396,6 +393,7 @@ fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Admin {} => to_binary(&query_admin(deps)?),
+        QueryMsg::Pending {} => to_binary(&query_pending(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
     }
@@ -403,7 +401,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 pub fn query_admin(deps: Deps) -> StdResult<AdminResponse> {
     let cfg = STATE.load(deps.storage)?;
-    Ok(AdminResponse { admin: cfg.admin })
+    Ok(AdminResponse {
+        admin: cfg.admin.to_string(),
+    })
+}
+
+pub fn query_pending(deps: Deps) -> StdResult<AdminResponse> {
+    let cfg = STATE.load(deps.storage)?;
+    Ok(AdminResponse {
+        admin: cfg.pending.to_string(),
+    })
 }
 
 pub fn query_can_execute(

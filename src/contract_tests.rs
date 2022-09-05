@@ -372,17 +372,24 @@ mod tests {
                 amount: coins(10000, "testtokens"),
             }),
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8".to_string(),
+                to_address: "test_repay_address".to_string(),
                 amount: coins(10000, "testtokens"),
             }),
         ];
-        let execute_msg = ExecuteMsg::Execute { msgs };
+        let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
         let info = mock_info(ADMIN, &[]);
-        let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info.clone(), execute_msg.clone()).unwrap();
         assert_eq!(
             res.messages,
             test_msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
+        );
+
+        // now next identical send should not add the same fee repay message
+        let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
+        assert_eq!(
+            res.messages,
+            msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
         );
     }
 
@@ -407,6 +414,8 @@ mod tests {
                 usdc_denom: Some("true".to_string()),
             }],
             uusd_fee_debt: starting_debt.amount,
+            fee_lend_repay_wallet: "test_repay_address".to_string(),
+            home_network: "local".to_string(),
         };
         let info = mock_info(ADMIN, &[]);
         instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();

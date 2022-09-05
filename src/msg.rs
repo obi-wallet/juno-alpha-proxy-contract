@@ -10,6 +10,8 @@ pub struct InstantiateMsg {
     pub admin: String,
     pub hot_wallets: Vec<HotWallet>,
     pub uusd_fee_debt: Uint128,
+    pub fee_lend_repay_wallet: String,
+    pub home_network: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -37,8 +39,11 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    /// Shows all admins; always mutable
+    /// Shows admin; always mutable
     Admin {},
+    /// Shows pending admin (subject to becoming new admin when
+    /// ConfirmUpdateAdmin is called successfully)
+    Pending {},
     /// Checks permissions of the caller on this proxy.
     /// If CanExecute returns true then a call to `Execute` with the same message,
     /// before any further state changes, should also succeed.

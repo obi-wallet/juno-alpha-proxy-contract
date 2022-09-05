@@ -3,13 +3,26 @@
   "title": "QueryMsg",
   "oneOf": [
     {
-      "description": "Shows all admins; always mutable",
+      "description": "Shows admin; always mutable",
       "type": "object",
       "required": [
         "admin"
       ],
       "properties": {
         "admin": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Shows pending admin (subject to becoming new admin when ConfirmUpdateAdmin is called successfully)",
+      "type": "object",
+      "required": [
+        "pending"
+      ],
+      "properties": {
+        "pending": {
           "type": "object"
         }
       },

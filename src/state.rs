@@ -1,7 +1,7 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Coin, Deps, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Coin, Deps, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -41,12 +41,14 @@ pub struct HotWallet {
     pub usdc_denom: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct State {
-    pub admin: String,
-    pub pending: String,
+    pub admin: Addr,
+    pub pending: Addr,
     pub hot_wallets: Vec<HotWallet>,
     pub uusd_fee_debt: Uint128, // waiting to pay back fees
+    pub fee_lend_repay_wallet: Addr,
+    pub home_network: String,
 }
 
 impl State {
@@ -256,10 +258,12 @@ mod tests {
     fn is_admin() {
         let admin: &str = "bob";
         let config = State {
-            admin: admin.to_string(),
-            pending: admin.to_string(),
+            admin: Addr::unchecked(admin),
+            pending: Addr::unchecked(admin),
             hot_wallets: vec![],
             uusd_fee_debt: Uint128::from(0u128),
+            fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
+            home_network: "local".to_string(),
         };
 
         assert!(config.is_admin(admin.to_string()));
@@ -280,8 +284,8 @@ mod tests {
         now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
         // 3 day spend limit period
         let mut config = State {
-            admin: admin.to_string(),
-            pending: admin.to_string(),
+            admin: Addr::unchecked(admin),
+            pending: Addr::unchecked(admin),
             hot_wallets: vec![HotWallet {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
@@ -309,6 +313,8 @@ mod tests {
                                                        // since usdc_denom is true
             }],
             uusd_fee_debt: Uint128::from(0u128),
+            fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
+            home_network: "local".to_string(),
         };
 
         assert!(config
@@ -391,8 +397,8 @@ mod tests {
         // Let's do a 38 month spend limit period
         // and for kicks use a contract address for LOOP
         let mut config = State {
-            admin: admin.to_string(),
-            pending: admin.to_string(),
+            admin: Addr::unchecked(admin),
+            pending: Addr::unchecked(admin),
             hot_wallets: vec![HotWallet {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
@@ -419,6 +425,8 @@ mod tests {
                 usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
             }],
             uusd_fee_debt: Uint128::from(0u128),
+            fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
+            home_network: "local".to_string(),
         };
 
         assert!(config

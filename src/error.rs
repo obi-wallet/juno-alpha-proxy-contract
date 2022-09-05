@@ -60,4 +60,7 @@ pub enum ContractError {
 
     #[error("Please repay your fee debt (USD {0}) before sending funds.")]
     RepayFeesFirst(u128),
+
+    #[error("Spend limit and fee repay unsupported: Unknown home network")]
+    UnknownHomeNetwork(String),
 }

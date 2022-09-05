@@ -61,6 +61,8 @@ impl Suite {
                     admin,
                     hot_wallets,
                     uusd_fee_debt: Uint128::from(0u128),
+                    fee_lend_repay_wallet: "test_repay_address".to_string(),
+                    home_network: "local".to_string(),
                 },
                 &[],
                 "Whitelist",
