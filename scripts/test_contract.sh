@@ -120,8 +120,18 @@ echo -n -e "${LBLUE}TX 8) Hot wallet spends most of its limit. Should succeed...
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend with hot wallet"
 # but then we cannot do it again since limit hasn't reset yet
-echo -n "Waiting to avoid sequence mismatch error..."
+echo -n "Waiting to avoid sequence mismatch error and update nodes..."
 /usr/bin/sleep 10s && echo " Done."
+
+echo -n "Checking to make sure that fees are not being repaid now..."
+BALANCE_2=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+error_check BALANCE_2 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
+if [[ "$BALANCE_1" != "$BALANCE_2" ]]
+then
+  echo "Uhoh, looks like fees are still being repaid even though they shouldn't be"
+  exit 1
+fi
+
 echo -n -e "${LBLUE}TX 9) Hot wallet tries to spend the same again. Should fail...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit"
