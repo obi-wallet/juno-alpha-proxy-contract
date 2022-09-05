@@ -74,11 +74,14 @@ pub fn get_current_price(
     }); // no cw20 support yet (expect for the base asset)
     let query_response: Result<SimulationResponse, StdError> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: get_pair_contract(cfg.home_network, asset.clone())?,
+            contract_addr: get_pair_contract(cfg.home_network, asset)?,
             msg: to_binary(&query_msg)?,
         }));
     match query_response {
         Ok(res) => Ok(res.return_amount + res.commission_amount),
-        Err(_) => Err(ContractError::PriceCheckFailed(asset)),
+        Err(e) => Err(ContractError::PriceCheckFailed(
+            format!("{:?}", query_msg),
+            e.to_string(),
+        )),
     }
 }
