@@ -63,6 +63,6 @@ jobs:
           GO111MODULE: "on"
           PATH: "$PATH:/home/runner/goinstall/go/bin:/home/runner/go/bin"
           LD_LIBRARY_PATH: "/home/runner/go/pkg/mod/github.com/!cosm!wasm/wasmvm@v1.0.0/api"
-          DENOM: ${{ secrets.DENOM }}
-          CHAIN_ID: ${{ secrets.CHAIN_ID }}
-          RPC: ${{ secrets.RPC }}
+          DENOM: ${{ secrets.MAIN_DENOM }}
+          CHAIN_ID: ${{ secrets.MAIN_CHAIN_ID }}
+          RPC: ${{ secrets.MAIN_RPC }}
