@@ -13,7 +13,8 @@ echo -e "${YELLOW}Contract Optimization & Deployment Script${NC}"
 
 if [[ $AUTOYES == 1 ]]
 then
-  REPLY=y
+  # REPLY can be y here later... for now tests contract is using single signer admin for expediency
+  REPLY=n
 fi
 if [[ $AUTOYES == 0 ]]
 then
@@ -65,21 +66,26 @@ then
   echo -n "Creating new multisig..."
   $BINARY keys add $MSIG_WALLET_NAME $KR --multisig-threshold 2 --multisig $WALLET,$RAND1,$RAND2 > ./current_msig.txt
 else
-  MSIG2=$(/usr/bin/grep -o '\bjuno\w*' ./autokey1.txt)
-  MSIG3=$(/usr/bin/grep -o '\bjuno\w*' ./autokey2.txt)
+  if [[ $AUTOYES == 0 ]]
+  then
+    MSIG2=$(/usr/bin/grep -o '\bjuno\w*' ./autokey1.txt)
+    MSIG3=$(/usr/bin/grep -o '\bjuno\w*' ./autokey2.txt)
+  fi
 fi
 
-MSIGADDY=$(/usr/bin/grep -o '\bjuno\w*' ./current_msig.txt)
-echo "Multisig address is $MSIGADDY. Stored in ./current_msig.txt"
-echo ""
-echo -n "Waiting 6 seconds to avoid sequence mismatch..."
-/usr/bin/sleep 6s && echo " Done."
-# fund the multisig so it can deploy
-echo "Funding the multisig address itself..."
-RES=$($BINARY tx bank send $WALLET $MSIGADDY 500000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
-error_check "$RES" "Funding multisig address failed"
+if [[ $AUTOYES == 0 ]]
+  MSIGADDY=$(/usr/bin/grep -o '\bjuno\w*' ./current_msig.txt)
+  echo "Multisig address is $MSIGADDY. Stored in ./current_msig.txt"
+  echo ""
+  echo -n "Waiting 6 seconds to avoid sequence mismatch..."
+  /usr/bin/sleep 6s && echo " Done."
+  # fund the multisig so it can deploy
+  echo "Funding the multisig address itself..."
+  RES=$($BINARY tx bank send $WALLET $MSIGADDY 500000$DENOM $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC)
+  error_check "$RES" "Funding multisig address failed"
 
-echo "Using multisig address: $MSIGADDY. Address saved in ./current_msig.txt."
+  echo "Using multisig address: $MSIGADDY. Address saved in ./current_msig.txt."
+fi
 
 echo ""
 echo -n "Optimizing smart contract code..."
@@ -101,7 +107,7 @@ error_check BALANCE_1 "Failed to get balance for $MSIG1"
 echo "Pre-store balance for storer:"
 echo $BALANCE_1
 
-ADDRCHECK=$($BINARY keys show $MSIGADDY $KR --address 2>&1)
+ADDRCHECK=$($BINARY keys show $MSIG1 $KR --address 2>&1)
 error_check ADDRCHECK "Failed to verify address to instantiate contract"
 echo "Wallet to instantiate contract: $ADDRCHECK"
 echo "NOTE: for simplicity, the admin will just be a single signer for now."
@@ -127,7 +133,7 @@ then
 fi
 
 # only $0.05 debt for test
-OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 --arg chainid $CHAINID '{"admin":$msigaddy,"hot_wallets":[], "uusd_fee_debt": "5000", "fee_lend_repay_wallet": "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8", "home_network":$chainid}')
+OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 --arg chainid $CHAIN_ID '{"admin":$msigaddy,"hot_wallets":[], "uusd_fee_debt": "5000", "fee_lend_repay_wallet": "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8", "home_network":$chainid}')
 # test instantiate with just 1 address
 RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
 error_check "$RES" "Failed to instantiate contract"
