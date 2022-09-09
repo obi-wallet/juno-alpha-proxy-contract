@@ -1,10 +1,10 @@
 [package]
 name = "obi-proxy-contract"
-version = "0.2.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>","Peter Keay <pete@obi.money>"]
+version = "0.3.0"
+authors = ["Peter Keay <pete@obi.money>","Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
-description = "cw1 proxy contract with single admin and multiple spend limit wallets"
-license = "Apache-2.0"
+description = "cw1 proxy contract with single admin and multiple spend limit wallets. Fee lend and repay patent pending."
+license = "AGPL-3.0"
 repository = "https://github.com/obi-wallet/proxy_contract"
 homepage = "https://obi.money"
 documentation = "https://docs.cosmwasm.com"
