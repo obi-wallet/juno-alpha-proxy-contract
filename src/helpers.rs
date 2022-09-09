@@ -1,5 +1,9 @@
 use cosmwasm_std::{to_binary, Deps, QueryRequest, StdError, Uint128, WasmQuery};
 
+use crate::constants::{
+    JUNO1_JUNO_LOOP_PAIR_CONTRACT, JUNO1_USDC_LOOP_PAIR_CONTRACT, JUNO_AXLUSDC_IBC,
+    UNI3_LOOP_PAIR_DUMMY_CONTRACT,
+};
 use crate::{
     msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg, SimulationResponse},
     state::STATE,
@@ -12,12 +16,8 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
     match &*network {
         "uni-3" => {
             match &asset[..] {
-                "ujunox" => Ok(
-                    "juno1dmwfwqvke4hew5s93ut8h4tgu6sxv67zjw0y3hskgkfpy3utnpvseqyjs7".to_owned(),
-                ),
-                "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" => Ok(
-                    "juno1dmwfwqvke4hew5s93ut8h4tgu6sxv67zjw0y3hskgkfpy3utnpvseqyjs7".to_owned(),
-                ),
+                "ujunox" => Ok(UNI3_LOOP_PAIR_DUMMY_CONTRACT.to_owned()),
+                JUNO_AXLUSDC_IBC => Ok(UNI3_LOOP_PAIR_DUMMY_CONTRACT.to_owned()),
                 _ => {
                     // this should probably fail quietly – if we're dealing with an entirely unknown asset,
                     // transactions should go through by default if admin and fail if hot wallet
@@ -28,12 +28,8 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
         }
         "juno-1" => {
             match &asset[..] {
-                "ujuno" => Ok(
-                    "juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07".to_owned(),
-                ),
-                "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" => Ok(
-                    "juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q".to_owned(),
-                ),
+                "ujuno" => Ok(JUNO1_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
+                JUNO_AXLUSDC_IBC => Ok(JUNO1_USDC_LOOP_PAIR_CONTRACT.to_owned()),
                 _ => {
                     // this should probably fail quietly – if we're dealing with an entirely unknown asset,
                     // transactions should go through by default if admin and fail if hot wallet
