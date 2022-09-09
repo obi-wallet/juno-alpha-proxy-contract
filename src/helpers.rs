@@ -1,8 +1,8 @@
 use cosmwasm_std::{to_binary, Deps, QueryRequest, StdError, Uint128, WasmQuery};
 
 use crate::constants::{
-    JUNO1_JUNO_LOOP_PAIR_CONTRACT, JUNO1_USDC_LOOP_PAIR_CONTRACT, JUNO_AXLUSDC_IBC,
-    UNI3_LOOP_PAIR_DUMMY_CONTRACT,
+    MAINNET_AXLUSDC_IBC, MAINNET_ID, MAINNET_JUNO_LOOP_PAIR_CONTRACT,
+    MAINNET_USDC_LOOP_PAIR_CONTRACT, TESTNET_ID, TESTNET_LOOP_PAIR_DUMMY_CONTRACT,
 };
 use crate::{
     msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg, SimulationResponse},
@@ -13,11 +13,13 @@ use crate::{
 //TODO: make this correct in both environments
 fn get_pair_contract(network: String, asset: String) -> Result<String, ContractError> {
     // dummy contract on testnet
-    match &*network {
-        "uni-3" => {
+    match network.as_str() {
+        val if val == TESTNET_ID => {
             match &asset[..] {
-                "ujunox" => Ok(UNI3_LOOP_PAIR_DUMMY_CONTRACT.to_owned()),
-                JUNO_AXLUSDC_IBC => Ok(UNI3_LOOP_PAIR_DUMMY_CONTRACT.to_owned()),
+                "ujunox" => Ok(TESTNET_LOOP_PAIR_DUMMY_CONTRACT.to_owned()),
+                val if val == MAINNET_AXLUSDC_IBC => {
+                    Ok(TESTNET_LOOP_PAIR_DUMMY_CONTRACT.to_owned())
+                }
                 _ => {
                     // this should probably fail quietly – if we're dealing with an entirely unknown asset,
                     // transactions should go through by default if admin and fail if hot wallet
@@ -26,10 +28,10 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
                 }
             }
         }
-        "juno-1" => {
+        val if val == MAINNET_ID => {
             match &asset[..] {
-                "ujuno" => Ok(JUNO1_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
-                JUNO_AXLUSDC_IBC => Ok(JUNO1_USDC_LOOP_PAIR_CONTRACT.to_owned()),
+                "ujuno" => Ok(MAINNET_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
+                val if val == MAINNET_AXLUSDC_IBC => Ok(MAINNET_USDC_LOOP_PAIR_CONTRACT.to_owned()),
                 _ => {
                     // this should probably fail quietly – if we're dealing with an entirely unknown asset,
                     // transactions should go through by default if admin and fail if hot wallet

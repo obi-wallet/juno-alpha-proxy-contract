@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
-use crate::constants::JUNO_AXLUSDC_IBC;
+use crate::constants::MAINNET_AXLUSDC_IBC;
 #[allow(unused_imports)]
 use crate::helpers::get_current_price;
 use crate::ContractError;
@@ -175,16 +175,16 @@ impl State {
     fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<Coin, ContractError> {
         #[cfg(test)]
         return Ok(Coin {
-            denom: JUNO_AXLUSDC_IBC.to_string(),
+            denom: MAINNET_AXLUSDC_IBC.to_string(),
             amount: spend.amount.saturating_mul(Uint128::from(100u128)),
         });
         #[cfg(not(test))]
         Ok(Coin {
-            denom: JUNO_AXLUSDC_IBC.to_string(),
+            denom: MAINNET_AXLUSDC_IBC.to_string(),
             amount: get_current_price(deps, spend.denom, spend.amount)?
                 / get_current_price(
                     deps,
-                    JUNO_AXLUSDC_IBC.to_string(),
+                    MAINNET_AXLUSDC_IBC.to_string(),
                     Uint128::from(1_000_000u128),
                 )?,
         })
@@ -201,7 +201,7 @@ impl State {
         let i = match usdc_denom.clone() {
             Some(setting) if setting == *"true" => new_spend_limits
                 .iter()
-                .position(|limit| limit.denom == JUNO_AXLUSDC_IBC),
+                .position(|limit| limit.denom == MAINNET_AXLUSDC_IBC),
             _ => new_spend_limits
                 .iter()
                 .position(|limit| limit.denom == spend.denom),
