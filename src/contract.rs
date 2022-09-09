@@ -9,13 +9,13 @@ use cw1::CanExecuteResponse;
 use cw2::set_contract_version;
 use cw20::Cw20ExecuteMsg;
 
+use crate::constants::JUNO_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::helpers::get_current_price;
 use crate::msg::{
     AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use crate::state::{HotWallet, State, STATE};
-use crate::USDC;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -195,7 +195,7 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
     let state: State = STATE.load(deps.storage)?;
     if state.uusd_fee_debt.u128() > 0u128 {
         let payment_coin = match &*asset.denom {
-            USDC => Coin {
+            JUNO_AXLUSDC_IBC => Coin {
                 amount: state.uusd_fee_debt,
                 denom: asset.denom,
             },
@@ -204,7 +204,7 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
                     .uusd_fee_debt
                     .checked_mul(get_current_price(
                         deps.as_ref(),
-                        USDC.to_string(),
+                        JUNO_AXLUSDC_IBC.to_string(),
                         Uint128::from(1000000u128),
                     )?)
                     .map_err(|e| {

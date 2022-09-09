@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
+use crate::constants::JUNO_AXLUSDC_IBC;
 #[allow(unused_imports)]
 use crate::helpers::get_current_price;
 use crate::ContractError;
@@ -170,26 +171,22 @@ impl State {
         }
     }
 
-    // get mainnet price of JUNO in LOOP
-    // junod q wasm contract-state smart juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07 $MAINNODE $MAINID '{"simulation":{"offer_asset":{"amount":"1000000","info":{"token":{"contract_addr":"juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2"}}}}}'
-
-    // get mainnet price of LOOP in USDC
-    // junod q wasm contract-state smart juno1utkr0ep06rkxgsesq6uryug93daklyd6wneesmtvxjkz0xjlte9qdj2s8q $MAINNODE $MAINID '{"simulation":{"offer_asset":{"amount":"1000000","info":{"native_token":{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"}}}}}'
-
-    // a "reverse_simulation" exists as well but may not be necessary
     #[allow(unused_variables)]
     fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<Coin, ContractError> {
-        let usdc = "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
         #[cfg(test)]
         return Ok(Coin {
-            denom: usdc.to_string(),
+            denom: JUNO_AXLUSDC_IBC.to_string(),
             amount: spend.amount.saturating_mul(Uint128::from(100u128)),
         });
         #[cfg(not(test))]
         Ok(Coin {
-            denom: usdc.to_string(),
+            denom: JUNO_AXLUSDC_IBC.to_string(),
             amount: get_current_price(deps, spend.denom, spend.amount)?
-                / get_current_price(deps, usdc.to_string(), Uint128::from(1_000_000u128))?,
+                / get_current_price(
+                    deps,
+                    JUNO_AXLUSDC_IBC.to_string(),
+                    Uint128::from(1_000_000u128),
+                )?,
         })
     }
 
@@ -202,10 +199,9 @@ impl State {
         usdc_denom: Option<String>,
     ) -> Result<(), ContractError> {
         let i = match usdc_denom.clone() {
-            Some(setting) if setting == *"true" => new_spend_limits.iter().position(|limit| {
-                limit.denom
-                    == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-            }),
+            Some(setting) if setting == *"true" => new_spend_limits
+                .iter()
+                .position(|limit| limit.denom == JUNO_AXLUSDC_IBC),
             _ => new_spend_limits
                 .iter()
                 .position(|limit| limit.denom == spend.denom),
