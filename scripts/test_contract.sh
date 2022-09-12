@@ -181,7 +181,7 @@ error_check "$RES" "Failed to spend with hot wallet limited in USDC"
 
 # ok, print hot wallet info including spend limit
 QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
-RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 echo "Query results for hot wallets: "
 echo "$RES"
 
@@ -194,6 +194,6 @@ error_check "$RES" "Failed as expected" "You cannot spend more than your availab
 
 # print hot wallet info again to check on spend limit reduction
 QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
-RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 echo "Query results for hot wallets: "
 echo "$RES"
