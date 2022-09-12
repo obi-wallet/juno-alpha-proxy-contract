@@ -189,11 +189,11 @@ echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 
 echo -n -e "${LBLUE}TX 14) Second spend should fail as we've used most of our spend limit${NC}"
-RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected" "You cannot spend more than your available spend limit"
 
 # print hot wallet info again to check on spend limit reduction
 QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
-RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 echo "Query results for hot wallets: "
 echo "$RES"
