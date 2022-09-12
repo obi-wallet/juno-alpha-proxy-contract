@@ -1,3 +1,4 @@
+use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
 
@@ -5,6 +6,9 @@ use thiserror::Error;
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
+
+    #[error("{0}")]
+    Overflow(#[from] OverflowError),
 
     #[error("Caller is not admin.")]
     Unauthorized {},

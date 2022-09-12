@@ -182,14 +182,19 @@ impl State {
             amount: spend.amount.saturating_mul(Uint128::from(100u128)),
         });
         #[cfg(not(test))]
+        let top = get_current_price(deps, spend.denom, spend.amount)?
+            .checked_mul(Uint128::from(1_000u128))?;
+        #[cfg(not(test))]
+        let bottom = get_current_price(
+            deps,
+            MAINNET_AXLUSDC_IBC.to_string(),
+            Uint128::from(1_000_000u128),
+        )?
+        .checked_mul(Uint128::from(1_000u128))?;
+        #[cfg(not(test))]
         Ok(Coin {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
-            amount: get_current_price(deps, spend.denom, spend.amount)?
-                / get_current_price(
-                    deps,
-                    MAINNET_AXLUSDC_IBC.to_string(),
-                    Uint128::from(1_000_000u128),
-                )?,
+            amount: top / bottom,
         })
     }
 
@@ -210,9 +215,7 @@ impl State {
                 .position(|limit| limit.denom == spend.denom),
         };
         match i {
-            None => {
-                Err(ContractError::CannotSpendThisAsset(spend.denom))
-            }
+            None => Err(ContractError::CannotSpendThisAsset(spend.denom)),
             Some(i) => {
                 let converted_spend_amt = match usdc_denom {
                     Some(setting) if setting == "true" => self.convert_coin_to_usdc(deps, spend)?,
