@@ -15,7 +15,7 @@ use crate::helpers::get_current_price;
 use crate::msg::{
     AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use crate::state::{HotWallet, State, STATE};
+use crate::state::{HotWallet, SourcedPrice, State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -111,6 +111,7 @@ pub fn execute_execute(
                     res = res
                         .add_message(partial_res.messages[0].msg.clone())
                         .add_attribute("action", "execute_spend_limit");
+                    res = res.add_attributes(partial_res.attributes);
                 }
                 // otherwise it must be a bank transfer
                 CosmosMsg::Bank(bank) => {
@@ -119,6 +120,7 @@ pub fn execute_execute(
                     for submsg in partial_res.messages {
                         res = res.add_message(submsg.msg.clone());
                     }
+                    res = res.add_attributes(partial_res.attributes);
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
@@ -191,8 +193,22 @@ fn try_wasm_send(
     }
 }
 
-fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMsg>, ContractError> {
+pub struct SourcedRepayMsg {
+    pub repay_msg: Option<BankMsg>,
+    pub top_sourced_price: SourcedPrice,
+    pub bottom_sourced_price: SourcedPrice,
+}
+
+fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
     let state: State = STATE.load(deps.storage)?;
+    let mut top = SourcedPrice {
+        price: Uint128::from(0u128),
+        contract_addr: "uninitialized".to_string(),
+    };
+    let mut bottom = SourcedPrice {
+        price: Uint128::from(0u128),
+        contract_addr: "uninitialized".to_string(),
+    };
     if state.uusd_fee_debt.u128() > 0u128 {
         let payment_coin = match asset.denom.as_str() {
             val if val == MAINNET_AXLUSDC_IBC => Coin {
@@ -200,21 +216,23 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
                 denom: asset.denom,
             },
             "ujuno" | "ujunox" | "testtokens" => {
+                top = get_current_price(
+                    deps.as_ref(),
+                    MAINNET_AXLUSDC_IBC.to_string(),
+                    Uint128::from(1000000u128),
+                )?;
+                bottom = get_current_price(
+                    deps.as_ref(),
+                    asset.denom.clone(),
+                    Uint128::from(1000000u128),
+                )?;
                 let this_amount = state
                     .uusd_fee_debt
-                    .checked_mul(get_current_price(
-                        deps.as_ref(),
-                        MAINNET_AXLUSDC_IBC.to_string(),
-                        Uint128::from(1000000u128),
-                    )?)
+                    .checked_mul(top.price)
                     .map_err(|e| {
                         ContractError::PriceCheckFailed(asset.denom.clone(), e.to_string())
                     })?
-                    .checked_div(get_current_price(
-                        deps.as_ref(),
-                        asset.denom.clone(),
-                        Uint128::from(1000000u128),
-                    )?);
+                    .checked_div(bottom.price);
                 let checked_amount = match this_amount {
                     Ok(amt) => amt,
                     Err(e) => {
@@ -231,12 +249,20 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMs
         let mut new_state = state.clone();
         new_state.uusd_fee_debt = Uint128::from(0u128);
         STATE.save(deps.storage, &new_state)?;
-        Ok(Some(BankMsg::Send {
-            to_address: state.fee_lend_repay_wallet.to_string(),
-            amount: vec![payment_coin],
-        }))
+        Ok(SourcedRepayMsg {
+            repay_msg: Some(BankMsg::Send {
+                to_address: state.fee_lend_repay_wallet.to_string(),
+                amount: vec![payment_coin],
+            }),
+            top_sourced_price: top,
+            bottom_sourced_price: bottom,
+        })
     } else {
-        Ok(None)
+        Ok(SourcedRepayMsg {
+            repay_msg: None,
+            top_sourced_price: top,
+            bottom_sourced_price: bottom,
+        })
     }
 }
 
@@ -252,11 +278,21 @@ fn try_bank_send(
         } => {
             let attach_repay_msg = check_and_repay_debt(deps, amount[0].clone())?;
             let res = check_and_spend(deps, core_payload, amount.clone())?;
-            match attach_repay_msg {
+            match attach_repay_msg.repay_msg {
                 None => Ok(res),
                 Some(msg) => Ok(res
                     .add_attribute("note", "repaying one-time fee debt")
-                    .add_message(msg)),
+                    .add_message(msg)
+                    .add_attribute(
+                        "top_contract",
+                        attach_repay_msg.top_sourced_price.contract_addr,
+                    )
+                    .add_attribute("top_price", attach_repay_msg.top_sourced_price.price)
+                    .add_attribute(
+                        "bottom_contract",
+                        attach_repay_msg.bottom_sourced_price.contract_addr,
+                    )
+                    .add_attribute("bottom_price", attach_repay_msg.bottom_sourced_price.price)),
             }
         }
         _ => {
@@ -281,7 +317,8 @@ fn check_and_spend(
     let res = Response::new()
         .add_messages(vec![core_payload.this_msg.clone()])
         .add_attribute("action", "execute")
-        .add_attribute("spend_limit_reduction", spend_reduction);
+        .add_attribute("spend_limit_reduction", spend_reduction.price)
+        .add_attributes(spend_reduction.sources);
     STATE.save(deps.storage, &cfg)?;
     Ok(res)
 }

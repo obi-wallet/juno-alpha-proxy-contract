@@ -8,5 +8,7 @@ pub mod helpers;
 mod integration_tests;
 pub mod msg;
 pub mod state;
+#[cfg(test)]
+mod state_tests;
 
 pub use crate::error::ContractError;

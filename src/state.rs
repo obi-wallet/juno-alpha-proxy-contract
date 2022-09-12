@@ -18,6 +18,7 @@ pub enum PeriodType {
     MONTHS,
 }
 
+#[allow(dead_code)]
 enum CheckType {
     TotalLimit,
     RemainingLimit,
@@ -30,6 +31,25 @@ pub struct CoinLimit {
     pub limit_remaining: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct SourcedPrice {
+    pub price: Uint128,
+    pub contract_addr: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct SourcedCoin {
+    pub coin: Coin,
+    pub top: SourcedPrice,
+    pub bottom: SourcedPrice,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct MultiSourcePrice {
+    pub price: Uint128,
+    pub sources: Vec<(String, String)>,
+}
+
 // could do hot wallets as Map or even IndexedMap, but this contract
 // for more than 2-3 hot wallets at this time
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -40,6 +60,16 @@ pub struct HotWallet {
     pub period_multiple: u16,
     pub spend_limits: Vec<CoinLimit>,
     pub usdc_denom: Option<String>,
+}
+
+impl HotWallet {
+    pub fn reset(&mut self) {
+        let mut new_limits = self.spend_limits.clone();
+        for n in 0..new_limits.len() {
+            new_limits[n].limit_remaining = new_limits[n].amount;
+        }
+        self.spend_limits = new_limits;
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -80,9 +110,15 @@ impl State {
         current_time: Timestamp,
         addr: String,
         spend: Vec<Coin>,
-    ) -> Result<Uint128, ContractError> {
+    ) -> Result<MultiSourcePrice, ContractError> {
         if self.is_admin(addr.clone()) {
-            Ok(Uint128::from(0u128))
+            Ok(MultiSourcePrice {
+                price: Uint128::from(0u128),
+                sources: vec![(
+                    "no spend limit check".to_string(),
+                    "caller is admin".to_string(),
+                )],
+            })
         } else {
             let addr = &addr;
             let this_wallet_index = self.hot_wallets.iter().position(|a| &a.address == addr);
@@ -97,6 +133,7 @@ impl State {
             // check if we should reset to full spend limit again
             // (i.e. reset time has passed)
             if current_time.seconds() > wallet_config.current_period_reset {
+                println!("LIMIT RESET TRIGGERED");
                 // get a current NaiveDateTime so we can easily find the next
                 // reset threshold
                 let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
@@ -136,66 +173,112 @@ impl State {
                 };
                 match new_dt {
                     Ok(dt) => {
-                        let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
-                        let mut spend_tally: Uint128 = Uint128::from(0u128);
-                        for n in spend {
-                            spend_tally =
-                                spend_tally.saturating_add(self.check_spend_against_limit(
-                                    deps,
-                                    CheckType::TotalLimit,
-                                    &mut new_spend_limits,
-                                    n.clone(),
-                                    new_wallet_configs[index].usdc_denom.clone(),
-                                )?);
-                        }
+                        println!(
+                            "Old reset date is {:?}",
+                            new_wallet_configs[index].current_period_reset
+                        );
+                        println!("Resetting to {:?}", dt.timestamp());
                         new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
+                        new_wallet_configs[index].reset();
+                        let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
+                        self.hot_wallets = new_wallet_configs.clone();
+                        let mut spend_tally: Uint128 = Uint128::from(0u128);
+                        let mut spend_tally_sources: Vec<(String, String)> = vec![];
+                        for n in spend {
+                            let spend_check_with_sources = self.check_spend_against_limit(
+                                deps,
+                                CheckType::RemainingLimit,
+                                &mut new_spend_limits,
+                                n.clone(),
+                                new_wallet_configs[index].usdc_denom.clone(),
+                            )?;
+                            spend_tally_sources.push((
+                                format!("Price for {}", n.denom),
+                                format!("{}", spend_check_with_sources.top.price),
+                            ));
+                            spend_tally_sources.push((
+                                format!("Price for {}", n.denom),
+                                format!("{}", spend_check_with_sources.bottom.price),
+                            ));
+                            spend_tally =
+                                spend_tally.saturating_add(spend_check_with_sources.coin.amount);
+                        }
                         new_wallet_configs[index].spend_limits = new_spend_limits;
-                        self.hot_wallets = new_wallet_configs;
-                        Ok(spend_tally)
+                        Ok(MultiSourcePrice {
+                            price: spend_tally,
+                            sources: spend_tally_sources,
+                        })
                     }
                     Err(e) => Err(e),
                 }
             } else {
                 let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
                 let mut spend_tally: Uint128 = Uint128::from(0u128);
+                let mut spend_tally_sources: Vec<(String, String)> = vec![];
                 for n in spend {
-                    spend_tally = spend_tally.saturating_add(self.check_spend_against_limit(
+                    let spend_check_with_sources = self.check_spend_against_limit(
                         deps,
                         CheckType::RemainingLimit,
                         &mut new_spend_limits,
                         n.clone(),
                         new_wallet_configs[index].usdc_denom.clone(),
-                    )?);
+                    )?;
+                    spend_tally_sources.push((
+                        format!("Price for {}", n.denom),
+                        format!("{}", spend_check_with_sources.top.price),
+                    ));
+                    spend_tally_sources.push((
+                        format!("Price for {}", n.denom),
+                        format!("{}", spend_check_with_sources.bottom.price),
+                    ));
+                    spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                 }
                 new_wallet_configs[index].spend_limits = new_spend_limits;
                 self.hot_wallets = new_wallet_configs;
-                Ok(spend_tally)
+                Ok(MultiSourcePrice {
+                    price: spend_tally,
+                    sources: spend_tally_sources,
+                })
             }
         }
     }
 
     #[allow(unused_variables)]
-    fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<Coin, ContractError> {
+    fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
         #[cfg(test)]
-        return Ok(Coin {
-            denom: MAINNET_AXLUSDC_IBC.to_string(),
-            amount: spend.amount.saturating_mul(Uint128::from(100u128)),
+        return Ok(SourcedCoin {
+            coin: Coin {
+                denom: MAINNET_AXLUSDC_IBC.to_string(),
+                amount: spend.amount.saturating_mul(Uint128::from(100u128)),
+            },
+            top: SourcedPrice {
+                price: Uint128::from(0u128),
+                contract_addr: "test".to_string(),
+            },
+            bottom: SourcedPrice {
+                price: Uint128::from(0u128),
+                contract_addr: "test".to_string(),
+            },
         });
         #[cfg(not(test))]
-        let top = get_current_price(deps, spend.denom, spend.amount)?
-            .checked_mul(Uint128::from(1_000u128))?;
-        #[cfg(not(test))]
-        let bottom = get_current_price(
-            deps,
-            MAINNET_AXLUSDC_IBC.to_string(),
-            Uint128::from(1_000_000u128),
-        )?
-        .checked_mul(Uint128::from(1_000u128))?;
-        #[cfg(not(test))]
-        Ok(Coin {
-            denom: MAINNET_AXLUSDC_IBC.to_string(),
-            amount: top / bottom,
-        })
+        {
+            let top = get_current_price(deps, spend.denom, spend.amount)?;
+            let bottom = get_current_price(
+                deps,
+                MAINNET_AXLUSDC_IBC.to_string(),
+                Uint128::from(1_000_000u128),
+            )?;
+            let top_mul = top.price.checked_mul(Uint128::from(1_000u128))?;
+            let bottom_mul = bottom.price.checked_mul(Uint128::from(1_000u128))?;
+            Ok(SourcedCoin {
+                coin: Coin {
+                    denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    amount: top_mul / bottom_mul,
+                },
+                top,
+                bottom,
+            })
+        }
     }
 
     fn check_spend_against_limit(
@@ -205,7 +288,7 @@ impl State {
         new_spend_limits: &mut [CoinLimit],
         spend: Coin,
         usdc_denom: Option<String>,
-    ) -> Result<Uint128, ContractError> {
+    ) -> Result<SourcedCoin, ContractError> {
         let i = match usdc_denom.clone() {
             Some(setting) if setting == *"true" => new_spend_limits
                 .iter()
@@ -219,17 +302,31 @@ impl State {
             Some(i) => {
                 let converted_spend_amt = match usdc_denom {
                     Some(setting) if setting == "true" => self.convert_coin_to_usdc(deps, spend)?,
-                    _ => spend,
+                    _ => SourcedCoin {
+                        coin: spend,
+                        top: SourcedPrice {
+                            price: Uint128::from(0u128),
+                            contract_addr: "usdc denom is disabled".to_string(),
+                        },
+                        bottom: SourcedPrice {
+                            price: Uint128::from(0u128),
+                            contract_addr: "usdc denom is disabled".to_string(),
+                        },
+                    },
                 };
+                // debug print
+                println!("Converted Spend Amount is {:?}", converted_spend_amt);
+                println!("against limit of {}", new_spend_limits[i].amount);
                 // spend can't be bigger than total spend limit
                 let limit_remaining = match check_type {
                     CheckType::TotalLimit => new_spend_limits[i]
                         .amount
-                        .checked_sub(converted_spend_amt.amount.u128() as u64),
+                        .checked_sub(converted_spend_amt.coin.amount.u128() as u64),
                     CheckType::RemainingLimit => new_spend_limits[i]
                         .limit_remaining
-                        .checked_sub(converted_spend_amt.amount.u128() as u64),
+                        .checked_sub(converted_spend_amt.coin.amount.u128() as u64),
                 };
+                println!("new limit is {:?}", limit_remaining);
                 let limit_remaining = match limit_remaining {
                     Some(remaining) => remaining,
                     None => {
@@ -241,265 +338,10 @@ impl State {
                     amount: new_spend_limits[i].amount,
                     limit_remaining,
                 };
-                Ok(converted_spend_amt.amount)
+                Ok(converted_spend_amt)
             }
         }
     }
 }
 
 pub const STATE: Item<State> = Item::new("state");
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::NaiveTime;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::Uint128;
-
-    #[test]
-    fn is_admin() {
-        let admin: &str = "bob";
-        let config = State {
-            admin: Addr::unchecked(admin),
-            pending: Addr::unchecked(admin),
-            hot_wallets: vec![],
-            uusd_fee_debt: Uint128::from(0u128),
-            fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
-            home_network: "local".to_string(),
-        };
-
-        assert!(config.is_admin(admin.to_string()));
-        assert!(!config.is_admin("other".to_string()));
-    }
-
-    #[test]
-    fn daily_spend_limit() {
-        let deps = mock_dependencies();
-        let admin: &str = "bob";
-        let spender = "owner";
-        let bad_spender: &str = "medusa";
-        let dt = NaiveDateTime::new(
-            NaiveDate::from_ymd(2022, 6, 3),
-            NaiveTime::from_hms_milli(12, 00, 00, 000),
-        );
-        let mut now_env = mock_env();
-        now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
-        // 3 day spend limit period
-        let mut config = State {
-            admin: Addr::unchecked(admin),
-            pending: Addr::unchecked(admin),
-            hot_wallets: vec![HotWallet {
-                address: spender.to_string(),
-                current_period_reset: dt.timestamp() as u64,
-                period_type: PeriodType::DAYS,
-                period_multiple: 3,
-                spend_limits: vec![
-                    CoinLimit {
-                        amount: 100_000_000u64,
-                        denom: "ujuno".to_string(),
-                        limit_remaining: 100_000_000u64,
-                    },
-                    CoinLimit {
-                        amount: 100_000_000u64,
-                        denom: "uaxlusdc".to_string(),
-                        limit_remaining: 100_000_000u64,
-                    },
-                    CoinLimit {
-                        amount: 9_000_000_000u64,
-                        denom: "uloop".to_string(),
-                        limit_remaining: 9_000_000_000u64,
-                    },
-                ],
-                usdc_denom: Some("false".to_string()), // to avoid breaking local tests for now
-                                                       // 100 JUNO, 100 axlUSDC, 9000 LOOP – but really only the USDC matters
-                                                       // since usdc_denom is true
-            }],
-            uusd_fee_debt: Uint128::from(0u128),
-            fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
-            home_network: "local".to_string(),
-        };
-
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "ujuno".to_string(),
-                    amount: Uint128::from(1_000_000u128),
-                }],
-            )
-            .unwrap();
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                bad_spender.to_string(),
-                vec![Coin {
-                    denom: "ujuno".to_string(),
-                    amount: Uint128::from(1_000_000u128),
-                }],
-            )
-            .unwrap_err();
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "ujuno".to_string(),
-                    amount: Uint128::from(99_500_000u128),
-                }],
-            )
-            .unwrap_err();
-
-        // now we shouldn't be able to total just over our spend limit
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "ujuno".to_string(),
-                    amount: Uint128::from(99_000_001u128),
-                }],
-            )
-            .unwrap_err();
-
-        // but go 3 days + 1 second into the future and we should
-        let mut env_future = now_env;
-        env_future.block.time =
-            Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                env_future.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "ujuno".to_string(),
-                    amount: Uint128::from(100_000_000u128),
-                }],
-            )
-            .unwrap();
-    }
-
-    #[test]
-    fn monthly_spend_limit() {
-        let deps = mock_dependencies();
-        let admin: &str = "bob";
-        let spender = "owner";
-        let bad_spender: &str = "medusa";
-        let dt = NaiveDateTime::new(
-            NaiveDate::from_ymd(2022, 6, 3),
-            NaiveTime::from_hms_milli(12, 00, 00, 000),
-        );
-        let mut now_env = mock_env();
-        now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
-
-        // Let's do a 38 month spend limit period
-        // and for kicks use a contract address for LOOP
-        let mut config = State {
-            admin: Addr::unchecked(admin),
-            pending: Addr::unchecked(admin),
-            hot_wallets: vec![HotWallet {
-                address: spender.to_string(),
-                current_period_reset: dt.timestamp() as u64,
-                period_type: PeriodType::MONTHS,
-                period_multiple: 38,
-                spend_limits: vec![
-                    CoinLimit {
-                        amount: 7_000_000_000u64,
-                        denom: "ujuno".to_string(),
-                        limit_remaining: 100_000_000u64,
-                    },
-                    CoinLimit {
-                        amount: 100_000_000u64,
-                        denom: "uaxlusdc".to_string(),
-                        limit_remaining: 100_000_000u64,
-                    },
-                    CoinLimit {
-                        amount: 999_000_000_000u64,
-                        denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
-                            .to_string(),
-                        limit_remaining: 999_000_000_000u64,
-                    },
-                ],
-                usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
-            }],
-            uusd_fee_debt: Uint128::from(0u128),
-            fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
-            home_network: "local".to_string(),
-        };
-
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
-                        .to_string(),
-                    amount: Uint128::from(9_000_000_000u128),
-                }],
-            )
-            .unwrap();
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                bad_spender.to_string(),
-                vec![Coin {
-                    denom: "ujuno".to_string(),
-                    amount: Uint128::from(1_000_000u128),
-                }],
-            )
-            .unwrap_err();
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
-                        .to_string(),
-                    amount: Uint128::from(999_000_000_000u128),
-                }],
-            )
-            .unwrap_err();
-
-        // now we shouldn't be able to total just over our spend limit
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                now_env.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
-                        .to_string(),
-                    amount: Uint128::from(990_000_000_001u128),
-                }],
-            )
-            .unwrap_err();
-
-        // but go 38 months (minus a couple of days - reset is the 1st, not the 3rd)
-        // into the future and we should be able to spend
-        let dt = NaiveDateTime::new(
-            NaiveDate::from_ymd(2025, 8, 1),
-            NaiveTime::from_hms_milli(12, 00, 00, 000),
-        );
-        let mut env_future = mock_env();
-        env_future.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
-        config
-            .check_spend_limits(
-                deps.as_ref(),
-                env_future.block.time,
-                spender.to_string(),
-                vec![Coin {
-                    denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
-                        .to_string(),
-                    amount: Uint128::from(990_000_000_001u128),
-                }],
-            )
-            .unwrap();
-    }
-}
