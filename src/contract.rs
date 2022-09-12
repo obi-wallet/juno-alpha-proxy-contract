@@ -111,6 +111,7 @@ pub fn execute_execute(
                     res = res
                         .add_message(partial_res.messages[0].msg.clone())
                         .add_attribute("action", "execute_spend_limit");
+                    res = res.add_attributes(partial_res.attributes);
                 }
                 // otherwise it must be a bank transfer
                 CosmosMsg::Bank(bank) => {
@@ -119,6 +120,7 @@ pub fn execute_execute(
                     for submsg in partial_res.messages {
                         res = res.add_message(submsg.msg.clone());
                     }
+                    res = res.add_attributes(partial_res.attributes);
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
