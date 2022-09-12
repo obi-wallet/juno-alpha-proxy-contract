@@ -74,15 +74,15 @@ impl State {
         self.pending == addr
     }
 
-    pub fn can_spend(
+    pub fn check_spend_limits(
         &mut self,
         deps: Deps,
         current_time: Timestamp,
         addr: String,
         spend: Vec<Coin>,
-    ) -> Result<bool, ContractError> {
+    ) -> Result<Uint128, ContractError> {
         if self.is_admin(addr.clone()) {
-            Ok(true)
+            Ok(Uint128::from(0u128))
         } else {
             let addr = &addr;
             let this_wallet_index = self.hot_wallets.iter().position(|a| &a.address == addr);
@@ -137,36 +137,39 @@ impl State {
                 match new_dt {
                     Ok(dt) => {
                         let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
+                        let mut spend_tally: Uint128 = Uint128::from(0u128);
                         for n in spend {
-                            self.check_spend_against_limit(
-                                deps,
-                                CheckType::TotalLimit,
-                                &mut new_spend_limits,
-                                n.clone(),
-                                new_wallet_configs[index].usdc_denom.clone(),
-                            )?;
+                            spend_tally =
+                                spend_tally.saturating_add(self.check_spend_against_limit(
+                                    deps,
+                                    CheckType::TotalLimit,
+                                    &mut new_spend_limits,
+                                    n.clone(),
+                                    new_wallet_configs[index].usdc_denom.clone(),
+                                )?);
                         }
                         new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
                         new_wallet_configs[index].spend_limits = new_spend_limits;
                         self.hot_wallets = new_wallet_configs;
-                        Ok(true)
+                        Ok(spend_tally)
                     }
                     Err(e) => Err(e),
                 }
             } else {
                 let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
+                let mut spend_tally: Uint128 = Uint128::from(0u128);
                 for n in spend {
-                    self.check_spend_against_limit(
+                    spend_tally = spend_tally.saturating_add(self.check_spend_against_limit(
                         deps,
                         CheckType::RemainingLimit,
                         &mut new_spend_limits,
                         n.clone(),
                         new_wallet_configs[index].usdc_denom.clone(),
-                    )?;
+                    )?);
                 }
                 new_wallet_configs[index].spend_limits = new_spend_limits;
                 self.hot_wallets = new_wallet_configs;
-                Ok(true)
+                Ok(spend_tally)
             }
         }
     }
@@ -197,7 +200,7 @@ impl State {
         new_spend_limits: &mut [CoinLimit],
         spend: Coin,
         usdc_denom: Option<String>,
-    ) -> Result<(), ContractError> {
+    ) -> Result<Uint128, ContractError> {
         let i = match usdc_denom.clone() {
             Some(setting) if setting == *"true" => new_spend_limits
                 .iter()
@@ -208,7 +211,7 @@ impl State {
         };
         match i {
             None => {
-                return Err(ContractError::CannotSpendThisAsset(spend.denom));
+                Err(ContractError::CannotSpendThisAsset(spend.denom))
             }
             Some(i) => {
                 let converted_spend_amt = match usdc_denom {
@@ -234,10 +237,10 @@ impl State {
                     denom: new_spend_limits[i].denom.clone(),
                     amount: new_spend_limits[i].amount,
                     limit_remaining,
-                }
+                };
+                Ok(converted_spend_amt.amount)
             }
         }
-        Ok(())
     }
 }
 
@@ -313,19 +316,19 @@ mod tests {
             home_network: "local".to_string(),
         };
 
-        assert!(config
-            .can_spend(
+        config
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
                     denom: "ujuno".to_string(),
-                    amount: Uint128::from(1_000_000u128)
-                }]
+                    amount: Uint128::from(1_000_000u128),
+                }],
             )
-            .unwrap());
+            .unwrap();
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 bad_spender.to_string(),
@@ -336,7 +339,7 @@ mod tests {
             )
             .unwrap_err();
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -349,7 +352,7 @@ mod tests {
 
         // now we shouldn't be able to total just over our spend limit
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -365,7 +368,7 @@ mod tests {
         env_future.block.time =
             Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 env_future.block.time,
                 spender.to_string(),
@@ -425,20 +428,20 @@ mod tests {
             home_network: "local".to_string(),
         };
 
-        assert!(config
-            .can_spend(
+        config
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
                     denom: "juno1mrshruqvgctq5wah5plpe5wd97pq32f6ysc97tzxyd89gj8uxa7qcdwmnm"
                         .to_string(),
-                    amount: Uint128::from(9_000_000_000u128)
-                }]
+                    amount: Uint128::from(9_000_000_000u128),
+                }],
             )
-            .unwrap());
+            .unwrap();
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 bad_spender.to_string(),
@@ -449,7 +452,7 @@ mod tests {
             )
             .unwrap_err();
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -463,7 +466,7 @@ mod tests {
 
         // now we shouldn't be able to total just over our spend limit
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -484,7 +487,7 @@ mod tests {
         let mut env_future = mock_env();
         env_future.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
         config
-            .can_spend(
+            .check_spend_limits(
                 deps.as_ref(),
                 env_future.block.time,
                 spender.to_string(),
