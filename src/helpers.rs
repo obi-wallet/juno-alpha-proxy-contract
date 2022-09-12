@@ -4,6 +4,7 @@ use crate::constants::{
     MAINNET_AXLUSDC_IBC, MAINNET_ID, MAINNET_JUNO_LOOP_PAIR_CONTRACT,
     MAINNET_USDC_LOOP_PAIR_CONTRACT, TESTNET_ID, TESTNET_LOOP_PAIR_DUMMY_CONTRACT,
 };
+use crate::state::SourcedPrice;
 use crate::{
     msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg, SimulationResponse},
     state::STATE,
@@ -50,14 +51,20 @@ pub fn get_current_price(
     deps: Deps,
     asset: String,
     amount: Uint128,
-) -> Result<Uint128, ContractError> {
+) -> Result<SourcedPrice, ContractError> {
     #[cfg(test)]
     match &*asset {
         "testtokens" => {
-            return Ok(Uint128::from(100u128));
+            return Ok(SourcedPrice {
+                price: Uint128::from(100u128),
+                contract_addr: "local test path 1".to_string(),
+            });
         }
         _ => {
-            return Ok(Uint128::from(1u128));
+            return Ok(SourcedPrice {
+                price: Uint128::from(1u128),
+                contract_addr: "local test path 2".to_string(),
+            });
         }
     }
     // TODO: if asset is source base token, return 1
@@ -70,13 +77,17 @@ pub fn get_current_price(
             },
         },
     }); // no cw20 support yet (expect for the base asset)
+    let contract_addr = get_pair_contract(cfg.home_network, asset)?;
     let query_response: Result<SimulationResponse, StdError> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: get_pair_contract(cfg.home_network, asset)?,
+            contract_addr: contract_addr.clone(),
             msg: to_binary(&query_msg)?,
         }));
     match query_response {
-        Ok(res) => Ok(res.return_amount + res.commission_amount),
+        Ok(res) => Ok(SourcedPrice {
+            price: res.return_amount + res.commission_amount,
+            contract_addr,
+        }),
         Err(e) => Err(ContractError::PriceCheckFailed(
             format!("{:?}", to_binary(&query_msg)?),
             e.to_string(),
