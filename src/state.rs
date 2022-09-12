@@ -44,7 +44,7 @@ pub struct SourcedCoin {
     pub bottom: SourcedPrice,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct MultiSourcePrice {
     pub price: Uint128,
     pub sources: Vec<(String, String)>,
