@@ -1,13 +1,14 @@
 use cosmwasm_std::{to_binary, Coin, Deps, QueryRequest, StdError, Uint128, WasmQuery};
+use serde::Deserialize;
 
 use crate::constants::{
     MAINNET_AXLUSDC_IBC, MAINNET_ID, MAINNET_JUNO_LOOP_PAIR_CONTRACT,
     MAINNET_USDC_LOOP_PAIR_CONTRACT, TESTNET_ID, TESTNET_LOOP_PAIR_DUMMY_CONTRACT,
 };
-use crate::msg::ReverseSimulationMsg;
+use crate::msg::{ReverseSimulationMsg, ReverseSimulationResponse, SimulationResponse, Tallyable};
 use crate::state::SourcedSwap;
 use crate::{
-    msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg, SimulationResponse},
+    msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg},
     state::STATE,
     ContractError,
 };
@@ -46,23 +47,34 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
     }
 }
 
-// convenience
+// convenience functions
 pub fn simulate_reverse_swap(
     deps: Deps,
     asset: String,
     amount: Uint128,
 ) -> Result<SourcedSwap, ContractError> {
-    simulate_swap(deps, asset, amount, true)
+    simulate::<ReverseSimulationResponse>(deps, asset, amount, true)
 }
-
-#[allow(unreachable_code)]
-#[allow(unused_variables)]
 pub fn simulate_swap(
     deps: Deps,
     asset: String,
     amount: Uint128,
-    reverse: bool,
 ) -> Result<SourcedSwap, ContractError> {
+    simulate::<SimulationResponse>(deps, asset, amount, false)
+}
+
+#[allow(unreachable_code)]
+#[allow(unused_variables)]
+pub fn simulate<T>(
+    deps: Deps,
+    asset: String,
+    amount: Uint128,
+    reverse: bool,
+) -> Result<SourcedSwap, ContractError>
+where
+    T: for<'de> Deserialize<'de>,
+    T: Tallyable,
+{
     #[cfg(test)]
     match &*asset {
         "testtokens" => {
@@ -108,7 +120,7 @@ pub fn simulate_swap(
         }
     };
     let contract_addr = get_pair_contract(cfg.home_network, asset)?;
-    let query_response: Result<SimulationResponse, StdError> =
+    let query_response: Result<T, StdError> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: contract_addr.clone(),
             msg: to_binary(&query_msg)?,
@@ -117,7 +129,7 @@ pub fn simulate_swap(
         Ok(res) => Ok(SourcedSwap {
             coin: Coin {
                 denom: response_asset,
-                amount: (res.return_amount + res.commission_amount),
+                amount: (res.tally()),
             },
             contract_addr,
         }),

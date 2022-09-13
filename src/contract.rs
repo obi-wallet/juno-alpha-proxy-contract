@@ -232,7 +232,6 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                     deps.as_ref(),
                     MAINNET_AXLUSDC_IBC.to_string(),
                     state.uusd_fee_debt,
-                    false,
                 )?;
                 bottom =
                     simulate_reverse_swap(deps.as_ref(), asset.denom.clone(), top.coin.amount)?;

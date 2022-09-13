@@ -275,7 +275,7 @@ impl State {
         #[cfg(not(test))]
         {
             // top will be the price in DEX base
-            let top = simulate_swap(deps, spend.denom, spend.amount, false)?;
+            let top = simulate_swap(deps, spend.denom, spend.amount)?;
             // now bottom will be the price of that in target
             let bottom =
                 simulate_reverse_swap(deps, MAINNET_AXLUSDC_IBC.to_string(), top.coin.amount)?;
