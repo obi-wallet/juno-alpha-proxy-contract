@@ -86,12 +86,36 @@ pub struct ReverseSimulationMsg {
     pub ask_asset: Asset,
 }
 
+pub trait Tallyable {
+    fn tally(self) -> Uint128;
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct SimulationResponse {
     pub commission_amount: Uint128,
     pub return_amount: Uint128,
     pub spread_amount: Uint128,
+}
+
+impl Tallyable for SimulationResponse {
+    fn tally(self) -> Uint128 {
+        self.commission_amount + self.return_amount
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct ReverseSimulationResponse {
+    pub commission_amount: Uint128,
+    pub offer_amount: Uint128,
+    pub spread_amount: Uint128,
+}
+
+impl Tallyable for ReverseSimulationResponse {
+    fn tally(self) -> Uint128 {
+        self.commission_amount + self.offer_amount
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
