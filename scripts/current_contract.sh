@@ -1,6 +1,6 @@
 #!/bin/bash
 # testnet - pulled from github environment usually
-# CONTRACT_CODE=3860
+# CONTRACT_CODE=3874
 # mainnet - pulled from github environment usually
 # CONTRACT_CODE=943
 CONTRACT_ADDRESS=juno1uf5303f78u9ssjewh4f83sf22dmqzlp9c7rgyd3wldusx429mfjs9lcftp
