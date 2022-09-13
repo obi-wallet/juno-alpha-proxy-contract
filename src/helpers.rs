@@ -33,15 +33,11 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
                 }
             }
         }
-        val if val == MAINNET_ID => {
-            match &asset[..] {
-                "ujuno" => Ok(MAINNET_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
-                val if val == MAINNET_AXLUSDC_IBC => Ok(MAINNET_USDC_LOOP_PAIR_CONTRACT.to_owned()),
-                _ => {
-                    Ok("".to_owned())
-                }
-            }
-        }
+        val if val == MAINNET_ID => match &asset[..] {
+            "ujuno" => Ok(MAINNET_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
+            val if val == MAINNET_AXLUSDC_IBC => Ok(MAINNET_USDC_LOOP_PAIR_CONTRACT.to_owned()),
+            _ => Ok("".to_owned()),
+        },
         _ => Err(ContractError::UnknownHomeNetwork(network)),
     }
 }

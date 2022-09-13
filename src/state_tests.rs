@@ -43,13 +43,12 @@ mod tests {
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::DAYS,
                 period_multiple: 3,
-                spend_limits: vec![
-                    CoinLimit {
-                        amount: 100_000_000u64,
-                        denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
-                        limit_remaining: 100_000_000u64,
-                    },
-                ],
+                spend_limits: vec![CoinLimit {
+                    amount: 100_000_000u64,
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
+                    limit_remaining: 100_000_000u64,
+                }],
                 usdc_denom: Some("true".to_string()),
             }],
             uusd_fee_debt: Uint128::from(0u128),
@@ -64,7 +63,8 @@ mod tests {
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
-                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
                     amount: Uint128::from(1_000_000u128),
                 }],
             )
@@ -76,7 +76,8 @@ mod tests {
                 now_env.block.time,
                 bad_spender.to_string(),
                 vec![Coin {
-                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
                     amount: Uint128::from(1_000_000u128),
                 }],
             )
@@ -89,7 +90,8 @@ mod tests {
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
-                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
                     amount: Uint128::from(99_500_000u128),
                 }],
             )
@@ -102,7 +104,8 @@ mod tests {
                 now_env.block.time,
                 spender.to_string(),
                 vec![Coin {
-                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
                     amount: Uint128::from(99_000_001u128),
                 }],
             )
@@ -119,7 +122,8 @@ mod tests {
                 env_future.block.time,
                 spender.to_string(),
                 vec![Coin {
-                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
                     amount: Uint128::from(100_000_000u128),
                 }],
             )
@@ -149,13 +153,12 @@ mod tests {
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::MONTHS,
                 period_multiple: 38,
-                spend_limits: vec![
-                    CoinLimit {
-                        amount: 100_000_000u64,
-                        denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
-                        limit_remaining: 100_000_000u64,
-                    },
-                ],
+                spend_limits: vec![CoinLimit {
+                    amount: 100_000_000u64,
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
+                    limit_remaining: 100_000_000u64,
+                }],
                 usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
             }],
             uusd_fee_debt: Uint128::from(0u128),

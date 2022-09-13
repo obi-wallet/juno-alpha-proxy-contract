@@ -27,6 +27,30 @@
       "additionalProperties": false
     },
     {
+      "description": "Might still have spend limit etc affects, but avoids attaching any messages. Attaches attributes as normal. For debugging purposes – others should use query",
+      "type": "object",
+      "required": [
+        "sim_execute"
+      ],
+      "properties": {
+        "sim_execute": {
+          "type": "object",
+          "required": [
+            "msgs"
+          ],
+          "properties": {
+            "msgs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/CosmosMsg_for_Empty"
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Proposes a new admin for the proxy contract – must be called by the existing admin",
       "type": "object",
       "required": [
