@@ -32,7 +32,7 @@ ACTION="sim_execute"
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed, with fee repaid...${NC}"
-EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM --arg action $ACTION '{$action: {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "30000"}]}}}]}}')
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM --arg action $ACTION '{($action): {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "30000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 echo "Debug: $RES"
 error_check "$RES" "Admin unable to send funds"
