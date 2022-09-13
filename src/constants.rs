@@ -6,6 +6,6 @@ pub const MAINNET_USDC_LOOP_PAIR_CONTRACT: &str =
 pub const MAINNET_JUNO_LOOP_PAIR_CONTRACT: &str =
     "juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07";
 pub const TESTNET_LOOP_PAIR_DUMMY_CONTRACT: &str =
-    "juno1dmwfwqvke4hew5s93ut8h4tgu6sxv67zjw0y3hskgkfpy3utnpvseqyjs7";
+    "juno1vcta3w02nt59q8x7e6y9uawhdmjmptuf5spgkanp95h65hf76erqj7a3qp";
 pub const MAINNET_ID: &str = "juno-1";
 pub const TESTNET_ID: &str = "uni-3";

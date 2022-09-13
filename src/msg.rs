@@ -83,7 +83,7 @@ pub enum AssetInfo {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct ReverseSimulationMsg {
-    pub ask_asset: AssetInfo,
+    pub ask_asset: Asset,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
