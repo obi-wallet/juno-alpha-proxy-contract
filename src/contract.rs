@@ -37,6 +37,9 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let valid_admin: Addr = deps.api.addr_validate(&msg.admin)?;
     let valid_repay_wallet: Addr = deps.api.addr_validate(&msg.fee_lend_repay_wallet)?;
+    for wallet in msg.hot_wallets.clone() {
+        wallet.check_is_valid()?;
+    }
     let cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
@@ -110,12 +113,12 @@ pub fn execute_execute(
                     let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
                     res = res
                         .add_message(partial_res.messages[0].msg.clone())
-                        .add_attribute("action", "execute_spend_limit");
+                        .add_attribute("action", "execute_spend_limit_or_debt");
                     res = res.add_attributes(partial_res.attributes);
                 }
                 // otherwise it must be a bank transfer
                 CosmosMsg::Bank(bank) => {
-                    res = res.add_attribute("action", "execute_spend_limit");
+                    res = res.add_attribute("action", "execute_spend_limit_or_debt");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
                     for submsg in partial_res.messages {
                         res = res.add_message(submsg.msg.clone());
