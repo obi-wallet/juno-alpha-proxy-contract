@@ -62,7 +62,7 @@ pub fn convert_coin_to_usdc(
     amount: Uint128,
     reverse: bool,
 ) -> Result<SourcedCoin, ContractError> {
-    if denom == MAINNET_AXLUSDC_IBC.to_string() {
+    if denom == *MAINNET_AXLUSDC_IBC {
         return Ok(get_usdc_sourced_coin(amount));
     }
     match reverse {

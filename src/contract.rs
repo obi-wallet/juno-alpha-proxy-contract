@@ -213,28 +213,26 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
     let state: State = STATE.load(deps.storage)?;
     if state.uusd_fee_debt.u128() > 0u128 {
         let swaps = match asset.denom.as_str() {
-            val if val == MAINNET_AXLUSDC_IBC => {
-                (SourcedCoin {
+            val if val == MAINNET_AXLUSDC_IBC => SourcedCoin {
+                coin: Coin {
+                    denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    amount: state.uusd_fee_debt,
+                },
+                top: SourcedSwap {
                     coin: Coin {
-                        denom: MAINNET_AXLUSDC_IBC.to_string(),
                         amount: state.uusd_fee_debt,
+                        denom: asset.denom.clone(),
                     },
-                    top: SourcedSwap {
-                        coin: Coin {
-                            amount: state.uusd_fee_debt,
-                            denom: asset.denom.clone(),
-                        },
-                        contract_addr: "1 USDC is 1 USDC".to_string(),
+                    contract_addr: "1 USDC is 1 USDC".to_string(),
+                },
+                bottom: SourcedSwap {
+                    coin: Coin {
+                        amount: state.uusd_fee_debt,
+                        denom: asset.denom,
                     },
-                    bottom: SourcedSwap {
-                        coin: Coin {
-                            amount: state.uusd_fee_debt,
-                            denom: asset.denom,
-                        },
-                        contract_addr: "Yup, still 1 USDC".to_string(),
-                    },
-                })
-            }
+                    contract_addr: "Yup, still 1 USDC".to_string(),
+                },
+            },
             "ujuno" | "ujunox" | "testtokens" => convert_coin_to_usdc(
                 deps.as_ref(),
                 asset.denom.clone(),

@@ -17,7 +17,7 @@ pub fn get_test_sourced_swap(
     match denoms.clone() {
         val if val == ("testtokens".to_string(), "uloop".to_string()) => SourcedSwap {
             coin: Coin {
-                amount: Uint128::from(amount),
+                amount,
                 denom: denoms.1,
             },
             contract_addr: "test conversion localjuno to loop".to_string(),
@@ -28,12 +28,11 @@ pub fn get_test_sourced_swap(
                 "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
             ) =>
         {
-            let mut this_amount = amount;
-            if reverse {
-                this_amount = amount.checked_div(Uint128::from(100u128)).unwrap();
+            let this_amount = if reverse {
+                amount.checked_div(Uint128::from(100u128)).unwrap()
             } else {
-                this_amount = amount.checked_mul(Uint128::from(100u128)).unwrap();
-            }
+                amount.checked_mul(Uint128::from(100u128)).unwrap()
+            };
             SourcedSwap {
                 coin: Coin {
                     amount: this_amount,
@@ -44,7 +43,7 @@ pub fn get_test_sourced_swap(
         }
         val if val == ("uloop".to_string(), "testtokens".to_string()) => SourcedSwap {
             coin: Coin {
-                amount: Uint128::from(amount),
+                amount,
                 denom: denoms.1,
             },
             contract_addr: "test conversion loop to localjuno".to_string(),
@@ -55,12 +54,11 @@ pub fn get_test_sourced_swap(
                 "uloop".to_string(),
             ) =>
         {
-            let mut this_amount = amount;
-            if !reverse {
-                this_amount = amount.checked_mul(Uint128::from(10000u128)).unwrap();
+            let this_amount = if !reverse {
+                amount.checked_mul(Uint128::from(10000u128)).unwrap()
             } else {
-                this_amount = amount.checked_div(Uint128::from(10000u128)).unwrap();
-            }
+                amount.checked_div(Uint128::from(10000u128)).unwrap()
+            };
             SourcedSwap {
                 coin: Coin {
                     amount: this_amount,
