@@ -191,6 +191,7 @@ mod tests {
             current_env.clone(),
             info.clone(),
             vec![send_msg],
+            false
         )
         .unwrap();
         assert!(res.messages.len() == 1);
@@ -291,6 +292,7 @@ mod tests {
             current_env.clone(),
             info,
             vec![send_msg],
+            false
         )
         .unwrap();
         println!("{:?}", res);
@@ -319,6 +321,7 @@ mod tests {
             current_env.clone(),
             info,
             vec![send_msg],
+            false
         )
         .unwrap();
         println!("{:?}", res);
@@ -343,7 +346,8 @@ mod tests {
         });
         let info = mock_info(HOT_USDC_WALLET, &[]);
         let _res =
-            execute_execute(&mut deps.as_mut(), current_env, info, vec![send_msg]).unwrap_err();
+            execute_execute(&mut deps.as_mut(), current_env, info, vec![send_msg], false)
+            .unwrap_err();
     }
 
     #[test]

@@ -21,6 +21,10 @@ pub enum ExecuteMsg {
     /// contract's address as sender. Every implementation has it's own logic to
     /// determine in
     Execute { msgs: Vec<CosmosMsg> },
+    /// Might still have spend limit etc affects, but avoids attaching 
+    /// any messages. Attaches attributes as normal. For debugging purposes –
+    /// others should use query
+    SimExecute { msgs: Vec<CosmosMsg> },
     /// Proposes a new admin for the proxy contract – must be called by the existing admin
     ProposeUpdateAdmin { new_admin: String },
     /// Confirms a proposed admin - must be called by the new admin.

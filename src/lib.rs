@@ -1,4 +1,6 @@
 pub mod constants;
+#[cfg(test)]
+pub mod constants_tests;
 pub mod contract;
 #[cfg(test)]
 mod contract_tests;

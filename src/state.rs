@@ -94,6 +94,8 @@ impl HotWallet {
     pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
         let converted_spend_amt = convert_coin_to_usdc(deps, spend)?;
         // spend can't be bigger than total spend limit
+        println!("Current limit is {:?}", self.spend_limits[0].limit_remaining);
+        println!("Reducing by {:?}", converted_spend_amt.coin);
         let limit_remaining = self.spend_limits[0]
                 .limit_remaining
                 .checked_sub(converted_spend_amt.coin.amount.u128() as u64);

@@ -66,7 +66,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Execute { msgs } => execute_execute(&mut deps, env, info, msgs),
+        ExecuteMsg::Execute { msgs } => execute_execute(&mut deps, env, info, msgs, false),
+        ExecuteMsg::SimExecute { msgs } => execute_execute(&mut deps, env, info, msgs, true),
         ExecuteMsg::AddHotWallet { new_hot_wallet } => {
             add_hot_wallet(deps, env, info, new_hot_wallet)
         }
@@ -81,19 +82,22 @@ pub fn execute(
     }
 }
 
+// Simulation gatekeeping is all in this block
 pub fn execute_execute(
     deps: &mut DepsMut,
     env: Env,
     info: MessageInfo,
     msgs: Vec<CosmosMsg>,
+    simulation: bool,
 ) -> Result<Response, ContractError> {
     let cfg = STATE.load(deps.storage)?;
     let mut res = Response::new();
     if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
         // if there is no debt AND user is admin, process immediately
-        res = res
-            .add_messages(msgs)
-            .add_attribute("action", "execute_execute");
+        res = res.add_attribute("action", "execute_execute");
+        if !simulation {
+            res = res.add_messages(msgs);
+        }
         Ok(res)
     } else {
         // otherwise, we need to do some checking. Note that attaching
@@ -111,26 +115,29 @@ pub fn execute_execute(
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
                     let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
-                    res = res
-                        .add_message(partial_res.messages[0].msg.clone())
-                        .add_attribute("action", "execute_spend_limit_or_debt");
+                    res = res.add_attribute("action", "execute_spend_limit_or_debt");
+                    if !simulation {
+                        res = res.add_message(partial_res.messages[0].msg.clone());
+                    }
                     res = res.add_attributes(partial_res.attributes);
                 }
                 // otherwise it must be a bank transfer
                 CosmosMsg::Bank(bank) => {
                     res = res.add_attribute("action", "execute_spend_limit_or_debt");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
-                    for submsg in partial_res.messages {
-                        res = res.add_message(submsg.msg.clone());
+                    if !simulation {
+                        for submsg in partial_res.messages {
+                            res = res.add_message(submsg.msg.clone());
+                        }
                     }
                     res = res.add_attributes(partial_res.attributes);
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
-                        res = res
-                            .add_attribute("action", "execute_execute")
-                            .add_message(this_msg)
-                            .add_attribute("action", "execute_execute");
+                        res = res.add_attribute("action", "execute_execute");
+                        if !simulation {
+                            res = res.add_message(this_msg);
+                        }
                     } else {
                         return Err(ContractError::BadMessageType {});
                     }
