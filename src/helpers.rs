@@ -148,10 +148,15 @@ where
     return Ok(get_test_sourced_swap(denoms, amount, reverse));
     // TODO: if asset is source base token, return 1
     let cfg = STATE.load(deps.storage)?;
+    // Dex base asset is never identified, always the other
+    let simulation_asset_denom = match denoms.0.clone() {
+        val if val == "uloop".to_string() => denoms.1.clone(),
+        _ => denoms.0.clone(),
+    };
     let simulation_asset = Asset {
         amount,
         info: AssetInfo::NativeToken {
-            denom: denoms.0.clone(),
+            denom: simulation_asset_denom,
         },
     };
     let response_asset = denoms.1.clone();
