@@ -69,12 +69,53 @@ pub struct HotWallet {
 }
 
 impl HotWallet {
-    pub fn reset(&mut self) {
+    pub fn reset_limit(&mut self) {
         let mut new_limits = self.spend_limits.clone();
         for n in 0..new_limits.len() {
             new_limits[n].limit_remaining = new_limits[n].amount;
         }
         self.spend_limits = new_limits;
+    }
+
+    // it would be great for hot wallet to also handle its own
+    // period update, spend limit check, etc.
+    pub fn reset_period(
+        &mut self,
+        current_time: Timestamp,
+    ) -> Result<NaiveDateTime, ContractError> {
+        let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
+        // how far ahead we set new current_period_reset to
+        // depends on the spend limit period (type and multiple)
+        let new_dt: Result<NaiveDateTime, ContractError> = match self.period_type {
+            PeriodType::DAYS => {
+                let working_dt =
+                    new_dt.checked_add_signed(chrono::Duration::days(self.period_multiple as i64));
+                match working_dt {
+                    Some(dt) => Ok(dt),
+                    None => {
+                        return Err(ContractError::DayUpdateError {});
+                    }
+                }
+            }
+            PeriodType::MONTHS => {
+                let working_month = new_dt.month() as u16 + self.period_multiple;
+                match working_month {
+                    2..=12 => Ok(NaiveDate::from_ymd(new_dt.year(), working_month as u32, 1)
+                        .and_hms(0, 0, 0)),
+                    13..=268 => {
+                        let year_increment: i32 = (working_month / 12u16) as i32;
+                        Ok(NaiveDate::from_ymd(
+                            new_dt.year() + year_increment,
+                            working_month as u32 % 12,
+                            1,
+                        )
+                        .and_hms(0, 0, 0))
+                    }
+                    _ => Err(ContractError::MonthUpdateError {}),
+                }
+            }
+        };
+        new_dt
     }
 }
 
@@ -142,41 +183,7 @@ impl State {
                 println!("LIMIT RESET TRIGGERED");
                 // get a current NaiveDateTime so we can easily find the next
                 // reset threshold
-                let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
-                // how far ahead we set new current_period_reset to
-                // depends on the spend limit period (type and multiple)
-                let new_dt: Result<NaiveDateTime, ContractError> = match wallet_config.period_type {
-                    PeriodType::DAYS => {
-                        let working_dt = new_dt.checked_add_signed(chrono::Duration::days(
-                            wallet_config.period_multiple as i64,
-                        ));
-                        match working_dt {
-                            Some(dt) => Ok(dt),
-                            None => {
-                                return Err(ContractError::DayUpdateError {});
-                            }
-                        }
-                    }
-                    PeriodType::MONTHS => {
-                        let working_month = new_dt.month() as u16 + wallet_config.period_multiple;
-                        match working_month {
-                            2..=12 => {
-                                Ok(NaiveDate::from_ymd(new_dt.year(), working_month as u32, 1)
-                                    .and_hms(0, 0, 0))
-                            }
-                            13..=268 => {
-                                let year_increment: i32 = (working_month / 12u16) as i32;
-                                Ok(NaiveDate::from_ymd(
-                                    new_dt.year() + year_increment,
-                                    working_month as u32 % 12,
-                                    1,
-                                )
-                                .and_hms(0, 0, 0))
-                            }
-                            _ => Err(ContractError::MonthUpdateError {}),
-                        }
-                    }
-                };
+                let new_dt = self.hot_wallets[index].reset_period(current_time);
                 match new_dt {
                     Ok(dt) => {
                         println!(
@@ -185,7 +192,7 @@ impl State {
                         );
                         println!("Resetting to {:?}", dt.timestamp());
                         new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
-                        new_wallet_configs[index].reset();
+                        new_wallet_configs[index].reset_limit();
                         let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
                         self.hot_wallets = new_wallet_configs.clone();
                         let mut spend_tally: Uint128 = Uint128::from(0u128);
