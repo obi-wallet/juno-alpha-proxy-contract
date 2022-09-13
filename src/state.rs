@@ -1,13 +1,14 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Addr, Coin, Deps, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Coin, Deps, StdError, StdResult, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
+use crate::helpers::convert_coin_to_usdc;
 #[allow(unused_imports)]
 use crate::helpers::{simulate_reverse_swap, simulate_swap};
 use crate::ContractError;
@@ -69,12 +70,47 @@ pub struct HotWallet {
 }
 
 impl HotWallet {
-    pub fn reset_limit(&mut self) {
-        let mut new_limits = self.spend_limits.clone();
-        for n in 0..new_limits.len() {
-            new_limits[n].limit_remaining = new_limits[n].amount;
+    pub fn check_is_valid(self) -> StdResult<()> {
+        if self.usdc_denom != Some("true".to_string())
+            || self.spend_limits.len() > 1
+            || (self.spend_limits[0].denom != MAINNET_AXLUSDC_IBC
+                && self.spend_limits[0].denom != *"testtokens")
+        {
+            Err(StdError::GenericErr { msg: "Multiple spend limits are no longer supported. Remove this wallet and re-add with a USD spend limit.".to_string() })
+        } else {
+            Ok(())
         }
-        self.spend_limits = new_limits;
+    }
+
+    pub fn update_spend_limit(&mut self, new_limit: CoinLimit) -> StdResult<()> {
+        self.spend_limits = vec![new_limit];
+        Ok(())
+    }
+
+    pub fn reset_limits(&mut self) {
+        self.spend_limits[0].limit_remaining = self.spend_limits[0].amount;
+    }
+
+    pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
+        let converted_spend_amt = convert_coin_to_usdc(deps, spend)?;
+        // spend can't be bigger than total spend limit
+        println!(
+            "Current limit is {:?}",
+            self.spend_limits[0].limit_remaining
+        );
+        println!("Reducing by {:?}", converted_spend_amt.coin);
+        let limit_remaining = self.spend_limits[0]
+            .limit_remaining
+            .checked_sub(converted_spend_amt.coin.amount.u128() as u64);
+        println!("new limit is {:?}", limit_remaining);
+        let limit_remaining = match limit_remaining {
+            Some(remaining) => remaining,
+            None => {
+                return Err(ContractError::CannotSpendMoreThanLimit {});
+            }
+        };
+        self.spend_limits[0].limit_remaining = limit_remaining;
+        Ok(converted_spend_amt)
     }
 
     // it would be great for hot wallet to also handle its own
@@ -115,6 +151,7 @@ impl HotWallet {
                 }
             }
         };
+        self.reset_limits();
         new_dt
     }
 }
@@ -168,43 +205,32 @@ impl State {
             })
         } else {
             let addr = &addr;
-            let this_wallet_index = self.hot_wallets.iter().position(|a| &a.address == addr);
-            let index = match this_wallet_index {
-                Some(index) => index,
-                None => {
-                    return Err(ContractError::HotWalletDoesNotExist {});
-                }
-            };
-            let wallet_config = self.hot_wallets[index].clone();
-            let mut new_wallet_configs = self.hot_wallets.clone();
+            let this_wallet_opt: Option<&mut HotWallet> =
+                self.hot_wallets.iter_mut().find(|a| &a.address == addr);
+            if this_wallet_opt == None {
+                return Err(ContractError::HotWalletDoesNotExist {});
+            }
+            let this_wallet = this_wallet_opt.unwrap();
+
             // check if we should reset to full spend limit again
             // (i.e. reset time has passed)
-            if current_time.seconds() > wallet_config.current_period_reset {
+            if current_time.seconds() > this_wallet.current_period_reset {
                 println!("LIMIT RESET TRIGGERED");
                 // get a current NaiveDateTime so we can easily find the next
                 // reset threshold
-                let new_dt = self.hot_wallets[index].reset_period(current_time);
+                let new_dt = this_wallet.reset_period(current_time);
                 match new_dt {
                     Ok(dt) => {
                         println!(
                             "Old reset date is {:?}",
-                            new_wallet_configs[index].current_period_reset
+                            this_wallet.current_period_reset.clone()
                         );
                         println!("Resetting to {:?}", dt.timestamp());
-                        new_wallet_configs[index].current_period_reset = dt.timestamp() as u64;
-                        new_wallet_configs[index].reset_limit();
-                        let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
-                        self.hot_wallets = new_wallet_configs.clone();
                         let mut spend_tally: Uint128 = Uint128::from(0u128);
                         let mut spend_tally_sources: Vec<(String, String)> = vec![];
                         for n in spend {
-                            let spend_check_with_sources = self.check_spend_against_limit(
-                                deps,
-                                CheckType::RemainingLimit,
-                                &mut new_spend_limits,
-                                n.clone(),
-                                new_wallet_configs[index].usdc_denom.clone(),
-                            )?;
+                            let spend_check_with_sources =
+                                this_wallet.reduce_limit(deps, n.clone())?;
                             spend_tally_sources.push((
                                 format!("Price for {}", n.denom),
                                 format!("{}", spend_check_with_sources.top.coin.amount),
@@ -216,7 +242,6 @@ impl State {
                             spend_tally =
                                 spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                         }
-                        new_wallet_configs[index].spend_limits = new_spend_limits;
                         Ok(MultiSourcePrice {
                             price: spend_tally,
                             sources: spend_tally_sources,
@@ -225,17 +250,10 @@ impl State {
                     Err(e) => Err(e),
                 }
             } else {
-                let mut new_spend_limits = new_wallet_configs[index].spend_limits.clone();
                 let mut spend_tally: Uint128 = Uint128::from(0u128);
                 let mut spend_tally_sources: Vec<(String, String)> = vec![];
                 for n in spend {
-                    let spend_check_with_sources = self.check_spend_against_limit(
-                        deps,
-                        CheckType::RemainingLimit,
-                        &mut new_spend_limits,
-                        n.clone(),
-                        new_wallet_configs[index].usdc_denom.clone(),
-                    )?;
+                    let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
                     spend_tally_sources.push((
                         format!("Price for {}", n.denom),
                         format!("{}", spend_check_with_sources.top.coin.amount),
@@ -246,121 +264,10 @@ impl State {
                     ));
                     spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                 }
-                new_wallet_configs[index].spend_limits = new_spend_limits;
-                self.hot_wallets = new_wallet_configs;
                 Ok(MultiSourcePrice {
                     price: spend_tally,
                     sources: spend_tally_sources,
                 })
-            }
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn convert_coin_to_usdc(&self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
-        #[cfg(test)]
-        return Ok(SourcedCoin {
-            coin: Coin {
-                denom: MAINNET_AXLUSDC_IBC.to_string(),
-                amount: spend.amount.saturating_mul(Uint128::from(100u128)),
-            },
-            top: SourcedSwap {
-                coin: Coin {
-                    amount: Uint128::from(0u128),
-                    denom: "test_1".to_string(),
-                },
-                contract_addr: "test".to_string(),
-            },
-            bottom: SourcedSwap {
-                coin: Coin {
-                    amount: Uint128::from(0u128),
-                    denom: "test_2".to_string(),
-                },
-                contract_addr: "test".to_string(),
-            },
-        });
-        #[cfg(not(test))]
-        {
-            // top will be the price in DEX base
-            let top = simulate_swap(deps, spend.denom, spend.amount)?;
-            // now bottom will be the price of that in target
-            let bottom =
-                simulate_reverse_swap(deps, MAINNET_AXLUSDC_IBC.to_string(), top.coin.amount)?;
-            Ok(SourcedCoin {
-                coin: Coin {
-                    denom: MAINNET_AXLUSDC_IBC.to_string(),
-                    amount: bottom.coin.amount,
-                },
-                top,
-                bottom,
-            })
-        }
-    }
-
-    fn check_spend_against_limit(
-        &self,
-        deps: Deps,
-        check_type: CheckType,
-        new_spend_limits: &mut [CoinLimit],
-        spend: Coin,
-        usdc_denom: Option<String>,
-    ) -> Result<SourcedCoin, ContractError> {
-        let i = match usdc_denom.clone() {
-            Some(setting) if setting == *"true" => new_spend_limits
-                .iter()
-                .position(|limit| limit.denom == MAINNET_AXLUSDC_IBC),
-            _ => new_spend_limits
-                .iter()
-                .position(|limit| limit.denom == spend.denom),
-        };
-        match i {
-            None => Err(ContractError::CannotSpendThisAsset(spend.denom)),
-            Some(i) => {
-                let converted_spend_amt = match usdc_denom {
-                    Some(setting) if setting == "true" => self.convert_coin_to_usdc(deps, spend)?,
-                    _ => SourcedCoin {
-                        coin: spend,
-                        top: SourcedSwap {
-                            coin: Coin {
-                                amount: Uint128::from(0u128),
-                                denom: "swap_1_no_denom".to_string(),
-                            },
-                            contract_addr: "usdc denom is disabled".to_string(),
-                        },
-                        bottom: SourcedSwap {
-                            coin: Coin {
-                                amount: Uint128::from(0u128),
-                                denom: "swap_1_no_denom".to_string(),
-                            },
-                            contract_addr: "usdc denom is disabled".to_string(),
-                        },
-                    },
-                };
-                // debug print
-                println!("Converted Spend Amount is {:?}", converted_spend_amt);
-                println!("against limit of {}", new_spend_limits[i].amount);
-                // spend can't be bigger than total spend limit
-                let limit_remaining = match check_type {
-                    CheckType::TotalLimit => new_spend_limits[i]
-                        .amount
-                        .checked_sub(converted_spend_amt.coin.amount.u128() as u64),
-                    CheckType::RemainingLimit => new_spend_limits[i]
-                        .limit_remaining
-                        .checked_sub(converted_spend_amt.coin.amount.u128() as u64),
-                };
-                println!("new limit is {:?}", limit_remaining);
-                let limit_remaining = match limit_remaining {
-                    Some(remaining) => remaining,
-                    None => {
-                        return Err(ContractError::CannotSpendMoreThanLimit {});
-                    }
-                };
-                new_spend_limits[i] = CoinLimit {
-                    denom: new_spend_limits[i].denom.clone(),
-                    amount: new_spend_limits[i].amount,
-                    limit_remaining,
-                };
-                Ok(converted_spend_amt)
             }
         }
     }

@@ -67,4 +67,7 @@ pub enum ContractError {
 
     #[error("Spend limit and fee repay unsupported: Unknown home network")]
     UnknownHomeNetwork(String),
+
+    #[error("Multiple spend limits are no longer supported. Remove this wallet and re-add with a USD spend limit.")]
+    MultiSpendLimitsNotSupported {},
 }

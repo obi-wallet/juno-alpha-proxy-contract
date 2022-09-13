@@ -5,8 +5,10 @@ use crate::constants::{
     MAINNET_AXLUSDC_IBC, MAINNET_ID, MAINNET_JUNO_LOOP_PAIR_CONTRACT,
     MAINNET_USDC_LOOP_PAIR_CONTRACT, TESTNET_ID, TESTNET_LOOP_PAIR_DUMMY_CONTRACT,
 };
+#[cfg(test)]
+use crate::constants_tests::{get_test_sourced_coin, get_test_sourced_swap};
 use crate::msg::{ReverseSimulationMsg, ReverseSimulationResponse, SimulationResponse, Tallyable};
-use crate::state::SourcedSwap;
+use crate::state::{SourcedCoin, SourcedSwap};
 use crate::{
     msg::{Asset, AssetInfo, DexQueryMsg, SimulationMsg},
     state::STATE,
@@ -31,19 +33,33 @@ fn get_pair_contract(network: String, asset: String) -> Result<String, ContractE
                 }
             }
         }
-        val if val == MAINNET_ID => {
-            match &asset[..] {
-                "ujuno" => Ok(MAINNET_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
-                val if val == MAINNET_AXLUSDC_IBC => Ok(MAINNET_USDC_LOOP_PAIR_CONTRACT.to_owned()),
-                _ => {
-                    // this should probably fail quietly – if we're dealing with an entirely unknown asset,
-                    // transactions should go through by default if admin and fail if hot wallet
-                    // TODO here
-                    Ok("".to_owned())
-                }
-            }
-        }
+        val if val == MAINNET_ID => match &asset[..] {
+            "ujuno" => Ok(MAINNET_JUNO_LOOP_PAIR_CONTRACT.to_owned()),
+            val if val == MAINNET_AXLUSDC_IBC => Ok(MAINNET_USDC_LOOP_PAIR_CONTRACT.to_owned()),
+            _ => Ok("".to_owned()),
+        },
         _ => Err(ContractError::UnknownHomeNetwork(network)),
+    }
+}
+
+#[allow(unused_variables)]
+pub fn convert_coin_to_usdc(deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
+    #[cfg(test)]
+    return Ok(get_test_sourced_coin(spend));
+    #[cfg(not(test))]
+    {
+        // top will be the price in DEX base
+        let top = simulate_swap(deps, spend.denom, spend.amount)?;
+        // now bottom will be the price of that in target
+        let bottom = simulate_reverse_swap(deps, MAINNET_AXLUSDC_IBC.to_string(), top.coin.amount)?;
+        Ok(SourcedCoin {
+            coin: Coin {
+                denom: MAINNET_AXLUSDC_IBC.to_string(),
+                amount: bottom.coin.amount,
+            },
+            top,
+            bottom,
+        })
     }
 }
 
@@ -76,26 +92,7 @@ where
     T: Tallyable,
 {
     #[cfg(test)]
-    match &*asset {
-        "testtokens" => {
-            return Ok(SourcedSwap {
-                coin: Coin {
-                    amount: Uint128::from(100u128),
-                    denom: "testtokens".to_string(),
-                },
-                contract_addr: "local test path 1".to_string(),
-            });
-        }
-        _ => {
-            return Ok(SourcedSwap {
-                coin: Coin {
-                    amount: Uint128::from(100u128),
-                    denom: "testDexAsset".to_string(),
-                },
-                contract_addr: "local test path 2".to_string(),
-            });
-        }
-    }
+    return Ok(get_test_sourced_swap());
     // TODO: if asset is source base token, return 1
     let cfg = STATE.load(deps.storage)?;
     let simulation_asset = Asset {
