@@ -11,11 +11,11 @@ use cw20::Cw20ExecuteMsg;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::helpers::get_current_price;
+use crate::helpers::{simulate_reverse_swap, simulate_swap};
 use crate::msg::{
     AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use crate::state::{HotWallet, SourcedPrice, State, STATE};
+use crate::state::{HotWallet, SourcedSwap, State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -195,54 +195,48 @@ fn try_wasm_send(
 
 pub struct SourcedRepayMsg {
     pub repay_msg: Option<BankMsg>,
-    pub top_sourced_price: SourcedPrice,
-    pub bottom_sourced_price: SourcedPrice,
+    pub top_sourced_swap: SourcedSwap,
+    pub bottom_sourced_swap: SourcedSwap,
 }
 
 fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
     let state: State = STATE.load(deps.storage)?;
-    let mut top = SourcedPrice {
-        price: Uint128::from(0u128),
+    let mut top = SourcedSwap {
+        coin: Coin {
+            denom: "uninitialized".to_string(),
+            amount: Uint128::from(0u128),
+        },
         contract_addr: "uninitialized".to_string(),
     };
-    let mut bottom = SourcedPrice {
-        price: Uint128::from(0u128),
-        contract_addr: "uninitialized".to_string(),
-    };
+    let mut bottom = top.clone();
     if state.uusd_fee_debt.u128() > 0u128 {
-        let payment_coin = match asset.denom.as_str() {
-            val if val == MAINNET_AXLUSDC_IBC => Coin {
-                amount: state.uusd_fee_debt,
-                denom: asset.denom,
-            },
+        let swaps = match asset.denom.as_str() {
+            val if val == MAINNET_AXLUSDC_IBC => (
+                SourcedSwap {
+                    coin: Coin {
+                        amount: state.uusd_fee_debt,
+                        denom: asset.denom.clone(),
+                    },
+                    contract_addr: "1 USDC is 1 USDC".to_string(),
+                },
+                SourcedSwap {
+                    coin: Coin {
+                        amount: state.uusd_fee_debt,
+                        denom: asset.denom,
+                    },
+                    contract_addr: "Yup, still 1 USDC".to_string(),
+                },
+            ),
             "ujuno" | "ujunox" | "testtokens" => {
-                top = get_current_price(
+                top = simulate_swap(
                     deps.as_ref(),
                     MAINNET_AXLUSDC_IBC.to_string(),
-                    Uint128::from(1000000u128),
+                    state.uusd_fee_debt,
+                    false,
                 )?;
-                bottom = get_current_price(
-                    deps.as_ref(),
-                    asset.denom.clone(),
-                    Uint128::from(1000000u128),
-                )?;
-                let this_amount = state
-                    .uusd_fee_debt
-                    .checked_mul(top.price)
-                    .map_err(|e| {
-                        ContractError::PriceCheckFailed(asset.denom.clone(), e.to_string())
-                    })?
-                    .checked_div(bottom.price);
-                let checked_amount = match this_amount {
-                    Ok(amt) => amt,
-                    Err(e) => {
-                        return Err(ContractError::PriceCheckFailed(asset.denom, e.to_string()));
-                    }
-                };
-                Coin {
-                    amount: checked_amount,
-                    denom: asset.denom,
-                }
+                bottom =
+                    simulate_reverse_swap(deps.as_ref(), asset.denom.clone(), top.coin.amount)?;
+                (top, bottom)
             }
             _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
         };
@@ -252,16 +246,16 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
         Ok(SourcedRepayMsg {
             repay_msg: Some(BankMsg::Send {
                 to_address: state.fee_lend_repay_wallet.to_string(),
-                amount: vec![payment_coin],
+                amount: vec![swaps.1.coin.clone()],
             }),
-            top_sourced_price: top,
-            bottom_sourced_price: bottom,
+            top_sourced_swap: swaps.0,
+            bottom_sourced_swap: swaps.1,
         })
     } else {
         Ok(SourcedRepayMsg {
             repay_msg: None,
-            top_sourced_price: top,
-            bottom_sourced_price: bottom,
+            top_sourced_swap: top,
+            bottom_sourced_swap: bottom,
         })
     }
 }
@@ -284,15 +278,21 @@ fn try_bank_send(
                     .add_attribute("note", "repaying one-time fee debt")
                     .add_message(msg)
                     .add_attribute(
-                        "top_contract",
-                        attach_repay_msg.top_sourced_price.contract_addr,
+                        "swap_1_contract",
+                        attach_repay_msg.top_sourced_swap.contract_addr,
                     )
-                    .add_attribute("top_price", attach_repay_msg.top_sourced_price.price)
                     .add_attribute(
-                        "bottom_contract",
-                        attach_repay_msg.bottom_sourced_price.contract_addr,
+                        "swap_1_to_amount",
+                        attach_repay_msg.top_sourced_swap.coin.amount,
                     )
-                    .add_attribute("bottom_price", attach_repay_msg.bottom_sourced_price.price)),
+                    .add_attribute(
+                        "swap_2_contract",
+                        attach_repay_msg.bottom_sourced_swap.contract_addr,
+                    )
+                    .add_attribute(
+                        "swap_2_to_amount",
+                        attach_repay_msg.bottom_sourced_swap.coin.amount,
+                    )),
             }
         }
         _ => {

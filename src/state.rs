@@ -9,7 +9,7 @@ use cw_storage_plus::Item;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 #[allow(unused_imports)]
-use crate::helpers::get_current_price;
+use crate::helpers::{simulate_reverse_swap, simulate_swap};
 use crate::ContractError;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -40,8 +40,14 @@ pub struct SourcedPrice {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct SourcedCoin {
     pub coin: Coin,
-    pub top: SourcedPrice,
-    pub bottom: SourcedPrice,
+    pub top: SourcedSwap,
+    pub bottom: SourcedSwap,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct SourcedSwap {
+    pub coin: Coin,
+    pub contract_addr: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -194,11 +200,11 @@ impl State {
                             )?;
                             spend_tally_sources.push((
                                 format!("Price for {}", n.denom),
-                                format!("{}", spend_check_with_sources.top.price),
+                                format!("{}", spend_check_with_sources.top.coin.amount),
                             ));
                             spend_tally_sources.push((
                                 format!("Price for {}", n.denom),
-                                format!("{}", spend_check_with_sources.bottom.price),
+                                format!("{}", spend_check_with_sources.bottom.coin.amount),
                             ));
                             spend_tally =
                                 spend_tally.saturating_add(spend_check_with_sources.coin.amount);
@@ -225,11 +231,11 @@ impl State {
                     )?;
                     spend_tally_sources.push((
                         format!("Price for {}", n.denom),
-                        format!("{}", spend_check_with_sources.top.price),
+                        format!("{}", spend_check_with_sources.top.coin.amount),
                     ));
                     spend_tally_sources.push((
                         format!("Price for {}", n.denom),
-                        format!("{}", spend_check_with_sources.bottom.price),
+                        format!("{}", spend_check_with_sources.bottom.coin.amount),
                     ));
                     spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                 }
@@ -251,29 +257,32 @@ impl State {
                 denom: MAINNET_AXLUSDC_IBC.to_string(),
                 amount: spend.amount.saturating_mul(Uint128::from(100u128)),
             },
-            top: SourcedPrice {
-                price: Uint128::from(0u128),
+            top: SourcedSwap {
+                coin: Coin {
+                    amount: Uint128::from(0u128),
+                    denom: "test_1".to_string(),
+                },
                 contract_addr: "test".to_string(),
             },
-            bottom: SourcedPrice {
-                price: Uint128::from(0u128),
+            bottom: SourcedSwap {
+                coin: Coin {
+                    amount: Uint128::from(0u128),
+                    denom: "test_2".to_string(),
+                },
                 contract_addr: "test".to_string(),
             },
         });
         #[cfg(not(test))]
         {
-            let top = get_current_price(deps, spend.denom, spend.amount)?;
-            let bottom = get_current_price(
-                deps,
-                MAINNET_AXLUSDC_IBC.to_string(),
-                Uint128::from(1_000_000u128),
-            )?;
-            let top_mul = top.price.checked_mul(Uint128::from(1_000u128))?;
-            let bottom_mul = bottom.price.checked_mul(Uint128::from(1_000u128))?;
+            // top will be the price in DEX base
+            let top = simulate_swap(deps, spend.denom, spend.amount, false)?;
+            // now bottom will be the price of that in target
+            let bottom =
+                simulate_reverse_swap(deps, MAINNET_AXLUSDC_IBC.to_string(), top.coin.amount)?;
             Ok(SourcedCoin {
                 coin: Coin {
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
-                    amount: top_mul / bottom_mul,
+                    amount: bottom.coin.amount,
                 },
                 top,
                 bottom,
@@ -304,12 +313,18 @@ impl State {
                     Some(setting) if setting == "true" => self.convert_coin_to_usdc(deps, spend)?,
                     _ => SourcedCoin {
                         coin: spend,
-                        top: SourcedPrice {
-                            price: Uint128::from(0u128),
+                        top: SourcedSwap {
+                            coin: Coin {
+                                amount: Uint128::from(0u128),
+                                denom: "swap_1_no_denom".to_string(),
+                            },
                             contract_addr: "usdc denom is disabled".to_string(),
                         },
-                        bottom: SourcedPrice {
-                            price: Uint128::from(0u128),
+                        bottom: SourcedSwap {
+                            coin: Coin {
+                                amount: Uint128::from(0u128),
+                                denom: "swap_1_no_denom".to_string(),
+                            },
                             contract_addr: "usdc denom is disabled".to_string(),
                         },
                     },

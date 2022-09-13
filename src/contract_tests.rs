@@ -373,7 +373,7 @@ mod tests {
             }),
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "test_repay_address".to_string(),
-                amount: coins(10000, "testtokens"),
+                amount: coins(100, "testtokens"),
             }),
         ];
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
