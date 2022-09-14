@@ -2,6 +2,8 @@ use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
 
+use crate::state::PairContract;
+
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
@@ -74,6 +76,6 @@ pub enum ContractError {
     #[error("Mismatched pair contract.")]
     MismatchedPairContract {},
 
-    #[error("Pair contract for asset {0} to {1} not found")]
-    PairContractNotFound(String, String),
+    #[error("Pair contract for asset {0} to {1} not found, DUMP: {:3}")]
+    PairContractNotFound(String, String, Vec<PairContract>),
 }

@@ -21,19 +21,12 @@ pub fn get_usdc_sourced_coin(amount: Uint128) -> SourcedCoin {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
             amount,
         },
-        top: SourcedSwap {
+        sources: vec![SourcedSwap {
             coin: Coin {
                 denom: MAINNET_AXLUSDC_IBC.to_string(),
                 amount,
             },
             contract_addr: "1 USDC is 1 USDC".to_string(),
-        },
-        bottom: SourcedSwap {
-            coin: Coin {
-                denom: MAINNET_AXLUSDC_IBC.to_string(),
-                amount,
-            },
-            contract_addr: "Checking... yup, still 1 USDC".to_string(),
-        },
+        }],
     }
 }

@@ -208,8 +208,7 @@ fn try_wasm_send(
 
 pub struct SourcedRepayMsg {
     pub repay_msg: Option<BankMsg>,
-    pub top_sourced_swap: SourcedSwap,
-    pub bottom_sourced_swap: SourcedSwap,
+    pub sources: Vec<SourcedSwap>,
 }
 
 fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
@@ -221,20 +220,13 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                     amount: state.uusd_fee_debt,
                 },
-                top: SourcedSwap {
+                sources: vec![SourcedSwap {
                     coin: Coin {
                         amount: state.uusd_fee_debt,
                         denom: asset.denom.clone(),
                     },
                     contract_addr: "1 USDC is 1 USDC".to_string(),
-                },
-                bottom: SourcedSwap {
-                    coin: Coin {
-                        amount: state.uusd_fee_debt,
-                        denom: asset.denom,
-                    },
-                    contract_addr: "Yup, still 1 USDC".to_string(),
-                },
+                }],
             },
             "ujuno" | "ujunox" | "testtokens" => convert_coin_to_usdc(
                 deps.as_ref(),
@@ -252,26 +244,18 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                 to_address: state.fee_lend_repay_wallet.to_string(),
                 amount: vec![swaps.coin.clone()],
             }),
-            top_sourced_swap: swaps.top,
-            bottom_sourced_swap: swaps.bottom,
+            sources: swaps.sources,
         })
     } else {
         Ok(SourcedRepayMsg {
             repay_msg: None,
-            top_sourced_swap: SourcedSwap {
+            sources: vec![SourcedSwap {
                 coin: Coin {
                     denom: "no debt".to_string(),
                     amount: Uint128::from(0u128),
                 },
                 contract_addr: "no debt".to_string(),
-            },
-            bottom_sourced_swap: SourcedSwap {
-                coin: Coin {
-                    denom: "no debt".to_string(),
-                    amount: Uint128::from(0u128),
-                },
-                contract_addr: "no debt".to_string(),
-            },
+            }],
         })
     }
 }
@@ -287,28 +271,18 @@ fn try_bank_send(
             amount,
         } => {
             let attach_repay_msg = check_and_repay_debt(deps, amount[0].clone())?;
-            let res = check_and_spend(deps, core_payload, amount.clone())?;
+            let mut res = check_and_spend(deps, core_payload, amount.clone())?;
             match attach_repay_msg.repay_msg {
                 None => Ok(res),
-                Some(msg) => Ok(res
+                Some(msg) => {
+                    for n in 0..attach_repay_msg.sources.len() {
+                        res = res.add_attribute(format!("swap {} contract", n+1), attach_repay_msg.sources[n].contract_addr.clone())
+                            .add_attribute(format!("swap {} to_amount", n+1), attach_repay_msg.sources[n].coin.amount)
+                    }
+                    Ok(res
                     .add_attribute("note", "repaying one-time fee debt")
-                    .add_message(msg)
-                    .add_attribute(
-                        "swap_1_contract",
-                        attach_repay_msg.top_sourced_swap.contract_addr,
-                    )
-                    .add_attribute(
-                        "swap_1_to_amount",
-                        attach_repay_msg.top_sourced_swap.coin.amount,
-                    )
-                    .add_attribute(
-                        "swap_2_contract",
-                        attach_repay_msg.bottom_sourced_swap.contract_addr,
-                    )
-                    .add_attribute(
-                        "swap_2_to_amount",
-                        attach_repay_msg.bottom_sourced_swap.coin.amount,
-                    )),
+                    .add_message(msg))
+                }
             }
         }
         _ => {
