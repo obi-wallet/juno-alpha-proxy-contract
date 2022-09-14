@@ -62,6 +62,44 @@ pub enum QueryMsg {
 pub enum DexQueryMsg {
     ReverseSimulation(ReverseSimulationMsg),
     Simulation(SimulationMsg),
+    Token1ForToken2Price(Token1ForToken2Msg),
+    Token2ForToken1Price(Token2ForToken1Msg),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token1ForToken2Msg {
+    pub token1_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token2ForToken1Msg {
+    pub token2_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token1ForToken2Response {
+    pub token2_amount: Uint128,
+}
+
+impl Tallyable for Token1ForToken2Response {
+    fn tally(self) -> Uint128 {
+        self.token2_amount
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token2ForToken1Response {
+    pub token1_amount: Uint128,
+}
+
+impl Tallyable for Token2ForToken1Response {
+    fn tally(self) -> Uint128 {
+        self.token1_amount
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

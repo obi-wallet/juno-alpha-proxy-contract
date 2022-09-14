@@ -5,16 +5,10 @@ use crate::state::{SourcedCoin, SourcedSwap};
 pub const MAINNET_AXLUSDC_IBC: &str =
     "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
 // at a later date these will be retrieved from something like an on-chain registry
-pub const MAINNET_USDC_TO_LOOP_PAIR_CONTRACT: &str =
-    "juno1ctsmp54v79x7ea970zejlyws50cj9pkrmw49x46085fn80znjmpqz2n642";
-pub const MAINNET_LOOP_TO_USDC_PAIR_CONTRACT: &str =
-    "juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup";
-pub const MAINNET_JUNO_TO_LOOP_PAIR_CONTRACT: &str =
-    "juno1qc8mrs3hmxm0genzrd92akja5r0v7mfm6uuwhktvzphhz9ygkp8ssl4q07";
-pub const MAINNET_LOOP_TO_JUNO_PAIR_CONTRACT: &str =
-    "juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup";
-pub const TESTNET_LOOP_PAIR_DUMMY_CONTRACT: &str =
+pub const TESTNET_DUMMY_CONTRACT: &str =
     "juno16g8eruwac5270e985xljjpncy6n7z64ha04tlsszw34xlzvx688q67ctv0";
+pub const MAINNET_DEX_TOKEN_CONTRACT: &str =
+    "juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup";
 pub const MAINNET_ID: &str = "juno-1";
 pub const TESTNET_ID: &str = "uni-3";
 pub const MAINNET_DENOM: &str = "ujuno";

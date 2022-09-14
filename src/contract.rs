@@ -40,21 +40,24 @@ pub fn instantiate(
     for wallet in msg.hot_wallets.clone() {
         wallet.check_is_valid()?;
     }
-    let cfg = State {
+    let mut cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
         uusd_fee_debt: msg.uusd_fee_debt,
         fee_lend_repay_wallet: valid_repay_wallet,
         home_network: msg.home_network,
+        pair_contracts: vec![],
     };
+    cfg.set_pair_contracts(cfg.home_network.clone())?;
     STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    // No state migrations performed right now, just return a Response
+    let mut cfg = STATE.load(_deps.storage)?;
+    cfg.set_pair_contracts(cfg.home_network.clone())?;
     Ok(Response::default())
 }
 

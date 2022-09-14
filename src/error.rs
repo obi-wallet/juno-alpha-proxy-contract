@@ -70,4 +70,10 @@ pub enum ContractError {
 
     #[error("Multiple spend limits are no longer supported. Remove this wallet and re-add with a USD spend limit.")]
     MultiSpendLimitsNotSupported {},
+
+    #[error("Mismatched pair contract.")]
+    MismatchedPairContract {},
+
+    #[error("Pair contract for asset {0} to {1} not found")]
+    PairContractNotFound(String, String),
 }

@@ -4,6 +4,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
+    use crate::defaults::get_local_pair_contracts;
     use crate::state::{CoinLimit, HotWallet, PeriodType, State};
 
     #[test]
@@ -16,6 +17,7 @@ mod tests {
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
+            pair_contracts: get_local_pair_contracts().to_vec(),
         };
 
         assert!(config.is_admin(admin.to_string()));
@@ -54,6 +56,7 @@ mod tests {
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
+            pair_contracts: get_local_pair_contracts().to_vec(),
         };
 
         println!("Spending 1,000,000 now");
@@ -164,6 +167,7 @@ mod tests {
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
+            pair_contracts: get_local_pair_contracts().to_vec(),
         };
 
         config
