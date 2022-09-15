@@ -84,16 +84,16 @@ pub struct Token1ForToken2Response {
     pub token2_amount: Uint128,
 }
 
-impl Tallyable for Token1ForToken2Response {
-    fn tally(self) -> Uint128 {
-        self.token2_amount
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Token2ForToken1Response {
     pub token1_amount: Uint128,
+}
+
+impl Tallyable for Token1ForToken2Response {
+    fn tally(self) -> Uint128 {
+        self.token2_amount
+    }
 }
 
 impl Tallyable for Token2ForToken1Response {

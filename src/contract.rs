@@ -276,12 +276,19 @@ fn try_bank_send(
                 None => Ok(res),
                 Some(msg) => {
                     for n in 0..attach_repay_msg.sources.len() {
-                        res = res.add_attribute(format!("swap {} contract", n+1), attach_repay_msg.sources[n].contract_addr.clone())
-                            .add_attribute(format!("swap {} to_amount", n+1), attach_repay_msg.sources[n].coin.amount)
+                        res = res
+                            .add_attribute(
+                                format!("swap {} contract", n + 1),
+                                attach_repay_msg.sources[n].contract_addr.clone(),
+                            )
+                            .add_attribute(
+                                format!("swap {} to_amount", n + 1),
+                                attach_repay_msg.sources[n].coin.amount,
+                            )
                     }
                     Ok(res
-                    .add_attribute("note", "repaying one-time fee debt")
-                    .add_message(msg))
+                        .add_attribute("note", "repaying one-time fee debt")
+                        .add_message(msg))
                 }
             }
         }

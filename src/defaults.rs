@@ -36,7 +36,7 @@ pub fn get_testnet_pair_contracts() -> [PairContract; 3] {
     [
         PairContract {
             contract_addr: String::from(
-                "juno16g8eruwac5270e985xljjpncy6n7z64ha04tlsszw34xlzvx688q67ctv0",
+                "juno106p75em93t4fj6jeqdyewc6ukqlqfkejzvgle88txc56sushk8wscahlxg",
             ),
             denom1: String::from(MAINNET_AXLUSDC_IBC),
             denom2: String::from(MAINNET_DEX_DENOM),
@@ -44,7 +44,7 @@ pub fn get_testnet_pair_contracts() -> [PairContract; 3] {
         },
         PairContract {
             contract_addr: String::from(
-                "juno16g8eruwac5270e985xljjpncy6n7z64ha04tlsszw34xlzvx688q67ctv0",
+                "juno106p75em93t4fj6jeqdyewc6ukqlqfkejzvgle88txc56sushk8wscahlxg",
             ),
             denom1: String::from(TESTNET_DENOM),
             denom2: String::from(MAINNET_DEX_DENOM),
@@ -52,7 +52,7 @@ pub fn get_testnet_pair_contracts() -> [PairContract; 3] {
         },
         PairContract {
             contract_addr: String::from(
-                "juno16g8eruwac5270e985xljjpncy6n7z64ha04tlsszw34xlzvx688q67ctv0",
+                "juno106p75em93t4fj6jeqdyewc6ukqlqfkejzvgle88txc56sushk8wscahlxg",
             ),
             denom1: String::from(TESTNET_DENOM),
             denom2: String::from(MAINNET_AXLUSDC_IBC),

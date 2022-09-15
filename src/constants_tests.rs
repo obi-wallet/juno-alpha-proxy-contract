@@ -35,7 +35,7 @@ pub fn get_test_sourced_swap(
                 ) =>
         {
             let this_amount = if reverse {
-                amount.checked_div(Uint128::from(100u128)).unwrap()
+                amount.checked_div(Uint128::from(10000u128)).unwrap()
             } else {
                 amount.checked_mul(Uint128::from(100u128)).unwrap()
             };

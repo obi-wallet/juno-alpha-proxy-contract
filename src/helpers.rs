@@ -31,14 +31,8 @@ pub fn convert_coin_to_usdc(
         }
         true => {
             // top will be the price in DEX base
-            let price = simulate_reverse_swap(
-                deps,
-                (
-                    MAINNET_AXLUSDC_IBC.to_string(),
-                    denom,
-                ),
-                amount,
-            )?;
+            let price =
+                simulate_reverse_swap(deps, (MAINNET_AXLUSDC_IBC.to_string(), denom), amount)?;
             Ok(SourcedCoin {
                 coin: Coin {
                     denom: MAINNET_AXLUSDC_IBC.to_string(),

@@ -103,7 +103,9 @@ impl PairContract {
             PairMessageType::LoopType => {
                 let simulation_asset = Asset {
                     amount,
-                    info: AssetInfo::NativeToken { denom: self.denom1.clone() },
+                    info: AssetInfo::NativeToken {
+                        denom: self.denom1.clone(),
+                    },
                 };
                 match amount_is_target {
                     false => DexQueryMsg::Simulation(SimulationMsg {
@@ -118,7 +120,9 @@ impl PairContract {
             }
             PairMessageType::JunoType => {
                 let mut flip_assets: bool = reverse;
-                if amount_is_target { flip_assets = !flip_assets; }
+                if amount_is_target {
+                    flip_assets = !flip_assets;
+                }
                 match flip_assets {
                     false => DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
                         token1_amount: amount,
@@ -131,9 +135,17 @@ impl PairContract {
         };
         let response_asset = self.denom2;
         #[cfg(test)]
-        println!("Bypassing query message on contract {}: {:?}", self.contract_addr.clone(), query_msg.clone());
+        println!(
+            "Bypassing query message on contract {}: {:?}",
+            self.contract_addr.clone(),
+            query_msg.clone()
+        );
         #[cfg(test)]
-        return Ok(get_test_sourced_swap((self.denom1, response_asset.clone()), amount, reverse));
+        return Ok(get_test_sourced_swap(
+            (self.denom1, response_asset.clone()),
+            amount,
+            reverse,
+        ));
         let query_response: Result<T, StdError> =
             deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.contract_addr.clone(),
@@ -281,7 +293,11 @@ impl State {
                 return Ok((self.pair_contracts[n].clone(), true));
             }
         }
-        Err(ContractError::PairContractNotFound(denoms.0, denoms.1, self.pair_contracts.clone()))
+        Err(ContractError::PairContractNotFound(
+            denoms.0,
+            denoms.1,
+            self.pair_contracts.clone(),
+        ))
     }
 
     pub fn set_pair_contracts(&mut self, network: String) -> Result<(), StdError> {
