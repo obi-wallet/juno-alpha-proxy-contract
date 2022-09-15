@@ -137,12 +137,12 @@ impl PairContract {
         #[cfg(test)]
         println!(
             "Bypassing query message on contract {}: {:?}",
-            self.contract_addr.clone(),
-            query_msg.clone()
+            self.contract_addr,
+            query_msg
         );
         #[cfg(test)]
         return Ok(get_test_sourced_swap(
-            (self.denom1, response_asset.clone()),
+            (self.denom1, response_asset),
             amount,
             reverse,
         ));
@@ -310,7 +310,7 @@ impl State {
                 self.pair_contracts = get_testnet_pair_contracts().to_vec();
                 Ok(())
             }
-            val if val == "local".to_string() => {
+            val if val == *"local" => {
                 self.pair_contracts = get_local_pair_contracts().to_vec();
                 Ok(())
             }

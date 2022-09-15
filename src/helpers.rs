@@ -74,7 +74,7 @@ where
     T: Tallyable,
 {
     let cfg = STATE.load(deps.storage)?;
-    let pair_contract = cfg.get_pair_contract(denoms.clone())?; // bool is whether reversed
+    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     pair_contract
         .0
         .query_contract::<T>(deps, amount, pair_contract.1, target_amount)
