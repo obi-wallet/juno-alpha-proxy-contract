@@ -28,7 +28,7 @@ error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
 # Note this is sim_execute only at the moment, for debugging
-ACTION="sim_execute"
+ACTION="execute"
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed, with fee repaid...${NC}"
