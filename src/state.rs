@@ -160,6 +160,7 @@ impl PairContract {
             }),
             Err(e) => Err(ContractError::PriceCheckFailed(
                 format!("{:?}", to_binary(&query_msg)?),
+                self.contract_addr.clone(),
                 e.to_string(),
             )),
         }
