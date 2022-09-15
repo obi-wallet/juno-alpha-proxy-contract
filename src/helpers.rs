@@ -2,8 +2,8 @@ use cosmwasm_std::{Coin, Deps, Uint128};
 use serde::Deserialize;
 
 use crate::constants::{get_usdc_sourced_coin, MAINNET_AXLUSDC_IBC};
-use crate::msg::{ReverseSimulationResponse, SimulationResponse, Tallyable};
-use crate::state::{SourcedCoin, SourcedSwap};
+use crate::msg::{ReverseSimulationResponse, SimulationResponse, Tallyable, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse};
+use crate::state::{SourcedCoin, SourcedSwap, PairContract, PairMessageType};
 use crate::{state::STATE, ContractError};
 
 /// reverse is true if we have a target USDC amount (for fees)
@@ -50,7 +50,16 @@ pub fn simulate_reverse_swap(
     denoms: (String, String),
     amount: Uint128,
 ) -> Result<SourcedSwap, ContractError> {
-    simulate::<ReverseSimulationResponse>(deps, denoms, amount, true)
+    let cfg = STATE.load(deps.storage)?;
+    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
+    match pair_contract.0.query_format.clone() {
+        PairMessageType::JunoType => {
+            simulate::<Token2ForToken1PriceResponse>(deps, pair_contract, amount, true)
+        },
+        PairMessageType::LoopType => {
+            simulate::<ReverseSimulationResponse>(deps, pair_contract, amount, true)
+        } 
+    }
 }
 
 pub fn simulate_swap(
@@ -58,14 +67,22 @@ pub fn simulate_swap(
     denoms: (String, String),
     amount: Uint128,
 ) -> Result<SourcedSwap, ContractError> {
-    simulate::<SimulationResponse>(deps, denoms, amount, false)
-}
+    let cfg = STATE.load(deps.storage)?;
+    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
+    match pair_contract.0.query_format.clone() {
+        PairMessageType::JunoType => {
+            simulate::<Token1ForToken2PriceResponse>(deps, pair_contract, amount, true)
+        },
+        PairMessageType::LoopType => {
+            simulate::<SimulationResponse>(deps, pair_contract, amount, true)
+        } 
+    }}
 
 #[allow(unreachable_code)]
 #[allow(unused_variables)]
 pub fn simulate<T>(
     deps: Deps,
-    denoms: (String, String),
+    pair_contract: (PairContract, bool),
     amount: Uint128,
     target_amount: bool, // when you want to meet a target number
 ) -> Result<SourcedSwap, ContractError>
@@ -73,8 +90,6 @@ where
     T: for<'de> Deserialize<'de>,
     T: Tallyable,
 {
-    let cfg = STATE.load(deps.storage)?;
-    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     pair_contract
         .0
         .query_contract::<T>(deps, amount, pair_contract.1, target_amount)

@@ -80,23 +80,23 @@ pub struct Token2ForToken1Msg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct Token1ForToken2Response {
+pub struct Token1ForToken2PriceResponse {
     pub token2_amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct Token2ForToken1Response {
+pub struct Token2ForToken1PriceResponse {
     pub token1_amount: Uint128,
 }
 
-impl Tallyable for Token1ForToken2Response {
+impl Tallyable for Token1ForToken2PriceResponse {
     fn tally(self) -> Uint128 {
         self.token2_amount
     }
 }
 
-impl Tallyable for Token2ForToken1Response {
+impl Tallyable for Token2ForToken1PriceResponse {
     fn tally(self) -> Uint128 {
         self.token1_amount
     }
