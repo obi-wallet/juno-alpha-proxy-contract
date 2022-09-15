@@ -137,8 +137,7 @@ impl PairContract {
         #[cfg(test)]
         println!(
             "Bypassing query message on contract {}: {:?}",
-            self.contract_addr,
-            query_msg
+            self.contract_addr, query_msg
         );
         #[cfg(test)]
         return Ok(get_test_sourced_swap(
@@ -312,6 +311,10 @@ impl State {
             }
             val if val == *"local" => {
                 self.pair_contracts = get_local_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == *"EMPTY" => {
+                self.pair_contracts = [].to_vec();
                 Ok(())
             }
             _ => Err(StdError::GenericErr {

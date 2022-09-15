@@ -1,5 +1,8 @@
 use crate::{
-    constants::{MAINNET_AXLUSDC_IBC, MAINNET_DENOM, MAINNET_DEX_DENOM, TESTNET_DENOM},
+    constants::{
+        MAINNET_AXLUSDC_IBC, MAINNET_DENOM, MAINNET_DEX_DENOM, TESTNET_DENOM,
+        TESTNET_DUMMY_CONTRACT,
+    },
     state::{PairContract, PairMessageType},
 };
 
@@ -35,25 +38,19 @@ pub fn get_mainnet_pair_contracts() -> [PairContract; 3] {
 pub fn get_testnet_pair_contracts() -> [PairContract; 3] {
     [
         PairContract {
-            contract_addr: String::from(
-                "juno106p75em93t4fj6jeqdyewc6ukqlqfkejzvgle88txc56sushk8wscahlxg",
-            ),
+            contract_addr: String::from(TESTNET_DUMMY_CONTRACT),
             denom1: String::from(MAINNET_AXLUSDC_IBC),
             denom2: String::from(MAINNET_DEX_DENOM),
             query_format: PairMessageType::LoopType,
         },
         PairContract {
-            contract_addr: String::from(
-                "juno106p75em93t4fj6jeqdyewc6ukqlqfkejzvgle88txc56sushk8wscahlxg",
-            ),
+            contract_addr: String::from(TESTNET_DUMMY_CONTRACT),
             denom1: String::from(TESTNET_DENOM),
             denom2: String::from(MAINNET_DEX_DENOM),
             query_format: PairMessageType::LoopType,
         },
         PairContract {
-            contract_addr: String::from(
-                "juno106p75em93t4fj6jeqdyewc6ukqlqfkejzvgle88txc56sushk8wscahlxg",
-            ),
+            contract_addr: String::from(TESTNET_DUMMY_CONTRACT),
             denom1: String::from(TESTNET_DENOM),
             denom2: String::from(MAINNET_AXLUSDC_IBC),
             query_format: PairMessageType::JunoType,

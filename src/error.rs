@@ -78,4 +78,13 @@ pub enum ContractError {
 
     #[error("Pair contract for asset {0} to {1} not found, DUMP: {:3}")]
     PairContractNotFound(String, String, Vec<PairContract>),
+
+    #[error("Semver parsing error: {0}")]
+    SemVer(String),
+}
+
+impl From<semver::Error> for ContractError {
+    fn from(err: semver::Error) -> Self {
+        Self::SemVer(err.to_string())
+    }
 }

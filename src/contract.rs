@@ -6,8 +6,9 @@ use cosmwasm_std::{
 };
 
 use cw1::CanExecuteResponse;
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 use cw20::Cw20ExecuteMsg;
+use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
@@ -55,9 +56,18 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    let mut cfg = STATE.load(_deps.storage)?;
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let mut cfg = STATE.load(deps.storage)?;
     cfg.set_pair_contracts(cfg.home_network.clone())?;
+    let version: Version = CONTRACT_VERSION.parse()?;
+    let storage_version: Version = get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        // If state structure changed in any contract version in the way migration is needed, it
+        // should occur here
+    }
     Ok(Response::default())
 }
 
