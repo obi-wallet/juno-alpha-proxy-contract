@@ -1,16 +1,27 @@
 //use cw_multi_test::Contract;
 use chrono::Datelike;
 use chrono::{NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Addr, Coin, Deps, StdError, StdResult, Timestamp, Uint128};
+use cosmwasm_std::{
+    to_binary, Addr, Coin, Deps, QueryRequest, StdError, StdResult, Timestamp, Uint128, WasmQuery,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
-use crate::constants::MAINNET_AXLUSDC_IBC;
+use crate::constants::{MAINNET_AXLUSDC_IBC, MAINNET_ID, TESTNET_ID};
+#[cfg(test)]
+use crate::constants_tests::get_test_sourced_swap;
+use crate::defaults::{
+    get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
+};
 use crate::helpers::convert_coin_to_usdc;
 #[allow(unused_imports)]
 use crate::helpers::{simulate_reverse_swap, simulate_swap};
+use crate::msg::{
+    Asset, AssetInfo, DexQueryMsg, ReverseSimulationMsg, SimulationMsg, Tallyable,
+    Token1ForToken2Msg, Token2ForToken1Msg,
+};
 use crate::ContractError;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -41,8 +52,7 @@ pub struct SourcedPrice {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct SourcedCoin {
     pub coin: Coin,
-    pub top: SourcedSwap,
-    pub bottom: SourcedSwap,
+    pub sources: Vec<SourcedSwap>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -55,6 +65,106 @@ pub struct SourcedSwap {
 pub struct MultiSourcePrice {
     pub price: Uint128,
     pub sources: Vec<(String, String)>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub enum PairMessageType {
+    LoopType,
+    JunoType,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct PairContract {
+    pub contract_addr: String,
+    pub denom1: String,
+    pub denom2: String,
+    pub query_format: PairMessageType,
+}
+
+impl PairContract {
+    pub fn get_denoms(&self) -> Result<(String, String), ContractError> {
+        Ok((self.denom1.clone(), self.denom2.clone()))
+    }
+
+    #[allow(unreachable_code)]
+    #[allow(unused_variables)]
+    pub fn query_contract<T>(
+        self,
+        deps: Deps,
+        amount: Uint128,
+        reverse: bool,
+        amount_is_target: bool,
+    ) -> Result<SourcedSwap, ContractError>
+    where
+        T: for<'de> Deserialize<'de>,
+        T: Tallyable,
+    {
+        let query_msg: DexQueryMsg = match self.query_format {
+            PairMessageType::LoopType => {
+                let simulation_asset = Asset {
+                    amount,
+                    info: AssetInfo::NativeToken {
+                        denom: self.denom1.clone(),
+                    },
+                };
+                match amount_is_target {
+                    false => DexQueryMsg::Simulation(SimulationMsg {
+                        offer_asset: simulation_asset,
+                    }),
+                    true => {
+                        DexQueryMsg::ReverseSimulation(ReverseSimulationMsg {
+                            ask_asset: simulation_asset,
+                        }) // no cw20 support yet (expect for the base asset)
+                    }
+                }
+            }
+            PairMessageType::JunoType => {
+                let mut flip_assets: bool = reverse;
+                if amount_is_target {
+                    flip_assets = !flip_assets;
+                }
+                match flip_assets {
+                    false => DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
+                        token1_amount: amount,
+                    }),
+                    true => DexQueryMsg::Token2ForToken1Price(Token2ForToken1Msg {
+                        token2_amount: amount,
+                    }), // no cw20 support yet (expect for the base asset)
+                }
+            }
+        };
+        let response_asset = self.denom2;
+        #[cfg(test)]
+        println!(
+            "Bypassing query message on contract {}: {:?}",
+            self.contract_addr, query_msg
+        );
+        #[cfg(test)]
+        return Ok(get_test_sourced_swap(
+            (self.denom1, response_asset),
+            amount,
+            reverse,
+        ));
+        let query_response: Result<T, StdError> =
+            deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: self.contract_addr.clone(),
+                msg: to_binary(&query_msg)?,
+            }));
+        match query_response {
+            Ok(res) => Ok(SourcedSwap {
+                coin: Coin {
+                    denom: response_asset,
+                    amount: (res.tally()),
+                },
+                contract_addr: self.contract_addr,
+            }),
+            Err(e) => Err(ContractError::PriceCheckFailed(
+                format!("{:?}", to_binary(&query_msg)?),
+                self.contract_addr.clone(),
+                e.to_string(),
+            )),
+        }
+    }
 }
 
 // could do hot wallets as Map or even IndexedMap, but this contract
@@ -164,9 +274,56 @@ pub struct State {
     pub uusd_fee_debt: Uint128, // waiting to pay back fees
     pub fee_lend_repay_wallet: Addr,
     pub home_network: String,
+    pub pair_contracts: Vec<PairContract>,
 }
 
 impl State {
+    pub fn get_pair_contract(
+        &self,
+        denoms: (String, String),
+    ) -> Result<(PairContract, bool), ContractError> {
+        for n in 0..self.pair_contracts.len() {
+            if self.pair_contracts[n].denom1 == denoms.0
+                && self.pair_contracts[n].denom2 == denoms.1
+            {
+                return Ok((self.pair_contracts[n].clone(), false));
+            } else if self.pair_contracts[n].denom2 == denoms.0
+                && self.pair_contracts[n].denom1 == denoms.1
+            {
+                return Ok((self.pair_contracts[n].clone(), true));
+            }
+        }
+        Err(ContractError::PairContractNotFound(
+            denoms.0,
+            denoms.1,
+            self.pair_contracts.clone(),
+        ))
+    }
+
+    pub fn set_pair_contracts(&mut self, network: String) -> Result<(), StdError> {
+        match network {
+            val if val == MAINNET_ID => {
+                self.pair_contracts = get_mainnet_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == TESTNET_ID => {
+                self.pair_contracts = get_testnet_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == *"local" => {
+                self.pair_contracts = get_local_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == *"EMPTY" => {
+                self.pair_contracts = [].to_vec();
+                Ok(())
+            }
+            _ => Err(StdError::GenericErr {
+                msg: "Failed to init pair contracts; unsupported chain id".to_string(),
+            }),
+        }
+    }
+
     pub fn add_hot_wallet(&mut self, new_hot_wallet: HotWallet) {
         self.hot_wallets.push(new_hot_wallet);
     }
@@ -231,14 +388,12 @@ impl State {
                         for n in spend {
                             let spend_check_with_sources =
                                 this_wallet.reduce_limit(deps, n.clone())?;
-                            spend_tally_sources.push((
-                                format!("Price for {}", n.denom),
-                                format!("{}", spend_check_with_sources.top.coin.amount),
-                            ));
-                            spend_tally_sources.push((
-                                format!("Price for {}", n.denom),
-                                format!("{}", spend_check_with_sources.bottom.coin.amount),
-                            ));
+                            for m in 0..spend_check_with_sources.sources.len() {
+                                spend_tally_sources.push((
+                                    format!("Price for {}", n.denom),
+                                    format!("{}", spend_check_with_sources.sources[m].coin.amount),
+                                ));
+                            }
                             spend_tally =
                                 spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                         }
@@ -254,14 +409,12 @@ impl State {
                 let mut spend_tally_sources: Vec<(String, String)> = vec![];
                 for n in spend {
                     let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
-                    spend_tally_sources.push((
-                        format!("Price for {}", n.denom),
-                        format!("{}", spend_check_with_sources.top.coin.amount),
-                    ));
-                    spend_tally_sources.push((
-                        format!("Price for {}", n.denom),
-                        format!("{}", spend_check_with_sources.bottom.coin.amount),
-                    ));
+                    for m in 0..spend_check_with_sources.sources.len() {
+                        spend_tally_sources.push((
+                            format!("Price for {}", n.denom),
+                            format!("{}", spend_check_with_sources.sources[m].coin.amount),
+                        ));
+                    }
                     spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                 }
                 Ok(MultiSourcePrice {

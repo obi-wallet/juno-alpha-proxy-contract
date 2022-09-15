@@ -3,8 +3,9 @@ mod tests {
     use crate::contract::{
         execute, execute_execute, instantiate, query_admin, query_can_execute, query_hot_wallets,
     };
+    /* use crate::defaults::get_local_pair_contracts; */
     use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
-    use crate::state::{CoinLimit, HotWallet, PeriodType};
+    use crate::state::{CoinLimit, HotWallet, PeriodType /* STATE */};
     use crate::ContractError;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
@@ -398,6 +399,29 @@ mod tests {
             msgs.into_iter().map(SubMsg::new).collect::<Vec<_>>()
         );
     }
+
+    /* #[test]
+    fn migrate() {
+        let mut deps = mock_dependencies();
+        let current_env = mock_env();
+        instantiate_contract(
+            &mut deps,
+            current_env,
+            Coin {
+                amount: Uint128::from(1_000_000u128),
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_string(),
+            },
+        );
+        let mut cfg = STATE.load(&deps.storage).unwrap();
+        cfg.set_pair_contracts("EMPTY".to_string()).unwrap();
+        STATE.save(&mut deps.storage, &cfg).unwrap();
+        let cfg = STATE.load(&deps.storage).unwrap();
+        assert_eq!(cfg.pair_contracts, vec![]);
+        migrate();
+        let local_contracts = get_local_pair_contracts().to_vec();
+        assert_eq!(cfg.pair_contracts, local_contracts);
+    } */
 
     fn instantiate_contract(
         deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,

@@ -2,6 +2,8 @@ use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
 
+use crate::state::PairContract;
+
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
@@ -59,8 +61,8 @@ pub enum ContractError {
     #[error("Caller is not pending new admin. Propose new admin first.")]
     CallerIsNotPendingNewAdmin {},
 
-    #[error("Unable to get current asset price to check spend limit for asset. If this transaction is urgent, use your multisig to sign. Submsg: {0} Error: {1}")]
-    PriceCheckFailed(String, String),
+    #[error("Unable to get current asset price to check spend limit for asset. If this transaction is urgent, use your multisig to sign. SUBMSG: {0} CONTRACT: {1} ERROR: {2}")]
+    PriceCheckFailed(String, String, String),
 
     #[error("Please repay your fee debt (USD {0}) before sending funds.")]
     RepayFeesFirst(u128),
@@ -70,4 +72,19 @@ pub enum ContractError {
 
     #[error("Multiple spend limits are no longer supported. Remove this wallet and re-add with a USD spend limit.")]
     MultiSpendLimitsNotSupported {},
+
+    #[error("Mismatched pair contract.")]
+    MismatchedPairContract {},
+
+    #[error("Pair contract for asset {0} to {1} not found, DUMP: {:3}")]
+    PairContractNotFound(String, String, Vec<PairContract>),
+
+    #[error("Semver parsing error: {0}")]
+    SemVer(String),
+}
+
+impl From<semver::Error> for ContractError {
+    fn from(err: semver::Error) -> Self {
+        Self::SemVer(err.to_string())
+    }
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DUMMYPRICECONTRACT="juno16g8eruwac5270e985xljjpncy6n7z64ha04tlsszw34xlzvx688q67ctv0"
+DUMMYPRICECONTRACT="juno12em46sh7xx6qdgs0qgfn4yp67z7mzx4hnrstm7qjm7sd6ufjda2qv8hxrk"
 BINARY="./junod"
 # These should be provided by environment
 # DENOM='ujunox'

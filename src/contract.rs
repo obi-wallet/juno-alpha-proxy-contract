@@ -6,8 +6,9 @@ use cosmwasm_std::{
 };
 
 use cw1::CanExecuteResponse;
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 use cw20::Cw20ExecuteMsg;
+use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
@@ -40,21 +41,33 @@ pub fn instantiate(
     for wallet in msg.hot_wallets.clone() {
         wallet.check_is_valid()?;
     }
-    let cfg = State {
+    let mut cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
         uusd_fee_debt: msg.uusd_fee_debt,
         fee_lend_repay_wallet: valid_repay_wallet,
         home_network: msg.home_network,
+        pair_contracts: vec![],
     };
+    cfg.set_pair_contracts(cfg.home_network.clone())?;
     STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    // No state migrations performed right now, just return a Response
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let mut cfg = STATE.load(deps.storage)?;
+    cfg.set_pair_contracts(cfg.home_network.clone())?;
+    let version: Version = CONTRACT_VERSION.parse()?;
+    let storage_version: Version = get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        // If state structure changed in any contract version in the way migration is needed, it
+        // should occur here
+    }
     Ok(Response::default())
 }
 
@@ -205,8 +218,7 @@ fn try_wasm_send(
 
 pub struct SourcedRepayMsg {
     pub repay_msg: Option<BankMsg>,
-    pub top_sourced_swap: SourcedSwap,
-    pub bottom_sourced_swap: SourcedSwap,
+    pub sources: Vec<SourcedSwap>,
 }
 
 fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
@@ -218,20 +230,13 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                     amount: state.uusd_fee_debt,
                 },
-                top: SourcedSwap {
+                sources: vec![SourcedSwap {
                     coin: Coin {
                         amount: state.uusd_fee_debt,
                         denom: asset.denom.clone(),
                     },
                     contract_addr: "1 USDC is 1 USDC".to_string(),
-                },
-                bottom: SourcedSwap {
-                    coin: Coin {
-                        amount: state.uusd_fee_debt,
-                        denom: asset.denom,
-                    },
-                    contract_addr: "Yup, still 1 USDC".to_string(),
-                },
+                }],
             },
             "ujuno" | "ujunox" | "testtokens" => convert_coin_to_usdc(
                 deps.as_ref(),
@@ -249,26 +254,18 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                 to_address: state.fee_lend_repay_wallet.to_string(),
                 amount: vec![swaps.coin.clone()],
             }),
-            top_sourced_swap: swaps.top,
-            bottom_sourced_swap: swaps.bottom,
+            sources: swaps.sources,
         })
     } else {
         Ok(SourcedRepayMsg {
             repay_msg: None,
-            top_sourced_swap: SourcedSwap {
+            sources: vec![SourcedSwap {
                 coin: Coin {
                     denom: "no debt".to_string(),
                     amount: Uint128::from(0u128),
                 },
                 contract_addr: "no debt".to_string(),
-            },
-            bottom_sourced_swap: SourcedSwap {
-                coin: Coin {
-                    denom: "no debt".to_string(),
-                    amount: Uint128::from(0u128),
-                },
-                contract_addr: "no debt".to_string(),
-            },
+            }],
         })
     }
 }
@@ -284,28 +281,25 @@ fn try_bank_send(
             amount,
         } => {
             let attach_repay_msg = check_and_repay_debt(deps, amount[0].clone())?;
-            let res = check_and_spend(deps, core_payload, amount.clone())?;
+            let mut res = check_and_spend(deps, core_payload, amount.clone())?;
             match attach_repay_msg.repay_msg {
                 None => Ok(res),
-                Some(msg) => Ok(res
-                    .add_attribute("note", "repaying one-time fee debt")
-                    .add_message(msg)
-                    .add_attribute(
-                        "swap_1_contract",
-                        attach_repay_msg.top_sourced_swap.contract_addr,
-                    )
-                    .add_attribute(
-                        "swap_1_to_amount",
-                        attach_repay_msg.top_sourced_swap.coin.amount,
-                    )
-                    .add_attribute(
-                        "swap_2_contract",
-                        attach_repay_msg.bottom_sourced_swap.contract_addr,
-                    )
-                    .add_attribute(
-                        "swap_2_to_amount",
-                        attach_repay_msg.bottom_sourced_swap.coin.amount,
-                    )),
+                Some(msg) => {
+                    for n in 0..attach_repay_msg.sources.len() {
+                        res = res
+                            .add_attribute(
+                                format!("swap {} contract", n + 1),
+                                attach_repay_msg.sources[n].contract_addr.clone(),
+                            )
+                            .add_attribute(
+                                format!("swap {} to_amount", n + 1),
+                                attach_repay_msg.sources[n].coin.amount,
+                            )
+                    }
+                    Ok(res
+                        .add_attribute("note", "repaying one-time fee debt")
+                        .add_message(msg))
+                }
             }
         }
         _ => {
