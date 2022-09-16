@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    Event, MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -52,7 +52,12 @@ pub fn instantiate(
     };
     cfg.set_pair_contracts(cfg.home_network.clone())?;
     STATE.save(deps.storage, &cfg)?;
-    Ok(Response::default())
+    let mut signers_event = Event::new("obisign");
+    for signer in msg.signers {
+        signers_event =
+            signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
+    }
+    Ok(Response::new().add_event(signers_event))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

@@ -12,6 +12,7 @@ pub struct InstantiateMsg {
     pub uusd_fee_debt: Uint128,
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
+    pub signers: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

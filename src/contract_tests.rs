@@ -10,8 +10,8 @@ mod tests {
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
     use cosmwasm_std::{
-        coin, coins, BankMsg, Coin, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps, StakingMsg,
-        SubMsg, Uint128,
+        coin, coins, Attribute, BankMsg, Coin, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps,
+        StakingMsg, SubMsg, Uint128,
     };
     //use cosmwasm_std::WasmMsg;
 
@@ -446,8 +446,20 @@ mod tests {
             uusd_fee_debt: starting_debt.amount,
             fee_lend_repay_wallet: "test_repay_address".to_string(),
             home_network: "local".to_string(),
+            signers: [
+                "testsigner1".to_string(),
+                "testsigner2".to_string(),
+                "testsigner3".to_string(),
+            ]
+            .to_vec(),
         };
         let info = mock_info(ADMIN, &[]);
-        instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
+        let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
+        println!("events: {:?}", res.events);
+        assert_eq!(res.events.len(), 1);
+        assert_eq!(
+            res.events[0].attributes[1],
+            Attribute::new("signer".to_string(), "testsigner2".to_string())
+        );
     }
 }
