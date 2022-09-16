@@ -1,11 +1,6 @@
 use cosmwasm_std::{Coin, Deps, Uint128};
-use serde::Deserialize;
 
 use crate::constants::{get_usdc_sourced_coin, MAINNET_AXLUSDC_IBC};
-use crate::msg::{
-    ReverseSimulationResponse, SimulationResponse, Tallyable, Token1ForToken2PriceResponse,
-    Token2ForToken1PriceResponse,
-};
 use crate::state::{PairContract, PairMessageType, SourcedCoin, SourcedSwap};
 use crate::{state::STATE, ContractError};
 
@@ -56,12 +51,8 @@ pub fn simulate_reverse_swap(
     let cfg = STATE.load(deps.storage)?;
     let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     match pair_contract.0.query_format.clone() {
-        PairMessageType::JunoType => {
-            simulate::<Token2ForToken1PriceResponse>(deps, pair_contract, amount, true)
-        }
-        PairMessageType::LoopType => {
-            simulate::<ReverseSimulationResponse>(deps, pair_contract, amount, true)
-        }
+        PairMessageType::JunoType => simulate(deps, pair_contract, amount, true, true),
+        PairMessageType::LoopType => simulate(deps, pair_contract, amount, true, true),
     }
 }
 
@@ -73,28 +64,25 @@ pub fn simulate_swap(
     let cfg = STATE.load(deps.storage)?;
     let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     match pair_contract.0.query_format.clone() {
-        PairMessageType::JunoType => {
-            simulate::<Token1ForToken2PriceResponse>(deps, pair_contract, amount, true)
-        }
-        PairMessageType::LoopType => {
-            simulate::<SimulationResponse>(deps, pair_contract, amount, true)
-        }
+        PairMessageType::JunoType => simulate(deps, pair_contract, amount, true, false),
+        PairMessageType::LoopType => simulate(deps, pair_contract, amount, true, false),
     }
 }
 
 #[allow(unreachable_code)]
 #[allow(unused_variables)]
-pub fn simulate<T>(
+pub fn simulate(
     deps: Deps,
     pair_contract: (PairContract, bool),
     amount: Uint128,
-    target_amount: bool, // when you want to meet a target number
-) -> Result<SourcedSwap, ContractError>
-where
-    T: for<'de> Deserialize<'de>,
-    T: Tallyable,
-{
-    pair_contract
-        .0
-        .query_contract::<T>(deps, amount, pair_contract.1, target_amount)
+    target_amount: bool,        // when you want to meet a target number
+    reverse_message_type: bool, // type of simulation message
+) -> Result<SourcedSwap, ContractError> {
+    pair_contract.0.query_contract(
+        deps,
+        amount,
+        pair_contract.1,
+        target_amount,
+        reverse_message_type,
+    )
 }
