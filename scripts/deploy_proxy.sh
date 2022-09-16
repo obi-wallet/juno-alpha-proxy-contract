@@ -134,7 +134,7 @@ then
 fi
 
 # only $0.05 debt for test
-OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 --arg chainid $CHAIN_ID '{"admin":$msigaddy,"hot_wallets":[], "uusd_fee_debt": "5000", "fee_lend_repay_wallet": "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8", "home_network":$chainid, "signers":["testsigner1","testsigner2"]}')
+OBIPROX_INIT=$(/usr/bin/jq -n --arg msigaddy $MSIG1 --arg chainid $CHAIN_ID '{"admin":$msigaddy,"hot_wallets":[], "uusd_fee_debt": "5000", "fee_lend_repay_wallet": "juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8", "home_network":$chainid, "signers":["juno1ad2ykdjntnkjcer760lefkj7dx38jlj3z858sr","juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"]}')
 # test instantiate with just 1 address
 RES=$($BINARY tx wasm instantiate $CONTRACT_CODE "$OBIPROX_INIT" $KR -y --from=$WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 --output=json --label="Obi Test Proxy single" --admin=$MSIG1)
 error_check "$RES" "Failed to instantiate contract"
