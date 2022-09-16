@@ -20,7 +20,7 @@ use crate::helpers::convert_coin_to_usdc;
 use crate::helpers::{simulate_reverse_swap, simulate_swap};
 use crate::msg::{
     Asset, AssetInfo, DexQueryMsg, ReverseSimulationMsg, SimulationMsg, Tallyable,
-    Token1ForToken2Msg, Token2ForToken1Msg,
+    Token1ForToken2Msg, Token2ForToken1Msg, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse,
 };
 use crate::ContractError;
 
@@ -88,19 +88,23 @@ impl PairContract {
 
     #[allow(unreachable_code)]
     #[allow(unused_variables)]
-    pub fn query_contract<T>(
+    pub fn query_contract(
         self,
         deps: Deps,
         amount: Uint128,
         reverse: bool,
         amount_is_target: bool,
+        reverse_message_type: bool,
     ) -> Result<SourcedSwap, ContractError>
-    where
-        T: for<'de> Deserialize<'de>,
-        T: Tallyable,
     {
+        let response_asset: String;
+        let mut flip_assets: bool = amount_is_target;
+        if reverse_message_type {
+            flip_assets = !flip_assets;
+        }
         let query_msg: DexQueryMsg = match self.query_format {
             PairMessageType::LoopType => {
+                response_asset = self.denom2.clone();
                 let simulation_asset = Asset {
                     amount,
                     info: AssetInfo::NativeToken {
@@ -119,25 +123,27 @@ impl PairContract {
                 }
             }
             PairMessageType::JunoType => {
-                let mut flip_assets: bool = reverse;
-                if amount_is_target {
+                if reverse {
                     flip_assets = !flip_assets;
                 }
                 match flip_assets {
-                    false => DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
-                        token1_amount: amount,
-                    }),
-                    true => DexQueryMsg::Token2ForToken1Price(Token2ForToken1Msg {
-                        token2_amount: amount,
-                    }), // no cw20 support yet (expect for the base asset)
+                    false => {
+                        response_asset = self.denom1.clone();
+                        DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
+                        token1_amount: amount})
+                    },
+                    true => {
+                        response_asset = self.denom2.clone();
+                        DexQueryMsg::Token2ForToken1Price(Token2ForToken1Msg {
+                        token2_amount: amount})
+                    }, // no cw20 support yet (except for the base asset)
                 }
             }
         };
-        let response_asset = self.denom2;
         #[cfg(test)]
         println!(
-            "Bypassing query message on contract {}: {:?}",
-            self.contract_addr, query_msg
+            "Bypassing query message on contract {}: {:?}, and bools are reverse: {}, reverse_message_type: {}, amount_is_target: {}",
+            self.contract_addr, query_msg, reverse, reverse_message_type, amount_is_target
         );
         #[cfg(test)]
         return Ok(get_test_sourced_swap(
@@ -145,10 +151,25 @@ impl PairContract {
             amount,
             reverse,
         ));
+        let query_result: Result<SourcedSwap, ContractError>;
+        match flip_assets {
+            false => {
+                self.process_query::<Token1ForToken2PriceResponse>( deps, &query_msg, response_asset )
+            }, true => {
+                self.process_query::<Token2ForToken1PriceResponse>( deps, &query_msg, response_asset )
+            }
+        }
+    }
+
+    fn process_query<T>(&self, deps: Deps, query_msg: &DexQueryMsg, response_asset: String) -> Result<SourcedSwap, ContractError> 
+    where
+    T: for<'de> Deserialize<'de>,
+    T: Tallyable,
+    {
         let query_response: Result<T, StdError> =
             deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.contract_addr.clone(),
-                msg: to_binary(&query_msg)?,
+                msg: to_binary(query_msg)?,
             }));
         match query_response {
             Ok(res) => Ok(SourcedSwap {
@@ -156,15 +177,16 @@ impl PairContract {
                     denom: response_asset,
                     amount: (res.tally()),
                 },
-                contract_addr: self.contract_addr,
+                contract_addr: self.contract_addr.clone(),
             }),
             Err(e) => Err(ContractError::PriceCheckFailed(
                 format!("{:?}", to_binary(&query_msg)?),
-                self.contract_addr,
+                self.contract_addr.clone(),
                 e.to_string(),
             )),
         }
     }
+
 }
 
 // could do hot wallets as Map or even IndexedMap, but this contract
