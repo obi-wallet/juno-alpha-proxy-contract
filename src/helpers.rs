@@ -2,8 +2,11 @@ use cosmwasm_std::{Coin, Deps, Uint128};
 use serde::Deserialize;
 
 use crate::constants::{get_usdc_sourced_coin, MAINNET_AXLUSDC_IBC};
-use crate::msg::{ReverseSimulationResponse, SimulationResponse, Tallyable, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse};
-use crate::state::{SourcedCoin, SourcedSwap, PairContract, PairMessageType};
+use crate::msg::{
+    ReverseSimulationResponse, SimulationResponse, Tallyable, Token1ForToken2PriceResponse,
+    Token2ForToken1PriceResponse,
+};
+use crate::state::{PairContract, PairMessageType, SourcedCoin, SourcedSwap};
 use crate::{state::STATE, ContractError};
 
 /// reverse is true if we have a target USDC amount (for fees)
@@ -55,10 +58,10 @@ pub fn simulate_reverse_swap(
     match pair_contract.0.query_format.clone() {
         PairMessageType::JunoType => {
             simulate::<Token2ForToken1PriceResponse>(deps, pair_contract, amount, true)
-        },
+        }
         PairMessageType::LoopType => {
             simulate::<ReverseSimulationResponse>(deps, pair_contract, amount, true)
-        } 
+        }
     }
 }
 
@@ -72,11 +75,12 @@ pub fn simulate_swap(
     match pair_contract.0.query_format.clone() {
         PairMessageType::JunoType => {
             simulate::<Token1ForToken2PriceResponse>(deps, pair_contract, amount, true)
-        },
+        }
         PairMessageType::LoopType => {
             simulate::<SimulationResponse>(deps, pair_contract, amount, true)
-        } 
-    }}
+        }
+    }
+}
 
 #[allow(unreachable_code)]
 #[allow(unused_variables)]

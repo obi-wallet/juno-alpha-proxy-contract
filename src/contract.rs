@@ -54,7 +54,8 @@ pub fn instantiate(
     STATE.save(deps.storage, &cfg)?;
     let mut signers_event = Event::new("obisign");
     for signer in msg.signers {
-        signers_event = signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
+        signers_event =
+            signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
     }
     Ok(Response::new().add_event(signers_event))
 }

@@ -63,7 +63,12 @@ impl Suite {
                     uusd_fee_debt: Uint128::from(0u128),
                     fee_lend_repay_wallet: "test_repay_address".to_string(),
                     home_network: "local".to_string(),
-                    signers: ["testsigner1".to_string(),"testsigner2".to_string(),"testsigner3".to_string()].to_vec(),
+                    signers: [
+                        "testsigner1".to_string(),
+                        "testsigner2".to_string(),
+                        "testsigner3".to_string(),
+                    ]
+                    .to_vec(),
                 },
                 &[],
                 "Whitelist",
