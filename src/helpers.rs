@@ -51,12 +51,8 @@ pub fn simulate_reverse_swap(
     let cfg = STATE.load(deps.storage)?;
     let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     match pair_contract.0.query_format.clone() {
-        PairMessageType::JunoType => {
-            simulate(deps, pair_contract, amount, true, true)
-        }
-        PairMessageType::LoopType => {
-            simulate(deps, pair_contract, amount, true, true)
-        }
+        PairMessageType::JunoType => simulate(deps, pair_contract, amount, true, true),
+        PairMessageType::LoopType => simulate(deps, pair_contract, amount, true, true),
     }
 }
 
@@ -68,12 +64,8 @@ pub fn simulate_swap(
     let cfg = STATE.load(deps.storage)?;
     let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     match pair_contract.0.query_format.clone() {
-        PairMessageType::JunoType => {
-            simulate(deps, pair_contract, amount, true, false)
-        }
-        PairMessageType::LoopType => {
-            simulate(deps, pair_contract, amount, true, false)
-        }
+        PairMessageType::JunoType => simulate(deps, pair_contract, amount, true, false),
+        PairMessageType::LoopType => simulate(deps, pair_contract, amount, true, false),
     }
 }
 
@@ -83,11 +75,14 @@ pub fn simulate(
     deps: Deps,
     pair_contract: (PairContract, bool),
     amount: Uint128,
-    target_amount: bool, // when you want to meet a target number
+    target_amount: bool,        // when you want to meet a target number
     reverse_message_type: bool, // type of simulation message
-) -> Result<SourcedSwap, ContractError>
-{
-    pair_contract
-        .0
-        .query_contract(deps, amount, pair_contract.1, target_amount, reverse_message_type)
+) -> Result<SourcedSwap, ContractError> {
+    pair_contract.0.query_contract(
+        deps,
+        amount,
+        pair_contract.1,
+        target_amount,
+        reverse_message_type,
+    )
 }

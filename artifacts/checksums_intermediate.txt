@@ -1,1 +1,1 @@
-e71496df59f9e3fffcd0dd2be03526248e372a31d64c77b1e1cb2456983d61df  ./target/wasm32-unknown-unknown/release/obi_proxy_contract.wasm
+705b2964467274f04f5fb7114d3b2e1cb002d8dc418b1e19adc833feafd15e02  ./target/wasm32-unknown-unknown/release/obi_proxy_contract.wasm

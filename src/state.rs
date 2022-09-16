@@ -20,7 +20,8 @@ use crate::helpers::convert_coin_to_usdc;
 use crate::helpers::{simulate_reverse_swap, simulate_swap};
 use crate::msg::{
     Asset, AssetInfo, DexQueryMsg, ReverseSimulationMsg, SimulationMsg, Tallyable,
-    Token1ForToken2Msg, Token2ForToken1Msg, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse,
+    Token1ForToken2Msg, Token1ForToken2PriceResponse, Token2ForToken1Msg,
+    Token2ForToken1PriceResponse,
 };
 use crate::ContractError;
 
@@ -95,8 +96,7 @@ impl PairContract {
         reverse: bool,
         amount_is_target: bool,
         reverse_message_type: bool,
-    ) -> Result<SourcedSwap, ContractError>
-    {
+    ) -> Result<SourcedSwap, ContractError> {
         let response_asset: String;
         let mut flip_assets: bool = amount_is_target;
         if reverse_message_type {
@@ -130,13 +130,15 @@ impl PairContract {
                     false => {
                         response_asset = self.denom1.clone();
                         DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
-                        token1_amount: amount})
-                    },
+                            token1_amount: amount,
+                        })
+                    }
                     true => {
                         response_asset = self.denom2.clone();
                         DexQueryMsg::Token2ForToken1Price(Token2ForToken1Msg {
-                        token2_amount: amount})
-                    }, // no cw20 support yet (except for the base asset)
+                            token2_amount: amount,
+                        })
+                    } // no cw20 support yet (except for the base asset)
                 }
             }
         };
@@ -154,17 +156,23 @@ impl PairContract {
         let query_result: Result<SourcedSwap, ContractError>;
         match flip_assets {
             false => {
-                self.process_query::<Token1ForToken2PriceResponse>( deps, &query_msg, response_asset )
-            }, true => {
-                self.process_query::<Token2ForToken1PriceResponse>( deps, &query_msg, response_asset )
+                self.process_query::<Token1ForToken2PriceResponse>(deps, &query_msg, response_asset)
+            }
+            true => {
+                self.process_query::<Token2ForToken1PriceResponse>(deps, &query_msg, response_asset)
             }
         }
     }
 
-    fn process_query<T>(&self, deps: Deps, query_msg: &DexQueryMsg, response_asset: String) -> Result<SourcedSwap, ContractError> 
+    fn process_query<T>(
+        &self,
+        deps: Deps,
+        query_msg: &DexQueryMsg,
+        response_asset: String,
+    ) -> Result<SourcedSwap, ContractError>
     where
-    T: for<'de> Deserialize<'de>,
-    T: Tallyable,
+        T: for<'de> Deserialize<'de>,
+        T: Tallyable,
     {
         let query_response: Result<T, StdError> =
             deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -186,7 +194,6 @@ impl PairContract {
             )),
         }
     }
-
 }
 
 // could do hot wallets as Map or even IndexedMap, but this contract

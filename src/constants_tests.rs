@@ -74,7 +74,10 @@ pub fn get_test_sourced_swap(
             }
         }
         _ => {
-            panic!("unexpected unit test swap denoms: {:?} with amount {} and reverse {}", denoms, amount, reverse);
+            panic!(
+                "unexpected unit test swap denoms: {:?} with amount {} and reverse {}",
+                denoms, amount, reverse
+            );
         }
     }
 }
