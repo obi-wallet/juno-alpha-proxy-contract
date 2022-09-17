@@ -128,13 +128,13 @@ impl PairContract {
                 }
                 match flip_assets {
                     false => {
-                        response_asset = self.denom1.clone();
+                        response_asset = self.denom2.clone();
                         DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
                             token1_amount: amount,
                         })
                     }
                     true => {
-                        response_asset = self.denom2.clone();
+                        response_asset = self.denom1.clone();
                         DexQueryMsg::Token2ForToken1Price(Token2ForToken1Msg {
                             token2_amount: amount,
                         })
