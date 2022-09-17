@@ -21,7 +21,7 @@ pub fn convert_coin_to_usdc(
             let price = simulate_swap(deps, (denom, MAINNET_AXLUSDC_IBC.to_string()), amount)?;
             Ok(SourcedCoin {
                 coin: Coin {
-                    denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    denom: price.coin.denom.clone(),
                     amount: price.coin.amount,
                 },
                 sources: vec![price],
@@ -33,7 +33,7 @@ pub fn convert_coin_to_usdc(
                 simulate_reverse_swap(deps, (MAINNET_AXLUSDC_IBC.to_string(), denom), amount)?;
             Ok(SourcedCoin {
                 coin: Coin {
-                    denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    denom: price.coin.denom.clone(),
                     amount: price.coin.amount,
                 },
                 sources: vec![price],
