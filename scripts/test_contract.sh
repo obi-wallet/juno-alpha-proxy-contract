@@ -37,10 +37,6 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$C
 echo "Debug: $RES"
 error_check "$RES" "Admin unable to send funds"
 echo $RES > latest_run_log.txt
-if [[ $ACTION=="sim_execute" ]]
-then
-  exit 0
-fi
 
 echo -n "Waiting to avoid sequence mismatch error and to update nodes..."
 /usr/bin/sleep 15s && echo " Done."
