@@ -6,9 +6,28 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constants::MAINNET_AXLUSDC_IBC,
     helpers::convert_coin_to_usdc,
-    state::{CoinLimit, PeriodType, SourcedCoin},
+    state::SourcedCoin,
     ContractError,
 };
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub enum PeriodType {
+    DAYS,
+    MONTHS,
+}
+
+#[allow(dead_code)]
+enum CheckType {
+    TotalLimit,
+    RemainingLimit,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct CoinLimit {
+    pub denom: String,
+    pub amount: u64,
+    pub limit_remaining: u64,
+}
 
 // could do hot wallets as Map or even IndexedMap, but this contract
 // for more than 2-3 hot wallets at this time

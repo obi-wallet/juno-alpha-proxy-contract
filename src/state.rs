@@ -6,31 +6,12 @@ use serde::{Deserialize, Serialize};
 use cw_storage_plus::Item;
 
 use crate::constants::{MAINNET_AXLUSDC_IBC, MAINNET_ID, TESTNET_ID};
-use crate::defaults::{
+use crate::pair_contract_defaults::{
     get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
 };
 use crate::hot_wallet::HotWallet;
 use crate::pair_contract::PairContract;
 use crate::ContractError;
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub enum PeriodType {
-    DAYS,
-    MONTHS,
-}
-
-#[allow(dead_code)]
-enum CheckType {
-    TotalLimit,
-    RemainingLimit,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct CoinLimit {
-    pub denom: String,
-    pub amount: u64,
-    pub limit_remaining: u64,
-}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct Source {
