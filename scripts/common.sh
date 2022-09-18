@@ -16,6 +16,11 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 error_check () {
+  if [[ $5 != "" && $1 == *"$5"* ]];
+  then
+    echo "Received generic cancellation: $5 ✅"
+    return 0;
+  fi
   if [[ $4 != "" && $1 == *"$4"* ]];
   then
     echo "Received alternate error: $4 ✅"
