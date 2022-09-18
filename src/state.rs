@@ -192,7 +192,7 @@ impl PairContract {
                     denom: response_asset,
                     amount: (res.tally()),
                 },
-                contract_addr: self.contract_addr.clone(),
+                contract_addr: format!("contract: {}, query: {:?}",self.contract_addr.clone(),to_binary(&query_msg)?),
             }),
             Err(e) => Err(ContractError::PriceCheckFailed(
                 format!("{:?}", to_binary(&query_msg)?),
