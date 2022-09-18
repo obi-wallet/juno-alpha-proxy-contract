@@ -3,7 +3,7 @@ use crate::{
         MAINNET_AXLUSDC_IBC, MAINNET_DENOM, MAINNET_DEX_DENOM, TESTNET_DENOM,
         TESTNET_DUMMY_CONTRACT,
     },
-    state::{PairContract, PairMessageType},
+    pair_contract::{PairContract, PairMessageType},
 };
 
 pub fn get_mainnet_pair_contracts() -> [PairContract; 3] {

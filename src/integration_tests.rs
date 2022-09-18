@@ -50,7 +50,7 @@ impl Suite {
     pub fn instantiate_cw1_contract(
         &mut self,
         admin: String,
-        hot_wallets: Vec<crate::state::HotWallet>,
+        hot_wallets: Vec<crate::hot_wallet::HotWallet>,
     ) -> Cw1Contract {
         let contract = self
             .app

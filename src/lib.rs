@@ -7,9 +7,11 @@ mod contract_tests;
 pub mod defaults;
 pub mod error;
 pub mod helpers;
+pub mod hot_wallet;
 #[cfg(test)]
 mod integration_tests;
 pub mod msg;
+pub mod pair_contract;
 pub mod state;
 #[cfg(test)]
 mod state_tests;

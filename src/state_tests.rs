@@ -5,7 +5,8 @@ mod tests {
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
     use crate::defaults::get_local_pair_contracts;
-    use crate::state::{CoinLimit, HotWallet, PeriodType, State};
+    use crate::hot_wallet::HotWallet;
+    use crate::state::{CoinLimit, PeriodType, State};
 
     #[test]
     fn is_admin() {

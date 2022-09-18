@@ -13,10 +13,11 @@ use semver::Version;
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::helpers::convert_coin_to_usdc;
+use crate::hot_wallet::HotWallet;
 use crate::msg::{
     AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use crate::state::{HotWallet, SourcedCoin, SourcedSwap, State, STATE};
+use crate::state::{Source, SourcedCoin, State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -223,7 +224,7 @@ fn try_wasm_send(
 
 pub struct SourcedRepayMsg {
     pub repay_msg: Option<BankMsg>,
-    pub sources: Vec<SourcedSwap>,
+    pub sources: Vec<Source>,
 }
 
 fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
@@ -235,12 +236,12 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                     amount: state.uusd_fee_debt,
                 },
-                sources: vec![SourcedSwap {
-                    coin: Coin {
-                        amount: state.uusd_fee_debt,
-                        denom: asset.denom.clone(),
-                    },
+                sources: vec![Source {
                     contract_addr: "1 USDC is 1 USDC".to_string(),
+                    query_msg: format!(
+                        "converted {} to {}",
+                        state.uusd_fee_debt, state.uusd_fee_debt
+                    ),
                 }],
             },
             "ujuno" | "ujunox" | "testtokens" => convert_coin_to_usdc(
@@ -264,12 +265,9 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
     } else {
         Ok(SourcedRepayMsg {
             repay_msg: None,
-            sources: vec![SourcedSwap {
-                coin: Coin {
-                    denom: "no debt".to_string(),
-                    amount: Uint128::from(0u128),
-                },
+            sources: vec![Source {
                 contract_addr: "no debt".to_string(),
+                query_msg: "no conversion necessary".to_string(),
             }],
         })
     }
@@ -297,8 +295,8 @@ fn try_bank_send(
                                 attach_repay_msg.sources[n].contract_addr.clone(),
                             )
                             .add_attribute(
-                                format!("swap {} to_amount", n + 1),
-                                attach_repay_msg.sources[n].coin.amount,
+                                format!("swap {} query info", n + 1),
+                                attach_repay_msg.sources[n].query_msg.clone(),
                             )
                     }
                     Ok(res
@@ -329,8 +327,8 @@ fn check_and_spend(
     let res = Response::new()
         .add_messages(vec![core_payload.this_msg.clone()])
         .add_attribute("action", "execute")
-        .add_attribute("spend_limit_reduction", spend_reduction.price)
-        .add_attributes(spend_reduction.sources);
+        .add_attribute("spend_limit_reduction", spend_reduction.coin.amount)
+        .add_attributes(spend_reduction.sources_as_attributes());
     STATE.save(deps.storage, &cfg)?;
     Ok(res)
 }

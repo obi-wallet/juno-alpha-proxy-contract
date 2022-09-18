@@ -2,7 +2,7 @@ use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
 
-use crate::state::PairContract;
+use crate::pair_contract::PairContract;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
