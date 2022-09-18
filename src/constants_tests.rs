@@ -3,25 +3,26 @@ use cosmwasm_std::{Coin, Uint128};
 use crate::{
     constants::MAINNET_AXLUSDC_IBC,
     state::{SourcedCoin, SourcedSwap},
+    ContractError,
 };
 
 pub fn get_test_sourced_swap(
     denoms: (String, String),
     amount: Uint128,
     reverse: bool,
-) -> SourcedSwap {
+) -> Result<SourcedSwap, ContractError> {
     println!(
         "getting test swap for {:?} {} with reverse {}",
         denoms, amount, reverse
     );
     match denoms.clone() {
-        val if val == ("testtokens".to_string(), "uloop".to_string()) => SourcedSwap {
+        val if val == ("testtokens".to_string(), "uloop".to_string()) => Ok(SourcedSwap {
             coin: Coin {
                 amount,
                 denom: denoms.1,
             },
             contract_addr: "test conversion localjuno to loop".to_string(),
-        },
+        }),
         val if val
             == (
                 "testtokens".to_string(),
@@ -35,25 +36,27 @@ pub fn get_test_sourced_swap(
                 ) =>
         {
             let this_amount = if reverse {
+                println!("div uloop-usdc by 10000");
                 amount.checked_div(Uint128::from(10000u128)).unwrap()
             } else {
+                println!("mul uloop-usdc by 100");
                 amount.checked_mul(Uint128::from(100u128)).unwrap()
             };
-            SourcedSwap {
+            Ok(SourcedSwap {
                 coin: Coin {
                     amount: this_amount,
                     denom: denoms.1,
                 },
                 contract_addr: "test conversion loop to dollars".to_string(),
-            }
+            })
         }
-        val if val == ("uloop".to_string(), "testtokens".to_string()) => SourcedSwap {
+        val if val == ("uloop".to_string(), "testtokens".to_string()) => Ok(SourcedSwap {
             coin: Coin {
                 amount,
                 denom: denoms.1,
             },
             contract_addr: "test conversion loop to localjuno".to_string(),
-        },
+        }),
         val if val
             == (
                 "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
@@ -61,24 +64,45 @@ pub fn get_test_sourced_swap(
             ) =>
         {
             let this_amount = if !reverse {
-                amount.checked_mul(Uint128::from(10000u128)).unwrap()
-            } else {
+                println!("div usdc-uloop by 10000");
                 amount.checked_div(Uint128::from(10000u128)).unwrap()
+            } else {
+                println!("div usdc-uloop by 100");
+                amount.checked_div(Uint128::from(100u128)).unwrap()
             };
-            SourcedSwap {
+            Ok(SourcedSwap {
                 coin: Coin {
                     amount: this_amount,
                     denom: denoms.1,
                 },
                 contract_addr: "test conversion dollars to loop".to_string(),
-            }
+            })
         }
-        _ => {
-            panic!(
-                "unexpected unit test swap denoms: {:?} with amount {} and reverse {}",
-                denoms, amount, reverse
-            );
+        val if val
+            == (
+                "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
+                "testtokens".to_string(),
+            ) =>
+        {
+            let this_amount = if !reverse {
+                println!("div usdc-ujuno by 100");
+                amount.checked_mul(Uint128::from(100u128)).unwrap()
+            } else {
+                println!("mul usdc-ujuno by 100");
+                amount.checked_div(Uint128::from(10000u128)).unwrap()
+            };
+            Ok(SourcedSwap {
+                coin: Coin {
+                    amount: this_amount,
+                    denom: denoms.1,
+                },
+                contract_addr: "test conversion dollars to juno".to_string(),
+            })
         }
+        _ => Err(ContractError::BadSwapDenoms(format!(
+            "unexpected unit test swap denoms: {:?} with amount {} and reverse {}",
+            denoms, amount, reverse
+        ))),
     }
 }
 
