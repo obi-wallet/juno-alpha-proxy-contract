@@ -28,7 +28,7 @@ error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
 # Note this is sim_execute only at the moment, for debugging
-ACTION="sim_execute"
+ACTION="execute"
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed, with fee repaid...${NC}"
@@ -37,10 +37,6 @@ RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$C
 echo "Debug: $RES"
 error_check "$RES" "Admin unable to send funds"
 echo $RES > latest_run_log.txt
-if [[ $ACTION=="sim_execute" ]]
-then
-  exit 0
-fi
 
 echo -n "Waiting to avoid sequence mismatch error and to update nodes..."
 /usr/bin/sleep 15s && echo " Done."
