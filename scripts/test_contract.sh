@@ -139,7 +139,8 @@ echo " Done."
 
 echo -n -e "${LBLUE}TX 9) Hot wallet tries to spend the same again. Should fail...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
-error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit"
+error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit" "cancelled transaction"
+
 
 echo "Now waiting for the reset time to pass..."
 /usr/bin/sleep 50s

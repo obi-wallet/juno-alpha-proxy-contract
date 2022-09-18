@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DUMMYPRICECONTRACT="juno12em46sh7xx6qdgs0qgfn4yp67z7mzx4hnrstm7qjm7sd6ufjda2qv8hxrk"
+DUMMYPRICECONTRACT="juno1xy4n2tqzrlvemuhjmcwlluxufflahh6rgzyzudtss2mfv7yt37as9g6yq2"
 BINARY="./junod"
 # These should be provided by environment
 # DENOM='ujunox'
@@ -16,6 +16,11 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 error_check () {
+  if [[ $5 != "" && $1 == *"$5"* ]];
+  then
+    echo "Received generic cancellation: $5 ✅"
+    return 0;
+  fi
   if [[ $4 != "" && $1 == *"$4"* ]];
   then
     echo "Received alternate error: $4 ✅"

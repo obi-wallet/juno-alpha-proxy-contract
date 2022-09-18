@@ -147,12 +147,19 @@ impl PairContract {
             "Bypassing query message on contract {}: {:?}, and bools are reverse: {}, reverse_message_type: {}, amount_is_target: {}",
             self.contract_addr, query_msg, reverse, reverse_message_type, amount_is_target
         );
+        println!("flip_assets is {}", flip_assets);
         #[cfg(test)]
-        return Ok(get_test_sourced_swap(
-            (self.denom1, response_asset),
-            amount,
-            reverse,
-        ));
+        {
+            let test_denom1 = match flip_assets {
+                true => self.denom2,
+                false => self.denom1,
+            };
+            return get_test_sourced_swap(
+                (test_denom1, response_asset),
+                amount,
+                reverse,
+            );
+        }
         let query_result: Result<SourcedSwap, ContractError>;
         match flip_assets {
             false => {
@@ -185,7 +192,7 @@ impl PairContract {
                     denom: response_asset,
                     amount: (res.tally()),
                 },
-                contract_addr: self.contract_addr.clone(),
+                contract_addr: format!("contract: {}, query: {:?}",self.contract_addr.clone(),to_binary(&query_msg)?),
             }),
             Err(e) => Err(ContractError::PriceCheckFailed(
                 format!("{:?}", to_binary(&query_msg)?),
@@ -421,6 +428,10 @@ impl State {
                                 spend_tally_sources.push((
                                     format!("Price for {}", n.denom),
                                     format!("{}", spend_check_with_sources.sources[m].coin.amount),
+                                ));
+                                spend_tally_sources.push((
+                                    format!("Query for {}", n.denom),
+                                    spend_check_with_sources.sources[m].contract_addr.clone(),
                                 ));
                             }
                             spend_tally =
