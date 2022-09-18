@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use cosmwasm_std::Timestamp;
+
     use crate::{constants::MAINNET_AXLUSDC_IBC, hot_wallet::{HotWallet, PeriodType, CoinLimit}};
 
   #[test]
@@ -69,5 +71,35 @@ mod tests {
 
     hot_wallet.reset_limits();
     assert_eq!(hot_wallet.spend_limits, vec![starting_spend_limit.clone()]);
+  }
+
+  #[test]
+  fn hot_wallet_update_reset_time_period() {
+    let starting_spend_limit = CoinLimit {
+      denom: MAINNET_AXLUSDC_IBC.to_string(),
+      amount: 1_000_000u64,
+      limit_remaining: 1_000_000u64,
+    };
+    let mut hot_wallet = HotWallet {
+      address: "my_hot_wallet".to_string(),
+      current_period_reset: 1_510_010, //seconds
+      period_type: PeriodType::DAYS,
+      period_multiple: 1,
+      spend_limits: vec![starting_spend_limit.clone()],
+      usdc_denom: Some("true".to_string()),
+    };
+
+    let adjusted_spend_limit = CoinLimit {
+      denom: MAINNET_AXLUSDC_IBC.to_string(),
+      amount: 1_000_000u64,
+      limit_remaining: 600_000u64,
+    };
+
+    hot_wallet.update_spend_limit(adjusted_spend_limit.clone()).unwrap();
+    assert_eq!(hot_wallet.spend_limits, vec![adjusted_spend_limit]);
+
+    hot_wallet.reset_period(Timestamp::from_seconds(1_510_011)).unwrap();
+    assert_eq!(hot_wallet.spend_limits, vec![starting_spend_limit]);
+    assert_eq!(hot_wallet.current_period_reset, 1_510_011 + 86_400);
   }
 }

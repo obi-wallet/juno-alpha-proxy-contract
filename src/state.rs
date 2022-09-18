@@ -155,12 +155,7 @@ impl State {
                 // reset threshold
                 let new_dt = this_wallet.reset_period(current_time);
                 match new_dt {
-                    Ok(dt) => {
-                        println!(
-                            "Old reset date is {:?}",
-                            this_wallet.current_period_reset.clone()
-                        );
-                        println!("Resetting to {:?}", dt.timestamp());
+                    Ok(()) => {
                         let mut spend_tally: Uint128 = Uint128::from(0u128);
                         let mut spend_tally_sources: Vec<Source> = vec![];
                         for n in spend {

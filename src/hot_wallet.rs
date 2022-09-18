@@ -90,7 +90,7 @@ impl HotWallet {
     pub fn reset_period(
         &mut self,
         current_time: Timestamp,
-    ) -> Result<NaiveDateTime, ContractError> {
+    ) -> Result<(), ContractError> {
         let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
         // how far ahead we set new current_period_reset to
         // depends on the spend limit period (type and multiple)
@@ -101,7 +101,7 @@ impl HotWallet {
                 match working_dt {
                     Some(dt) => Ok(dt),
                     None => {
-                        return Err(ContractError::DayUpdateError {});
+                        return Err(ContractError::DayUpdateError("unknown error".to_string()));
                     }
                 }
             }
@@ -124,6 +124,16 @@ impl HotWallet {
             }
         };
         self.reset_limits();
-        new_dt
+        let dt = match new_dt {
+          Ok(dt) => dt,
+          Err(e) => return Err(ContractError::DayUpdateError(e.to_string()))
+        };
+        println!(
+          "Old reset date is {:?}",
+          self.current_period_reset.clone()
+        );
+        println!("Resetting to {:?}", dt.clone().timestamp());
+        self.current_period_reset = dt.timestamp() as u64;
+        Ok(())
     }
 }

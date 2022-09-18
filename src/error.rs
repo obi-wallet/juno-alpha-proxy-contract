@@ -43,10 +43,10 @@ pub enum ContractError {
     #[error("This address is not authorized as a spend limit Hot Wallet.")]
     HotWalletDoesNotExist {},
 
-    #[error("Failed to advance the reset day.")]
-    DayUpdateError {},
+    #[error("Failed to advance the reset day: {0}")]
+    DayUpdateError(String),
 
-    #[error("Failed to advance the reset month.")]
+    #[error("Failed to advance the reset month")]
     MonthUpdateError {},
 
     #[error("Hot wallet does not have a spend limit for asset {0}.")]
