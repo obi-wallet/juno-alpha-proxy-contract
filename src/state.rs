@@ -429,6 +429,10 @@ impl State {
                                     format!("Price for {}", n.denom),
                                     format!("{}", spend_check_with_sources.sources[m].coin.amount),
                                 ));
+                                spend_tally_sources.push((
+                                    format!("Query for {}", n.denom),
+                                    spend_check_with_sources.sources[m].contract_addr.clone(),
+                                ));
                             }
                             spend_tally =
                                 spend_tally.saturating_add(spend_check_with_sources.coin.amount);
