@@ -14,9 +14,7 @@ use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::helpers::convert_coin_to_usdc;
 use crate::hot_wallet::{HotWallet, HotWalletsResponse};
-use crate::msg::{
-    AdminResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-};
+use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{Source, SourcedCoin, State, STATE};
 
 // version info for migration info
