@@ -64,16 +64,12 @@ impl PairContract {
         }
         let query_result: Result<SourcedCoin, ContractError>;
         match flip_assets {
-            false => self.process_query::<Token1ForToken2PriceResponse>(
-                deps,
-                &query_msg.0.clone(),
-                query_msg.1.clone(),
-            ),
-            true => self.process_query::<Token2ForToken1PriceResponse>(
-                deps,
-                &query_msg.0.clone(),
-                query_msg.1.clone(),
-            ),
+            false => {
+                self.process_query::<Token1ForToken2PriceResponse>(deps, &query_msg.0, query_msg.1)
+            }
+            true => {
+                self.process_query::<Token2ForToken1PriceResponse>(deps, &query_msg.0, query_msg.1)
+            }
         }
     }
 
@@ -90,7 +86,7 @@ impl PairContract {
                     denom: self.denom1.clone(),
                     amount,
                 };
-                response_asset = self.denom2.clone();
+                response_asset = self.denom2;
                 (dex_query_msg.format_query_msg(flip_assets), response_asset)
             }
             PairMessageType::JunoType => {
@@ -100,8 +96,8 @@ impl PairContract {
                     amount,
                 };
                 let response_asset = match flip_assets {
-                    false => self.denom2.clone(),
-                    true => self.denom1.clone(),
+                    false => self.denom2,
+                    true => self.denom1,
                     // no cw20 support yet (except for the base asset)
                 };
                 (dex_query_msg.format_query_msg(flip_assets), response_asset)

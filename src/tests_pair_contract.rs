@@ -5,10 +5,7 @@ mod tests {
     use crate::{
         constants::{MAINNET_AXLUSDC_IBC, MAINNET_DENOM, MAINNET_DEX_DENOM},
         pair_contract::{PairContract, PairMessageType},
-        simulation::{
-            Asset, AssetInfo, DexQueryMsg, DexQueryMsgFormatted, DexQueryMsgType, FormatQueryMsg,
-            SimulationMsg, Token1ForToken2Msg, Token2ForToken1Msg,
-        },
+        simulation::{DexQueryMsg, DexQueryMsgType, FormatQueryMsg},
     };
 
     #[test]
@@ -58,20 +55,14 @@ mod tests {
         let this_amount = Uint128::from(amount);
 
         let query_msg = test_pair_contract
-            .clone()
             .create_query_msg(this_amount, flip_assets)
             .unwrap();
-        assert_eq!(
-            query_msg.0,
-            DexQueryMsgFormatted::Simulation(SimulationMsg {
-                offer_asset: Asset {
-                    info: AssetInfo::NativeToken {
-                        denom: expected_query_asset
-                    },
-                    amount: this_amount,
-                }
-            })
-        );
+        let dex_query_msg = DexQueryMsg {
+            denom: expected_query_asset,
+            amount: this_amount,
+            ty: DexQueryMsgType::Simulation,
+        };
+        assert_eq!(query_msg.0, dex_query_msg.format_query_msg(false));
     }
 
     #[test]
@@ -81,7 +72,7 @@ mod tests {
             contract_addr: String::from(
                 "juno1ctsmp54v79x7ea970zejlyws50cj9pkrmw49x46085fn80znjmpqz2n642",
             ),
-            denom1: String::from("testtokens".to_string()),
+            denom1: "testtokens".to_string(),
             denom2: String::from(MAINNET_DEX_DENOM),
             query_format: PairMessageType::LoopType,
         };
@@ -89,13 +80,12 @@ mod tests {
         let amount = Uint128::from(1_000_000u128);
 
         let query_msg = test_pair_contract
-            .clone()
             .create_query_msg(amount, flip_assets)
             .unwrap();
         let test_msg = DexQueryMsg {
             ty: DexQueryMsgType::ReverseSimulation,
             denom: "testtokens".to_string(),
-            amount: amount,
+            amount,
         };
         assert_eq!(query_msg.0, test_msg.format_query_msg(false));
     }
@@ -107,7 +97,7 @@ mod tests {
             contract_addr: String::from(
                 "juno1ctsmp54v79x7ea970zejlyws50cj9pkrmw49x46085fn80znjmpqz2n642",
             ),
-            denom1: String::from("testtokens".to_string()),
+            denom1: "testtokens".to_string(),
             denom2: String::from(MAINNET_AXLUSDC_IBC),
             query_format: PairMessageType::JunoType,
         };
@@ -115,15 +105,14 @@ mod tests {
         let amount = Uint128::from(1_000_000u128);
 
         let query_msg = test_pair_contract
-            .clone()
             .create_query_msg(amount, flip_assets)
             .unwrap();
-        assert_eq!(
-            query_msg.0,
-            DexQueryMsgFormatted::Token1ForToken2Price(Token1ForToken2Msg {
-                token1_amount: amount
-            })
-        );
+        let dex_query_msg = DexQueryMsg {
+            denom: "testtokens".to_string(),
+            amount,
+            ty: DexQueryMsgType::Token1ForToken2Price,
+        };
+        assert_eq!(query_msg.0, dex_query_msg.format_query_msg(false));
     }
 
     #[test]
@@ -133,7 +122,7 @@ mod tests {
             contract_addr: String::from(
                 "juno1ctsmp54v79x7ea970zejlyws50cj9pkrmw49x46085fn80znjmpqz2n642",
             ),
-            denom1: String::from("testtokens".to_string()),
+            denom1: "testtokens".to_string(),
             denom2: String::from(MAINNET_AXLUSDC_IBC),
             query_format: PairMessageType::JunoType,
         };
@@ -141,14 +130,13 @@ mod tests {
         let amount = Uint128::from(1_000_000u128);
 
         let query_msg = test_pair_contract
-            .clone()
             .create_query_msg(amount, flip_assets)
             .unwrap();
-        assert_eq!(
-            query_msg.0,
-            DexQueryMsgFormatted::Token2ForToken1Price(Token2ForToken1Msg {
-                token2_amount: amount
-            })
-        );
+        let dex_query_msg = DexQueryMsg {
+            denom: "testtokens".to_string(),
+            amount,
+            ty: DexQueryMsgType::Token2ForToken1Price,
+        };
+        assert_eq!(query_msg.0, dex_query_msg.format_query_msg(false));
     }
 }

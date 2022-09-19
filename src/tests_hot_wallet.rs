@@ -42,7 +42,7 @@ mod tests {
         bad_wallet.usdc_denom = Some("false".to_string());
         bad_wallet.clone().check_is_valid().unwrap_err();
         bad_wallet.usdc_denom = None;
-        bad_wallet.clone().check_is_valid().unwrap_err();
+        bad_wallet.check_is_valid().unwrap_err();
     }
 
     #[test]
@@ -75,7 +75,7 @@ mod tests {
         assert_eq!(hot_wallet.spend_limits, vec![adjusted_spend_limit]);
 
         hot_wallet.reset_limits();
-        assert_eq!(hot_wallet.spend_limits, vec![starting_spend_limit.clone()]);
+        assert_eq!(hot_wallet.spend_limits, vec![starting_spend_limit]);
     }
 
     #[test]
