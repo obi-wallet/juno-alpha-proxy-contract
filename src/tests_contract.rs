@@ -235,7 +235,7 @@ mod tests {
             deps.as_mut(),
             HOT_USDC_WALLET.to_string(),
             current_env.clone(),
-            admin_info.clone(),
+            admin_info,
             1u16,
             PeriodType::DAYS,
             100_000_000u64,

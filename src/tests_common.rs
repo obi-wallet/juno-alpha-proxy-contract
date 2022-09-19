@@ -33,7 +33,7 @@ pub fn add_test_hotwallet(
         },
     };
 
-    let _res = execute(deps.branch(), current_env.clone(), info, execute_msg).unwrap();
+    let _res = execute(deps.branch(), current_env, info, execute_msg).unwrap();
     let res = query_hot_wallets(deps.as_ref()).unwrap();
     assert!(res.hot_wallets.len() == old_length + 1);
     Ok(Response::new())
@@ -49,7 +49,7 @@ pub fn test_spend_bank(
     let send_msg = CosmosMsg::Bank(BankMsg::Send { to_address, amount });
     let res = execute_execute(
         &mut deps.branch(),
-        current_env.clone(),
+        current_env,
         info,
         vec![send_msg],
         false,
