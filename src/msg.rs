@@ -66,8 +66,3 @@ pub enum MigrateMsg {}
 pub struct AdminResponse {
     pub admin: String,
 }
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct HotWalletsResponse {
-    pub hot_wallets: Vec<HotWallet>,
-}

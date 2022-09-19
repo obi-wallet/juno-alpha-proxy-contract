@@ -129,3 +129,8 @@ impl HotWallet {
         Ok(())
     }
 }
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct HotWalletsResponse {
+    pub hot_wallets: Vec<HotWallet>,
+}
