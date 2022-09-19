@@ -1,17 +1,18 @@
 #[cfg(test)]
 mod tests {
     use crate::contract::{
-        execute, execute_execute, instantiate, query_admin, query_can_execute, query_hot_wallets,
+        execute, instantiate, query_admin, query_can_execute, query_hot_wallets,
     };
     use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
     /* use crate::defaults::get_local_pair_contracts; */
     use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
+    use crate::tests_common::{add_test_hotwallet, test_spend_bank};
     use crate::ContractError;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
     use cosmwasm_std::{
         coin, coins, Attribute, BankMsg, Coin, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps,
-        StakingMsg, SubMsg, Uint128,
+        Response, StakingMsg, SubMsg, Uint128,
     };
     //use cosmwasm_std::WasmMsg;
 
@@ -182,57 +183,27 @@ mod tests {
         assert!(res.hot_wallets[0].address == HOT_WALLET);
 
         // spend as the hot wallet
-        let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: RECEIVER.to_string(),
-            amount: coins(999_000u128, "testtokens"), // only 1_000 left!
-        });
-        let info = mock_info(ADMIN, &[]);
-        let res = execute_execute(
-            &mut deps.as_mut(),
-            current_env.clone(),
-            info.clone(),
-            vec![send_msg],
-            false,
-        )
-        .unwrap();
-        assert!(res.messages.len() == 1);
-        let submsg = res.messages[0].clone();
-        match submsg.msg {
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: _,
-                amount: _,
-            }) => (),
-            _ => {
-                panic!(
-                    "We sent a send bankmsg but that's not the first submessage for some reason"
-                );
-            }
-        }
-
-        // add a second hot wallet
-        let execute_msg = ExecuteMsg::AddHotWallet {
-            new_hot_wallet: HotWallet {
-                address: "hot_diane".to_string(),
-                current_period_reset: current_env.block.time.seconds() as u64,
-                period_type: PeriodType::DAYS,
-                period_multiple: 1,
-                spend_limits: vec![CoinLimit {
-                    denom: "testtokens".to_string(),
-                    amount: 1_000_000u64,
-                    limit_remaining: 1_000_000u64,
-                }],
-                usdc_denom: Some("false".to_string()),
-            },
-        };
-        let _res = execute(
+        let admin_info = mock_info(ADMIN, &[]);
+        test_spend_bank(
             deps.as_mut(),
             current_env.clone(),
-            info.clone(),
-            execute_msg,
+            RECEIVER.to_string(),
+            coins(999_000u128, "testtokens"),
+            admin_info.clone(),
         )
         .unwrap();
-        let res = query_hot_wallets(deps.as_ref()).unwrap();
-        assert!(res.hot_wallets.len() == 2);
+
+        // add a second hot wallet
+        add_test_hotwallet(
+            deps.as_mut(),
+            "hot_diane".to_string(),
+            current_env.clone(),
+            admin_info.clone(),
+            1u16,
+            PeriodType::DAYS,
+            1_000_000u64,
+        )
+        .unwrap();
 
         // rm the hot wallet
         let bad_info = mock_info(ANYONE, &[]);
@@ -249,7 +220,7 @@ mod tests {
         let _res = execute(
             deps.as_mut(),
             current_env.clone(),
-            info.clone(),
+            admin_info.clone(),
             execute_msg,
         )
         .unwrap();
@@ -259,95 +230,45 @@ mod tests {
         println!("hot wallets are: {:?}", res.hot_wallets);
         assert!(res.hot_wallets.len() == 1);
 
-        // add another hot wallet, this time with USDC spend limit
-        let execute_msg = ExecuteMsg::AddHotWallet {
-            new_hot_wallet: HotWallet {
-                address: HOT_USDC_WALLET.to_string(),
-                current_period_reset: current_env.block.time.seconds() as u64,
-                period_type: PeriodType::DAYS,
-                period_multiple: 1,
-                spend_limits: vec![CoinLimit {
-                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
-                        .to_string(),
-                    amount: 100_000_000u64,
-                    limit_remaining: 100_000_000u64,
-                }],
-                usdc_denom: Some("true".to_string()),
-            },
-        };
-        let _res = execute(deps.as_mut(), current_env.clone(), info, execute_msg).unwrap();
+        // add another hot wallet, this time with high USDC spend limit
+        add_test_hotwallet(
+            deps.as_mut(),
+            HOT_USDC_WALLET.to_string(),
+            current_env.clone(),
+            admin_info,
+            1u16,
+            PeriodType::DAYS,
+            100_000_000u64,
+        )
+        .unwrap();
         let res = query_hot_wallets(deps.as_ref()).unwrap();
         assert!(res.hot_wallets.len() == 2);
 
         // now spend ... local tests will force price to be 1 = 100 USDC
         // so our spend limit of 100_000_000 will equal 1_000_000 testtokens
 
+        let mocked_info = mock_info(HOT_USDC_WALLET, &[]);
+        let mut quick_spend_test = |amount: u128| -> Result<Response, ContractError> {
+            test_spend_bank(
+                deps.as_mut(),
+                current_env.clone(),
+                RECEIVER.to_string(),
+                coins(amount, "testtokens"),
+                mocked_info.clone(),
+            )
+        };
+
         // three tests here: 1. we can spend a small amount
-        let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: RECEIVER.to_string(),
-            amount: coins(1_000u128, "testtokens"), // 999_000 left
-        });
-        let info = mock_info(HOT_USDC_WALLET, &[]);
-        let res = execute_execute(
-            &mut deps.as_mut(),
-            current_env.clone(),
-            info,
-            vec![send_msg],
-            false,
-        )
-        .unwrap();
-        println!("{:?}", res);
-        assert!(res.messages.len() == 1);
-        let submsg = res.messages[0].clone();
-        match submsg.msg {
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: _,
-                amount: _,
-            }) => (),
-            _ => {
-                panic!(
-                    "We sent a send bankmsg but that's not the first submessage for some reason"
-                );
-            }
-        }
+        quick_spend_test(1_000u128).unwrap();
+        // 999_000 left
 
         // 2. we can spend up to limit
-        let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: RECEIVER.to_string(),
-            amount: coins(999_000u128, "testtokens"), // 0 left
-        });
-        let info = mock_info(HOT_USDC_WALLET, &[]);
-        let res = execute_execute(
-            &mut deps.as_mut(),
-            current_env.clone(),
-            info,
-            vec![send_msg],
-            false,
-        )
-        .unwrap();
-        println!("{:?}", res);
-        assert!(res.messages.len() == 1);
-        let submsg = res.messages[0].clone();
-        match submsg.msg {
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: _,
-                amount: _,
-            }) => (),
-            _ => {
-                panic!(
-                    "We sent a send bankmsg but that's not the first submessage for some reason"
-                );
-            }
-        }
+        quick_spend_test(999_000u128).unwrap();
+        // 0 left
 
         // 3. now our limit is spent and we cannot spend anything
-        let send_msg = CosmosMsg::Bank(BankMsg::Send {
-            to_address: RECEIVER.to_string(),
-            amount: coins(1u128, "testtokens"), // -1 left
-        });
-        let info = mock_info(HOT_USDC_WALLET, &[]);
-        let _res = execute_execute(&mut deps.as_mut(), current_env, info, vec![send_msg], false)
-            .unwrap_err();
+        quick_spend_test(1u128).unwrap_err();
+        // -1 left
     }
 
     #[test]

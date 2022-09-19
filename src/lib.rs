@@ -11,6 +11,8 @@ pub mod pair_contract_defaults;
 pub mod simulation;
 pub mod state;
 #[cfg(test)]
+pub mod tests_common;
+#[cfg(test)]
 pub mod tests_constants;
 #[cfg(test)]
 mod tests_contract;

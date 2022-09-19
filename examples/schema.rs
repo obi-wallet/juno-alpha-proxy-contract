@@ -3,9 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, export_schema_with_title, remove_schemas, schema_for};
 
-use obi_proxy_contract::msg::{
-    AdminResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-};
+use obi_proxy_contract::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 use obi_proxy_contract::hot_wallet::HotWalletsResponse;
 

@@ -72,7 +72,10 @@ impl HotWallet {
         let limit_remaining = self.spend_limits[0]
             .limit_remaining
             .checked_sub(converted_spend_amt.coin.amount.u128() as u64);
-        println!("new limit is {:?}", limit_remaining);
+        match limit_remaining {
+            Some(limit) => println!("new limit is {:?}", limit),
+            None => println!("Overspend attempt rejected"),
+        }
         let limit_remaining = match limit_remaining {
             Some(remaining) => remaining,
             None => {
