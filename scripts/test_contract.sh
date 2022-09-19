@@ -27,11 +27,14 @@ error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah
 
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
+# Note this is sim_execute only at the moment, for debugging
+ACTION="execute"
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 echo -n -e "${LBLUE}TX 1) Admin sends the contract's funds. Should succeed, with fee repaid...${NC}"
-EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "30000"}]}}}]}}')
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM --arg action $ACTION '{($action): {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "30000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+echo "Debug: $RES"
 error_check "$RES" "Admin unable to send funds"
 echo $RES > latest_run_log.txt
 
@@ -136,7 +139,8 @@ echo " Done."
 
 echo -n -e "${LBLUE}TX 9) Hot wallet tries to spend the same again. Should fail...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
-error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit"
+error_check "$RES" "Failed as expected, but with unexpected error" "You cannot spend more than your available spend limit" "cancelled transaction"
+
 
 echo "Now waiting for the reset time to pass..."
 /usr/bin/sleep 50s
@@ -158,7 +162,7 @@ echo -n "Waiting to avoid sequence mismatch error..."
 echo -n -e "${LBLUE}TX 12) Admin adds the hot wallet back, with a USDC-denominated limit. Should succeed...${NC}"
 SECS_SINCE_EPOCH=$(/usr/bin/date +%s)
 let RESET_TIME=$SECS_SINCE_EPOCH+60
-ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ibc\/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034","amount":50000,"limit_remaining":50000}], "usdc_denom":"true"}}}')
+ADD_HOT_WALLET_ARGS_V1=$(/usr/bin/jq -n --arg newaddy $BAD_WALLET_ADDRESS '{"add_hot_wallet": {"new_hot_wallet": {"address":$newaddy, "current_period_reset":666, "period_type":"DAYS", "period_multiple":1, "spend_limits":[{"denom":"ibc\/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034","amount":80000,"limit_remaining":80000}], "usdc_denom":"true"}}}')
 ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to re-add hot wallet"
@@ -174,9 +178,16 @@ echo -n -e "${LBLUE}TX 13) Spend some JUNO... and see it run against the USDC sp
 # asset "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" at a LOOP price of 30_000_000
 # so spending 1 JUNO should spend 137 LOOP, which is 137/30 ≈ 4.566 USDC.
 # To save on testnet faucet usage, let's spend only 0.01 JUNO... which should ≈ 0.04566 USDC or 45,600 uUSDC.
-# (against a spend limit of 50000)
+# (against a spend limit of 80000)
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "10000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend with hot wallet limited in USDC"
+
+# ok, print hot wallet info including spend limit
+QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
+RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+echo "Query results for hot wallets: "
+echo "$RES"
 
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
@@ -184,3 +195,9 @@ echo -n "Waiting to avoid sequence mismatch error..."
 echo -n -e "${LBLUE}TX 14) Second spend should fail as we've used most of our spend limit${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected" "You cannot spend more than your available spend limit"
+
+# print hot wallet info again to check on spend limit reduction
+QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
+RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+echo "Query results for hot wallets: "
+echo "$RES"

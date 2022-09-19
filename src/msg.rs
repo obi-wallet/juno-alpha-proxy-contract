@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::state::HotWallet;
+use crate::hot_wallet::HotWallet;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -12,6 +12,7 @@ pub struct InstantiateMsg {
     pub uusd_fee_debt: Uint128,
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
+    pub signers: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -21,6 +22,10 @@ pub enum ExecuteMsg {
     /// contract's address as sender. Every implementation has it's own logic to
     /// determine in
     Execute { msgs: Vec<CosmosMsg> },
+    /// Might still have spend limit etc affects, but avoids attaching
+    /// any messages. Attaches attributes as normal. For debugging purposes –
+    /// others should use query
+    SimExecute { msgs: Vec<CosmosMsg> },
     /// Proposes a new admin for the proxy contract – must be called by the existing admin
     ProposeUpdateAdmin { new_admin: String },
     /// Confirms a proposed admin - must be called by the new admin.
@@ -55,55 +60,9 @@ pub enum QueryMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum DexQueryMsg {
-    ReverseSimulation(ReverseSimulationMsg),
-    Simulation(SimulationMsg),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct SimulationMsg {
-    pub offer_asset: Asset,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Asset {
-    pub amount: Uint128,
-    pub info: AssetInfo,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum AssetInfo {
-    NativeToken { denom: String },
-    Token { contract_addr: String },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct ReverseSimulationMsg {
-    pub ask_asset: AssetInfo,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct SimulationResponse {
-    pub commission_amount: Uint128,
-    pub return_amount: Uint128,
-    pub spread_amount: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct AdminResponse {
     pub admin: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct HotWalletsResponse {
-    pub hot_wallets: Vec<HotWallet>,
 }

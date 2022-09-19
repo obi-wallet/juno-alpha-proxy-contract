@@ -1,12 +1,26 @@
-pub const USDC: &str = "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
+pub mod constants;
 pub mod contract;
-#[cfg(test)]
-mod contract_tests;
 pub mod error;
 pub mod helpers;
+pub mod hot_wallet;
 #[cfg(test)]
 mod integration_tests;
 pub mod msg;
+pub mod pair_contract;
+pub mod pair_contract_defaults;
+pub mod simulation;
 pub mod state;
+#[cfg(test)]
+pub mod tests_common;
+#[cfg(test)]
+pub mod tests_constants;
+#[cfg(test)]
+mod tests_contract;
+#[cfg(test)]
+mod tests_hot_wallet;
+#[cfg(test)]
+mod tests_pair_contract;
+#[cfg(test)]
+mod tests_state;
 
 pub use crate::error::ContractError;

@@ -2,20 +2,20 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    Event, MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 use cw20::Cw20ExecuteMsg;
+use semver::Version;
 
+use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::helpers::get_current_price;
-use crate::msg::{
-    AdminResponse, ExecuteMsg, HotWalletsResponse, InstantiateMsg, MigrateMsg, QueryMsg,
-};
-use crate::state::{HotWallet, State, STATE};
-use crate::USDC;
+use crate::helpers::convert_coin_to_usdc;
+use crate::hot_wallet::{HotWallet, HotWalletsResponse};
+use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use crate::state::{Source, SourcedCoin, State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -37,21 +37,41 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let valid_admin: Addr = deps.api.addr_validate(&msg.admin)?;
     let valid_repay_wallet: Addr = deps.api.addr_validate(&msg.fee_lend_repay_wallet)?;
-    let cfg = State {
+    for wallet in msg.hot_wallets.clone() {
+        wallet.check_is_valid()?;
+    }
+    let mut cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
         hot_wallets: msg.hot_wallets,
         uusd_fee_debt: msg.uusd_fee_debt,
         fee_lend_repay_wallet: valid_repay_wallet,
         home_network: msg.home_network,
+        pair_contracts: vec![],
     };
+    cfg.set_pair_contracts(cfg.home_network.clone())?;
     STATE.save(deps.storage, &cfg)?;
-    Ok(Response::default())
+    let mut signers_event = Event::new("obisign");
+    for signer in msg.signers {
+        signers_event =
+            signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
+    }
+    Ok(Response::new().add_event(signers_event))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    // No state migrations performed right now, just return a Response
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let mut cfg = STATE.load(deps.storage)?;
+    cfg.set_pair_contracts(cfg.home_network.clone())?;
+    let version: Version = CONTRACT_VERSION.parse()?;
+    let storage_version: Version = get_contract_version(deps.storage)?.version.parse()?;
+
+    if storage_version < version {
+        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        // If state structure changed in any contract version in the way migration is needed, it
+        // should occur here
+    }
     Ok(Response::default())
 }
 
@@ -63,7 +83,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Execute { msgs } => execute_execute(&mut deps, env, info, msgs),
+        ExecuteMsg::Execute { msgs } => execute_execute(&mut deps, env, info, msgs, false),
+        ExecuteMsg::SimExecute { msgs } => execute_execute(&mut deps, env, info, msgs, true),
         ExecuteMsg::AddHotWallet { new_hot_wallet } => {
             add_hot_wallet(deps, env, info, new_hot_wallet)
         }
@@ -78,19 +99,22 @@ pub fn execute(
     }
 }
 
+// Simulation gatekeeping is all in this block
 pub fn execute_execute(
     deps: &mut DepsMut,
     env: Env,
     info: MessageInfo,
     msgs: Vec<CosmosMsg>,
+    simulation: bool,
 ) -> Result<Response, ContractError> {
     let cfg = STATE.load(deps.storage)?;
     let mut res = Response::new();
     if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
         // if there is no debt AND user is admin, process immediately
-        res = res
-            .add_messages(msgs)
-            .add_attribute("action", "execute_execute");
+        res = res.add_attribute("action", "execute_execute");
+        if !simulation {
+            res = res.add_messages(msgs);
+        }
         Ok(res)
     } else {
         // otherwise, we need to do some checking. Note that attaching
@@ -108,24 +132,29 @@ pub fn execute_execute(
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
                     let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
-                    res = res
-                        .add_message(partial_res.messages[0].msg.clone())
-                        .add_attribute("action", "execute_spend_limit");
+                    res = res.add_attribute("action", "execute_spend_limit_or_debt");
+                    if !simulation {
+                        res = res.add_message(partial_res.messages[0].msg.clone());
+                    }
+                    res = res.add_attributes(partial_res.attributes);
                 }
                 // otherwise it must be a bank transfer
                 CosmosMsg::Bank(bank) => {
-                    res = res.add_attribute("action", "execute_spend_limit");
+                    res = res.add_attribute("action", "execute_spend_limit_or_debt");
                     let partial_res = try_bank_send(deps, bank, &mut core_payload)?;
-                    for submsg in partial_res.messages {
-                        res = res.add_message(submsg.msg.clone());
+                    if !simulation {
+                        for submsg in partial_res.messages {
+                            res = res.add_message(submsg.msg.clone());
+                        }
                     }
+                    res = res.add_attributes(partial_res.attributes);
                 }
                 _ => {
                     if cfg.is_admin(info.sender.to_string()) {
-                        res = res
-                            .add_attribute("action", "execute_execute")
-                            .add_message(this_msg)
-                            .add_attribute("action", "execute_execute");
+                        res = res.add_attribute("action", "execute_execute");
+                        if !simulation {
+                            res = res.add_message(this_msg);
+                        }
                     } else {
                         return Err(ContractError::BadMessageType {});
                     }
@@ -191,52 +220,54 @@ fn try_wasm_send(
     }
 }
 
-fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<Option<BankMsg>, ContractError> {
+pub struct SourcedRepayMsg {
+    pub repay_msg: Option<BankMsg>,
+    pub sources: Vec<Source>,
+}
+
+fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
     let state: State = STATE.load(deps.storage)?;
     if state.uusd_fee_debt.u128() > 0u128 {
-        let payment_coin = match &*asset.denom {
-            USDC => Coin {
-                amount: state.uusd_fee_debt,
-                denom: asset.denom,
+        let swaps = match asset.denom.as_str() {
+            val if val == MAINNET_AXLUSDC_IBC => SourcedCoin {
+                coin: Coin {
+                    denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    amount: state.uusd_fee_debt,
+                },
+                sources: vec![Source {
+                    contract_addr: "1 USDC is 1 USDC".to_string(),
+                    query_msg: format!(
+                        "converted {} to {}",
+                        state.uusd_fee_debt, state.uusd_fee_debt
+                    ),
+                }],
             },
-            "ujuno" | "ujunox" | "testtokens" => {
-                let this_amount = state
-                    .uusd_fee_debt
-                    .checked_mul(get_current_price(
-                        deps.as_ref(),
-                        USDC.to_string(),
-                        Uint128::from(1000000u128),
-                    )?)
-                    .map_err(|e| {
-                        ContractError::PriceCheckFailed(asset.denom.clone(), e.to_string())
-                    })?
-                    .checked_div(get_current_price(
-                        deps.as_ref(),
-                        asset.denom.clone(),
-                        Uint128::from(1000000u128),
-                    )?);
-                let checked_amount = match this_amount {
-                    Ok(amt) => amt,
-                    Err(e) => {
-                        return Err(ContractError::PriceCheckFailed(asset.denom, e.to_string()));
-                    }
-                };
-                Coin {
-                    amount: checked_amount,
-                    denom: asset.denom,
-                }
-            }
+            "ujuno" | "ujunox" | "testtokens" => convert_coin_to_usdc(
+                deps.as_ref(),
+                asset.denom.clone(),
+                state.uusd_fee_debt,
+                true,
+            )?,
             _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
         };
         let mut new_state = state.clone();
         new_state.uusd_fee_debt = Uint128::from(0u128);
         STATE.save(deps.storage, &new_state)?;
-        Ok(Some(BankMsg::Send {
-            to_address: state.fee_lend_repay_wallet.to_string(),
-            amount: vec![payment_coin],
-        }))
+        Ok(SourcedRepayMsg {
+            repay_msg: Some(BankMsg::Send {
+                to_address: state.fee_lend_repay_wallet.to_string(),
+                amount: vec![swaps.coin.clone()],
+            }),
+            sources: swaps.sources,
+        })
     } else {
-        Ok(None)
+        Ok(SourcedRepayMsg {
+            repay_msg: None,
+            sources: vec![Source {
+                contract_addr: "no debt".to_string(),
+                query_msg: "no conversion necessary".to_string(),
+            }],
+        })
     }
 }
 
@@ -251,16 +282,29 @@ fn try_bank_send(
             amount,
         } => {
             let attach_repay_msg = check_and_repay_debt(deps, amount[0].clone())?;
-            let res = check_and_spend(deps, core_payload, amount.clone())?;
-            match attach_repay_msg {
+            let mut res = check_and_spend(deps, core_payload, amount.clone())?;
+            match attach_repay_msg.repay_msg {
                 None => Ok(res),
-                Some(msg) => Ok(res
-                    .add_attribute("note", "repaying one-time fee debt")
-                    .add_message(msg)),
+                Some(msg) => {
+                    for n in 0..attach_repay_msg.sources.len() {
+                        res = res
+                            .add_attribute(
+                                format!("swap {} contract", n + 1),
+                                attach_repay_msg.sources[n].contract_addr.clone(),
+                            )
+                            .add_attribute(
+                                format!("swap {} query info", n + 1),
+                                attach_repay_msg.sources[n].query_msg.clone(),
+                            )
+                    }
+                    Ok(res
+                        .add_attribute("note", "repaying one-time fee debt")
+                        .add_message(msg))
+                }
             }
         }
         _ => {
-            //probably unreachable as can_spend throws
+            //probably unreachable as check_spend_limits throws
             Err(ContractError::SpendNotAuthorized {})
         }
     }
@@ -272,7 +316,7 @@ fn check_and_spend(
     spend: Vec<Coin>,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    cfg.can_spend(
+    let spend_reduction = cfg.check_spend_limits(
         deps.as_ref(),
         core_payload.current_time,
         core_payload.info.sender.to_string(),
@@ -280,7 +324,9 @@ fn check_and_spend(
     )?;
     let res = Response::new()
         .add_messages(vec![core_payload.this_msg.clone()])
-        .add_attribute("action", "execute");
+        .add_attribute("action", "execute")
+        .add_attribute("spend_limit_reduction", spend_reduction.coin.amount)
+        .add_attributes(spend_reduction.sources_as_attributes());
     STATE.save(deps.storage, &cfg)?;
     Ok(res)
 }
