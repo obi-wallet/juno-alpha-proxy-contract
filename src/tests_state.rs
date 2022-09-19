@@ -4,8 +4,8 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
+    use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
     use crate::pair_contract_defaults::get_local_pair_contracts;
-    use crate::hot_wallet::{HotWallet, PeriodType, CoinLimit};
     use crate::state::State;
 
     #[test]

@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 use cw_storage_plus::Item;
 
 use crate::constants::{MAINNET_AXLUSDC_IBC, MAINNET_ID, TESTNET_ID};
+use crate::hot_wallet::HotWallet;
+use crate::pair_contract::PairContract;
 use crate::pair_contract_defaults::{
     get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
 };
-use crate::hot_wallet::HotWallet;
-use crate::pair_contract::PairContract;
 use crate::ContractError;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

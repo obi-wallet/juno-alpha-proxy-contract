@@ -4,9 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::MAINNET_AXLUSDC_IBC,
-    helpers::convert_coin_to_usdc,
-    state::SourcedCoin,
+    constants::MAINNET_AXLUSDC_IBC, helpers::convert_coin_to_usdc, state::SourcedCoin,
     ContractError,
 };
 
@@ -87,10 +85,7 @@ impl HotWallet {
 
     // it would be great for hot wallet to also handle its own
     // period update, spend limit check, etc.
-    pub fn reset_period(
-        &mut self,
-        current_time: Timestamp,
-    ) -> Result<(), ContractError> {
+    pub fn reset_period(&mut self, current_time: Timestamp) -> Result<(), ContractError> {
         let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
         // how far ahead we set new current_period_reset to
         // depends on the spend limit period (type and multiple)
@@ -125,13 +120,10 @@ impl HotWallet {
         };
         self.reset_limits();
         let dt = match new_dt {
-          Ok(dt) => dt,
-          Err(e) => return Err(ContractError::DayUpdateError(e.to_string()))
+            Ok(dt) => dt,
+            Err(e) => return Err(ContractError::DayUpdateError(e.to_string())),
         };
-        println!(
-          "Old reset date is {:?}",
-          self.current_period_reset.clone()
-        );
+        println!("Old reset date is {:?}", self.current_period_reset.clone());
         println!("Resetting to {:?}", dt.clone().timestamp());
         self.current_period_reset = dt.timestamp() as u64;
         Ok(())

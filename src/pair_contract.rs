@@ -3,13 +3,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
-use crate::constants_tests::get_test_sourced_coin;
+use crate::tests_constants::get_test_sourced_coin;
 use crate::{
-    msg::{
-        Asset, AssetInfo, DexQueryMsg, ReverseSimulationMsg, SimulationMsg, Tallyable,
-        Token1ForToken2Msg, Token1ForToken2PriceResponse, Token2ForToken1Msg,
-        Token2ForToken1PriceResponse,
-    },
+    simulation::{DexQueryMsg, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse},
+    simulation::{DexQueryMsgFormatted, DexQueryMsgType, FormatQueryMsg, Tally},
     state::{Source, SourcedCoin},
     ContractError,
 };
@@ -43,51 +40,14 @@ impl PairContract {
         amount_is_target: bool,
         reverse_message_type: bool,
     ) -> Result<SourcedCoin, ContractError> {
-        let response_asset: String;
         let mut flip_assets: bool = amount_is_target;
         if reverse_message_type {
             flip_assets = !flip_assets;
         }
-        let query_msg: DexQueryMsg = match self.query_format {
-            PairMessageType::LoopType => {
-                response_asset = self.denom2.clone();
-                let simulation_asset = Asset {
-                    amount,
-                    info: AssetInfo::NativeToken {
-                        denom: self.denom1.clone(),
-                    },
-                };
-                match amount_is_target {
-                    false => DexQueryMsg::Simulation(SimulationMsg {
-                        offer_asset: simulation_asset,
-                    }),
-                    true => {
-                        DexQueryMsg::ReverseSimulation(ReverseSimulationMsg {
-                            ask_asset: simulation_asset,
-                        }) // no cw20 support yet (expect for the base asset)
-                    }
-                }
-            }
-            PairMessageType::JunoType => {
-                if reverse {
-                    flip_assets = !flip_assets;
-                }
-                match flip_assets {
-                    false => {
-                        response_asset = self.denom2.clone();
-                        DexQueryMsg::Token1ForToken2Price(Token1ForToken2Msg {
-                            token1_amount: amount,
-                        })
-                    }
-                    true => {
-                        response_asset = self.denom1.clone();
-                        DexQueryMsg::Token2ForToken1Price(Token2ForToken1Msg {
-                            token2_amount: amount,
-                        })
-                    } // no cw20 support yet (except for the base asset)
-                }
-            }
-        };
+        if reverse {
+            flip_assets = !flip_assets;
+        }
+        let query_msg = self.clone().create_query_msg(amount, flip_assets)?;
         #[cfg(test)]
         println!(
             "Bypassing query message on contract {}: {:?}, and bools are reverse: {}, reverse_message_type: {}, amount_is_target: {}",
@@ -100,28 +60,64 @@ impl PairContract {
                 true => self.denom2,
                 false => self.denom1,
             };
-            return get_test_sourced_coin((test_denom1, response_asset), amount, reverse);
+            return get_test_sourced_coin((test_denom1, query_msg.1), amount, reverse);
         }
         let query_result: Result<SourcedCoin, ContractError>;
         match flip_assets {
-            false => {
-                self.process_query::<Token1ForToken2PriceResponse>(deps, &query_msg, response_asset)
-            }
-            true => {
-                self.process_query::<Token2ForToken1PriceResponse>(deps, &query_msg, response_asset)
-            }
+            false => self.process_query::<Token1ForToken2PriceResponse>(
+                deps,
+                &query_msg.0.clone(),
+                query_msg.1.clone(),
+            ),
+            true => self.process_query::<Token2ForToken1PriceResponse>(
+                deps,
+                &query_msg.0.clone(),
+                query_msg.1.clone(),
+            ),
         }
+    }
+
+    pub fn create_query_msg(
+        self,
+        amount: Uint128,
+        flip_assets: bool,
+    ) -> Result<(DexQueryMsgFormatted, String), ContractError> {
+        let response_asset: String;
+        Ok(match self.query_format {
+            PairMessageType::LoopType => {
+                let dex_query_msg = DexQueryMsg {
+                    ty: DexQueryMsgType::Simulation,
+                    denom: self.denom1.clone(),
+                    amount,
+                };
+                response_asset = self.denom2.clone();
+                (dex_query_msg.format_query_msg(flip_assets), response_asset)
+            }
+            PairMessageType::JunoType => {
+                let dex_query_msg = DexQueryMsg {
+                    ty: DexQueryMsgType::Token1ForToken2Price,
+                    denom: self.denom1.clone(), // unused by juno type
+                    amount,
+                };
+                let response_asset = match flip_assets {
+                    false => self.denom2.clone(),
+                    true => self.denom1.clone(),
+                    // no cw20 support yet (except for the base asset)
+                };
+                (dex_query_msg.format_query_msg(flip_assets), response_asset)
+            }
+        })
     }
 
     fn process_query<T>(
         &self,
         deps: Deps,
-        query_msg: &DexQueryMsg,
+        query_msg: &DexQueryMsgFormatted,
         response_asset: String,
     ) -> Result<SourcedCoin, ContractError>
     where
         T: for<'de> Deserialize<'de>,
-        T: Tallyable,
+        T: Tally,
     {
         let query_response: Result<T, StdError> =
             deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
