@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::state::HotWallet;
+use crate::hot_wallet::HotWallet;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -60,117 +60,9 @@ pub enum QueryMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum DexQueryMsg {
-    ReverseSimulation(ReverseSimulationMsg),
-    Simulation(SimulationMsg),
-    Token1ForToken2Price(Token1ForToken2Msg),
-    Token2ForToken1Price(Token2ForToken1Msg),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Token1ForToken2Msg {
-    pub token1_amount: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Token2ForToken1Msg {
-    pub token2_amount: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Token1ForToken2PriceResponse {
-    pub token2_amount: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Token2ForToken1PriceResponse {
-    pub token1_amount: Uint128,
-}
-
-impl Tallyable for Token1ForToken2PriceResponse {
-    fn tally(self) -> Uint128 {
-        self.token2_amount
-    }
-}
-
-impl Tallyable for Token2ForToken1PriceResponse {
-    fn tally(self) -> Uint128 {
-        self.token1_amount
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct SimulationMsg {
-    pub offer_asset: Asset,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct Asset {
-    pub amount: Uint128,
-    pub info: AssetInfo,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum AssetInfo {
-    NativeToken { denom: String },
-    Token { contract_addr: String },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct ReverseSimulationMsg {
-    pub ask_asset: Asset,
-}
-
-pub trait Tallyable {
-    fn tally(self) -> Uint128;
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct SimulationResponse {
-    pub commission_amount: Uint128,
-    pub return_amount: Uint128,
-    pub spread_amount: Uint128,
-}
-
-impl Tallyable for SimulationResponse {
-    fn tally(self) -> Uint128 {
-        self.commission_amount + self.return_amount
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct ReverseSimulationResponse {
-    pub commission_amount: Uint128,
-    pub offer_amount: Uint128,
-    pub spread_amount: Uint128,
-}
-
-impl Tallyable for ReverseSimulationResponse {
-    fn tally(self) -> Uint128 {
-        self.commission_amount + self.offer_amount
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct AdminResponse {
     pub admin: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct HotWalletsResponse {
-    pub hot_wallets: Vec<HotWallet>,
 }

@@ -3,9 +3,9 @@ mod tests {
     use crate::contract::{
         execute, execute_execute, instantiate, query_admin, query_can_execute, query_hot_wallets,
     };
+    use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
     /* use crate::defaults::get_local_pair_contracts; */
     use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
-    use crate::state::{CoinLimit, HotWallet, PeriodType /* STATE */};
     use crate::ContractError;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};

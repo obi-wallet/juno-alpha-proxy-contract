@@ -4,8 +4,9 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
-    use crate::defaults::get_local_pair_contracts;
-    use crate::state::{CoinLimit, HotWallet, PeriodType, State};
+    use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
+    use crate::pair_contract_defaults::get_local_pair_contracts;
+    use crate::state::State;
 
     #[test]
     fn is_admin() {

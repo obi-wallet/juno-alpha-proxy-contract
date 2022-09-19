@@ -1,7 +1,7 @@
-use cosmwasm_std::{Coin, Deps, Uint128};
+use cosmwasm_std::{Deps, Uint128};
 
 use crate::constants::{get_usdc_sourced_coin, MAINNET_AXLUSDC_IBC};
-use crate::state::{PairContract, PairMessageType, SourcedCoin, SourcedSwap};
+use crate::state::SourcedCoin;
 use crate::{state::STATE, ContractError};
 
 /// reverse is true if we have a target USDC amount (for fees)
@@ -19,25 +19,13 @@ pub fn convert_coin_to_usdc(
         false => {
             // top will be the price in DEX base
             let price = simulate_swap(deps, (denom, MAINNET_AXLUSDC_IBC.to_string()), amount)?;
-            Ok(SourcedCoin {
-                coin: Coin {
-                    denom: price.coin.denom.clone(),
-                    amount: price.coin.amount,
-                },
-                sources: vec![price],
-            })
+            Ok(price)
         }
         true => {
             // top will be the price in DEX base
             let price =
                 simulate_reverse_swap(deps, (MAINNET_AXLUSDC_IBC.to_string(), denom), amount)?;
-            Ok(SourcedCoin {
-                coin: Coin {
-                    denom: price.coin.denom.clone(),
-                    amount: price.coin.amount,
-                },
-                sources: vec![price],
-            })
+            Ok(price)
         }
     }
 }
@@ -47,37 +35,29 @@ pub fn simulate_reverse_swap(
     deps: Deps,
     denoms: (String, String),
     amount: Uint128,
-) -> Result<SourcedSwap, ContractError> {
-    let cfg = STATE.load(deps.storage)?;
-    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
-    match pair_contract.0.query_format.clone() {
-        PairMessageType::JunoType => simulate(deps, pair_contract, amount, true, true),
-        PairMessageType::LoopType => simulate(deps, pair_contract, amount, true, true),
-    }
+) -> Result<SourcedCoin, ContractError> {
+    simulate(deps, denoms, amount, true, true)
 }
 
 pub fn simulate_swap(
     deps: Deps,
     denoms: (String, String),
     amount: Uint128,
-) -> Result<SourcedSwap, ContractError> {
-    let cfg = STATE.load(deps.storage)?;
-    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
-    match pair_contract.0.query_format.clone() {
-        PairMessageType::JunoType => simulate(deps, pair_contract, amount, true, false),
-        PairMessageType::LoopType => simulate(deps, pair_contract, amount, true, false),
-    }
+) -> Result<SourcedCoin, ContractError> {
+    simulate(deps, denoms, amount, true, false)
 }
 
 #[allow(unreachable_code)]
 #[allow(unused_variables)]
 pub fn simulate(
     deps: Deps,
-    pair_contract: (PairContract, bool),
+    denoms: (String, String),
     amount: Uint128,
     target_amount: bool,        // when you want to meet a target number
     reverse_message_type: bool, // type of simulation message
-) -> Result<SourcedSwap, ContractError> {
+) -> Result<SourcedCoin, ContractError> {
+    let cfg = STATE.load(deps.storage)?;
+    let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
     pair_contract.0.query_contract(
         deps,
         amount,

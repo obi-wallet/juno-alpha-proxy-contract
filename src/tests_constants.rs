@@ -1,27 +1,29 @@
 use cosmwasm_std::{Coin, Uint128};
 
 use crate::{
-    constants::MAINNET_AXLUSDC_IBC,
-    state::{SourcedCoin, SourcedSwap},
+    state::{Source, SourcedCoin},
     ContractError,
 };
 
-pub fn get_test_sourced_swap(
+pub fn get_test_sourced_coin(
     denoms: (String, String),
     amount: Uint128,
     reverse: bool,
-) -> Result<SourcedSwap, ContractError> {
+) -> Result<SourcedCoin, ContractError> {
     println!(
         "getting test swap for {:?} {} with reverse {}",
         denoms, amount, reverse
     );
     match denoms.clone() {
-        val if val == ("testtokens".to_string(), "uloop".to_string()) => Ok(SourcedSwap {
+        val if val == ("testtokens".to_string(), "uloop".to_string()) => Ok(SourcedCoin {
             coin: Coin {
                 amount,
                 denom: denoms.1,
             },
-            contract_addr: "test conversion localjuno to loop".to_string(),
+            sources: vec![Source {
+                contract_addr: "test conversion localjuno to loop".to_string(),
+                query_msg: format!("converted {} to {}", amount, amount),
+            }],
         }),
         val if val
             == (
@@ -42,20 +44,26 @@ pub fn get_test_sourced_swap(
                 println!("mul uloop-usdc by 100");
                 amount.checked_mul(Uint128::from(100u128)).unwrap()
             };
-            Ok(SourcedSwap {
+            Ok(SourcedCoin {
                 coin: Coin {
                     amount: this_amount,
                     denom: denoms.1,
                 },
-                contract_addr: "test conversion loop to dollars".to_string(),
+                sources: vec![Source {
+                    contract_addr: "test conversion loop to dollars".to_string(),
+                    query_msg: format!("converted {} to {}", amount, this_amount),
+                }],
             })
         }
-        val if val == ("uloop".to_string(), "testtokens".to_string()) => Ok(SourcedSwap {
+        val if val == ("uloop".to_string(), "testtokens".to_string()) => Ok(SourcedCoin {
             coin: Coin {
                 amount,
                 denom: denoms.1,
             },
-            contract_addr: "test conversion loop to localjuno".to_string(),
+            sources: vec![Source {
+                contract_addr: "test conversion loop to localjuno".to_string(),
+                query_msg: format!("converted {} to {}", amount, amount),
+            }],
         }),
         val if val
             == (
@@ -70,12 +78,15 @@ pub fn get_test_sourced_swap(
                 println!("div usdc-uloop by 100");
                 amount.checked_div(Uint128::from(100u128)).unwrap()
             };
-            Ok(SourcedSwap {
+            Ok(SourcedCoin {
                 coin: Coin {
                     amount: this_amount,
                     denom: denoms.1,
                 },
-                contract_addr: "test conversion dollars to loop".to_string(),
+                sources: vec![Source {
+                    contract_addr: "test conversion dollars to loop".to_string(),
+                    query_msg: format!("converted {} to {}", amount, this_amount),
+                }],
             })
         }
         val if val
@@ -91,37 +102,20 @@ pub fn get_test_sourced_swap(
                 println!("mul usdc-ujuno by 100");
                 amount.checked_div(Uint128::from(10000u128)).unwrap()
             };
-            Ok(SourcedSwap {
+            Ok(SourcedCoin {
                 coin: Coin {
                     amount: this_amount,
                     denom: denoms.1,
                 },
-                contract_addr: "test conversion dollars to juno".to_string(),
+                sources: vec![Source {
+                    contract_addr: "test conversion dollars to juno".to_string(),
+                    query_msg: format!("converted {} to {}", amount, this_amount),
+                }],
             })
         }
         _ => Err(ContractError::BadSwapDenoms(format!(
             "unexpected unit test swap denoms: {:?} with amount {} and reverse {}",
             denoms, amount, reverse
         ))),
-    }
-}
-
-pub fn get_test_sourced_coin(spend: Coin) -> SourcedCoin {
-    let amount = match &*spend.denom {
-        "testtokens" => spend.amount.saturating_mul(Uint128::from(100u128)),
-        _ => spend.amount,
-    };
-    SourcedCoin {
-        coin: Coin {
-            denom: MAINNET_AXLUSDC_IBC.to_string(),
-            amount,
-        },
-        sources: vec![SourcedSwap {
-            coin: Coin {
-                amount: spend.amount,
-                denom: "test_1".to_string(),
-            },
-            contract_addr: "automatic mul by 100".to_string(),
-        }],
     }
 }
