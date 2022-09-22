@@ -54,10 +54,8 @@ pub struct State {
 
 impl State {
     pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {
-        let this_wallet_opt: Option<&HotWallet> = self
-            .hot_wallets
-            .iter()
-            .find(|a| a.address == addr);
+        let this_wallet_opt: Option<&HotWallet> =
+            self.hot_wallets.iter().find(|a| a.address == addr);
         match this_wallet_opt {
             None => Ok(false),
             Some(_) => Ok(true),

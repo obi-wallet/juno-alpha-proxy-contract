@@ -507,10 +507,6 @@ pub fn query_can_spend(
     let cfg = STATE.load(deps.storage)?;
     // if admin, always – though technically this might not be true
     // if first token send with nothing left to repay fees
-    println!(
-        "Hot wallet check returns {}",
-        cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
-    );
     if cfg.is_admin(sender.clone()) {
         return Ok(CanSpendResponse { can_spend: true });
     }
@@ -533,8 +529,12 @@ pub fn query_can_spend(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: _,
             msg: _,
-            funds,
-        }) => funds,
+            funds: _,
+        }) => {
+            return Err(StdError::GenericErr {
+                msg: "Spend-limit-based cw20 transfers not yet supported".to_string(),
+            })
+        }
         CosmosMsg::Bank(BankMsg::Send {
             to_address: _,
             amount,
