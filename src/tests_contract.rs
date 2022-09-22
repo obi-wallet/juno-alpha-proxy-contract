@@ -15,8 +15,8 @@ mod tests {
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        coin, coins, BankMsg, Coin, CosmosMsg, DistributionMsg, Response, StakingMsg, SubMsg,
-        Uint128, WasmMsg, to_binary
+        coin, coins, to_binary, BankMsg, Coin, CosmosMsg, DistributionMsg, Response, StakingMsg,
+        SubMsg, Uint128, WasmMsg,
     };
 
     const NEW_ADMIN: &str = "bob";
@@ -194,7 +194,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(res.can_spend, true);
+        assert!(res.can_spend);
 
         // and returns false with some huge amount
         let res = query_can_spend(
@@ -205,8 +205,9 @@ mod tests {
                 to_address: RECEIVER.to_string(),
                 amount: coins(999_999_999_000u128, "testtokens"),
             }),
-        ).unwrap();
-        assert_eq!(res.can_spend, false);
+        )
+        .unwrap();
+        assert!(!res.can_spend);
 
         // plus returns error with some unsupported kind of msg
         let _res = query_can_spend(
@@ -216,7 +217,8 @@ mod tests {
             CosmosMsg::Distribution(DistributionMsg::SetWithdrawAddress {
                 address: RECEIVER.to_string(),
             }),
-        ).unwrap_err();
+        )
+        .unwrap_err();
 
         // and returns true with authorized contract
         let _res = query_can_spend(
@@ -224,15 +226,18 @@ mod tests {
             current_env.clone(),
             HOT_WALLET.to_string(),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9".to_string(),
+                contract_addr: "juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9"
+                    .to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: RECEIVER.to_string(),
                     amount: Uint128::from(1u128),
-                }).unwrap(),
-                funds: vec![], 
+                })
+                .unwrap(),
+                funds: vec![],
             }),
-        ).unwrap();
-        assert_eq!(_res.can_spend, true);
+        )
+        .unwrap();
+        assert!(_res.can_spend);
 
         // actually spend as the hot wallet
         let admin_info = mock_info(ADMIN, &[]);
@@ -242,7 +247,7 @@ mod tests {
             current_env.clone(),
             RECEIVER.to_string(),
             coins(9_000u128, "testtokens"), //900_000 of usdc spend limit down
-            hot_wallet_info.clone(),
+            hot_wallet_info,
         )
         .unwrap();
 

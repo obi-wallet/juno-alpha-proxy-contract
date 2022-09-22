@@ -106,7 +106,7 @@ impl HotWallet {
             Some(limit) => println!("new limit is {:?}", limit),
             None => println!("Overspend attempt rejected"),
         }
-        let limit_remaining = match limit_remaining {
+        let _limit_remaining = match limit_remaining {
             Some(remaining) => remaining,
             None => {
                 return Err(ContractError::CannotSpendMoreThanLimit {});

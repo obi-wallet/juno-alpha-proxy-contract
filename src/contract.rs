@@ -120,24 +120,22 @@ pub fn execute_execute(
         Ok(res)
     } else {
         // certain authorized token contracts process immediately if hot wallet (or admin)
-        match msgs[0].clone() {
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr,
-                msg: _,
-                funds,
-            }) => {
-                if funds.is_empty()
-                    && cfg.is_authorized_hotwallet_contract(contract_addr)
-                    && cfg.is_active_hot_wallet(info.sender.clone())?
-                {
-                    let res = Response::new()
-                        .add_attribute("action", "execute_authorized_contract")
-                        .add_message(msgs[0].clone());
-                    return Ok(res);
-                }
+        if let CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr,
+            msg: _,
+            funds,
+        }) = msgs[0].clone()
+        {
+            if funds.is_empty()
+                && cfg.is_authorized_hotwallet_contract(contract_addr)
+                && cfg.is_active_hot_wallet(info.sender.clone())?
+            {
+                let res = Response::new()
+                    .add_attribute("action", "execute_authorized_contract")
+                    .add_message(msgs[0].clone());
+                return Ok(res);
             }
-            _ => {}
-        };
+        }
         // otherwise, we need to do some checking. Note that attaching
         // fee repayment is handled in the try_bank_send and (todo)
         // the try_wasm_send functions
@@ -509,27 +507,26 @@ pub fn query_can_spend(
     let cfg = STATE.load(deps.storage)?;
     // if admin, always – though technically this might not be true
     // if first token send with nothing left to repay fees
-    println!("Hot wallet check returns {}",
+    println!(
+        "Hot wallet check returns {}",
         cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
     );
     if cfg.is_admin(sender.clone()) {
         return Ok(CanSpendResponse { can_spend: true });
     }
     // if one of authorized token contracts and spender is hot wallet, yes
-    match msg.clone() {
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr,
-            msg: _,
-            funds,
-        }) => {
-            if cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
-                && cfg.is_authorized_hotwallet_contract(contract_addr)
-                && funds == vec![]
-            {
-                return Ok(CanSpendResponse { can_spend: true });
-            }
+    if let CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr,
+        msg: _,
+        funds,
+    }) = msg.clone()
+    {
+        if cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
+            && cfg.is_authorized_hotwallet_contract(contract_addr)
+            && funds == vec![]
+        {
+            return Ok(CanSpendResponse { can_spend: true });
         }
-        _ => (),
     };
     let funds: Vec<Coin> = match msg {
         //strictly speaking cw20 spend limits not supported yet, unless blanket authorized

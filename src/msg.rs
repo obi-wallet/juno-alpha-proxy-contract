@@ -77,8 +77,5 @@ pub struct CanSpendResponse {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum Cw20ExecuteMsg {
-    Transfer {
-        recipient: String,
-        amount: Uint128,
-    },
+    Transfer { recipient: String, amount: Uint128 },
 }

@@ -57,7 +57,7 @@ impl State {
         let this_wallet_opt: Option<&HotWallet> = self
             .hot_wallets
             .iter()
-            .find(|a| &a.address == &addr.to_string());
+            .find(|a| a.address == addr);
         match this_wallet_opt {
             None => Ok(false),
             Some(_) => Ok(true),
