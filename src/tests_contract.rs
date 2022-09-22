@@ -3,19 +3,21 @@ pub const HOT_WALLET: &str = "hotcarl";
 
 #[cfg(test)]
 mod tests {
-    use crate::contract::{execute, query_admin, query_can_execute, query_hot_wallets};
+    use crate::contract::{
+        execute, query_admin, query_can_execute, query_can_spend, query_hot_wallets,
+    };
     use crate::hot_wallet::PeriodType;
     /* use crate::defaults::get_local_pair_contracts; */
     use super::*;
-    use crate::msg::{AdminResponse, ExecuteMsg};
+    use crate::msg::{AdminResponse, Cw20ExecuteMsg, ExecuteMsg};
     use crate::tests_helpers::{add_test_hotwallet, instantiate_contract, test_spend_bank};
     use crate::ContractError;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        coin, coins, BankMsg, Coin, CosmosMsg, Response, StakingMsg, SubMsg, Uint128,
+        coin, coins, BankMsg, Coin, CosmosMsg, DistributionMsg, Response, StakingMsg, SubMsg,
+        Uint128, WasmMsg, to_binary
     };
-    //use cosmwasm_std::WasmMsg;
 
     const NEW_ADMIN: &str = "bob";
     const ANYONE: &str = "anyone";
@@ -181,14 +183,66 @@ mod tests {
         assert!(res.hot_wallets.len() == 1);
         assert!(res.hot_wallets[0].address == HOT_WALLET);
 
-        // spend as the hot wallet
+        // check that can_spend returns true
+        let res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(9_000u128, "testtokens"),
+            }),
+        )
+        .unwrap();
+        assert_eq!(res.can_spend, true);
+
+        // and returns false with some huge amount
+        let res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(999_999_999_000u128, "testtokens"),
+            }),
+        ).unwrap();
+        assert_eq!(res.can_spend, false);
+
+        // plus returns error with some unsupported kind of msg
+        let _res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            CosmosMsg::Distribution(DistributionMsg::SetWithdrawAddress {
+                address: RECEIVER.to_string(),
+            }),
+        ).unwrap_err();
+
+        // and returns true with authorized contract
+        let _res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                    recipient: RECEIVER.to_string(),
+                    amount: Uint128::from(1u128),
+                }).unwrap(),
+                funds: vec![], 
+            }),
+        ).unwrap();
+        assert_eq!(_res.can_spend, true);
+
+        // actually spend as the hot wallet
         let admin_info = mock_info(ADMIN, &[]);
+        let hot_wallet_info = mock_info(HOT_WALLET, &[]);
         test_spend_bank(
             deps.as_mut(),
             current_env.clone(),
             RECEIVER.to_string(),
-            coins(999_000u128, "testtokens"),
-            admin_info.clone(),
+            coins(9_000u128, "testtokens"), //900_000 of usdc spend limit down
+            hot_wallet_info.clone(),
         )
         .unwrap();
 

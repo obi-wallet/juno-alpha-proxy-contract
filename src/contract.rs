@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    Event, MessageInfo, Response, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    Event, MessageInfo, Response, StakingMsg, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -14,7 +14,9 @@ use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::helpers::convert_coin_to_usdc;
 use crate::hot_wallet::{HotWallet, HotWalletsResponse};
-use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use crate::msg::{
+    AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 use crate::state::{Source, SourcedCoin, State, STATE};
 
 // version info for migration info
@@ -107,7 +109,7 @@ pub fn execute_execute(
     msgs: Vec<CosmosMsg>,
     simulation: bool,
 ) -> Result<Response, ContractError> {
-    let mut cfg = STATE.load(deps.storage)?;
+    let cfg = STATE.load(deps.storage)?;
     let mut res = Response::new();
     if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
         // if there is no debt AND user is admin, process immediately
@@ -124,19 +126,14 @@ pub fn execute_execute(
                 msg: _,
                 funds,
             }) => {
-                if funds.is_empty() && cfg.is_authorized_hotwallet_contract(contract_addr) {
-                    let this_wallet_opt: Option<&mut HotWallet> = cfg
-                        .hot_wallets
-                        .iter_mut()
-                        .find(|a| &a.address == &info.sender.to_string());
-                    if this_wallet_opt == None {
-                        return Err(ContractError::HotWalletDoesNotExist {});
-                    } else {
-                        let res = Response::new()
-                            .add_attribute("action", "execute_authorized_contract")
-                            .add_message(msgs[0].clone());
-                        return Ok(res);
-                    }
+                if funds.is_empty()
+                    && cfg.is_authorized_hotwallet_contract(contract_addr)
+                    && cfg.is_active_hot_wallet(info.sender.clone())?
+                {
+                    let res = Response::new()
+                        .add_attribute("action", "execute_authorized_contract")
+                        .add_message(msgs[0].clone());
+                    return Ok(res);
                 }
             }
             _ => {}
@@ -462,12 +459,13 @@ fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Admin {} => to_binary(&query_admin(deps)?),
         QueryMsg::Pending {} => to_binary(&query_pending(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
+        QueryMsg::CanSpend { sender, msg } => to_binary(&query_can_spend(deps, env, sender, msg)?),
     }
 }
 
@@ -500,4 +498,75 @@ pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
     Ok(HotWalletsResponse {
         hot_wallets: cfg.hot_wallets,
     })
+}
+
+pub fn query_can_spend(
+    deps: Deps,
+    env: Env,
+    sender: String,
+    msg: CosmosMsg,
+) -> StdResult<CanSpendResponse> {
+    let cfg = STATE.load(deps.storage)?;
+    // if admin, always – though technically this might not be true
+    // if first token send with nothing left to repay fees
+    println!("Hot wallet check returns {}",
+        cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
+    );
+    if cfg.is_admin(sender.clone()) {
+        return Ok(CanSpendResponse { can_spend: true });
+    }
+    // if one of authorized token contracts and spender is hot wallet, yes
+    match msg.clone() {
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr,
+            msg: _,
+            funds,
+        }) => {
+            if cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
+                && cfg.is_authorized_hotwallet_contract(contract_addr)
+                && funds == vec![]
+            {
+                return Ok(CanSpendResponse { can_spend: true });
+            }
+        }
+        _ => (),
+    };
+    let funds: Vec<Coin> = match msg {
+        //strictly speaking cw20 spend limits not supported yet, unless blanket authorized
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: _,
+            msg: _,
+            funds,
+        }) => funds,
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address: _,
+            amount,
+        }) => amount,
+        CosmosMsg::Staking(StakingMsg::Delegate {
+            validator: _,
+            amount,
+        }) => {
+            vec![amount]
+        }
+        CosmosMsg::Custom(_) => {
+            return Err(StdError::GenericErr {
+                msg: "Custom CosmosMsg not yet supported".to_string(),
+            })
+        }
+        CosmosMsg::Distribution(_) => {
+            return Err(StdError::GenericErr {
+                msg: "Distribution CosmosMsg not yet supported".to_string(),
+            })
+        }
+        _ => {
+            return Err(StdError::GenericErr {
+                msg: "This CosmosMsg type not yet supported".to_string(),
+            })
+        }
+    };
+    let res = cfg.check_spend_limits_nonmut(deps, env.block.time, sender, funds);
+    match res {
+        Ok(_) => Ok(CanSpendResponse { can_spend: true }),
+        Err(_) => Ok(CanSpendResponse { can_spend: false }),
+    }
 }

@@ -26,7 +26,7 @@ pub fn instantiate_contract(
             period_type: PeriodType::DAYS,
             period_multiple: 1,
             spend_limits: vec![CoinLimit {
-                denom: "testtokens".to_string(),
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034".to_string(),
                 amount: 1_000_000u64,
                 limit_remaining: 1_000_000u64,
             }],
