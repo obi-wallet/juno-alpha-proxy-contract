@@ -86,6 +86,35 @@ impl HotWallet {
         Ok(converted_spend_amt)
     }
 
+    pub fn reduce_limit_nonmut(
+        &self,
+        deps: Deps,
+        spend: Coin,
+        reset: bool,
+    ) -> Result<SourcedCoin, ContractError> {
+        let converted_spend_amt = convert_coin_to_usdc(deps, spend.denom, spend.amount, false)?;
+        // spend can't be bigger than total spend limit
+        let limit_to_check = match reset {
+            false => self.spend_limits[0].limit_remaining,
+            true => self.spend_limits[0].amount,
+        };
+        println!("Current limit is {:?}", limit_to_check);
+        println!("Reducing by {:?}", converted_spend_amt.coin);
+        let limit_remaining =
+            limit_to_check.checked_sub(converted_spend_amt.coin.amount.u128() as u64);
+        match limit_remaining {
+            Some(limit) => println!("new limit is {:?}", limit),
+            None => println!("Overspend attempt rejected"),
+        }
+        let _limit_remaining = match limit_remaining {
+            Some(remaining) => remaining,
+            None => {
+                return Err(ContractError::CannotSpendMoreThanLimit {});
+            }
+        };
+        Ok(converted_spend_amt)
+    }
+
     // it would be great for hot wallet to also handle its own
     // period update, spend limit check, etc.
     pub fn reset_period(&mut self, current_time: Timestamp) -> Result<(), ContractError> {

@@ -1,5 +1,5 @@
 //use cw_multi_test::Contract;
-use cosmwasm_std::{Addr, Attribute, Coin, Deps, StdError, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Attribute, Coin, Deps, StdError, StdResult, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +53,31 @@ pub struct State {
 }
 
 impl State {
+    pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {
+        let this_wallet_opt: Option<&HotWallet> = self
+            .hot_wallets
+            .iter()
+            .find(|a| a.address == addr);
+        match this_wallet_opt {
+            None => Ok(false),
+            Some(_) => Ok(true),
+        }
+    }
+
+    //hardcode for now since these kinds of authorizations
+    //will eventually be handled by calls to gatekeeper, not here
+    pub fn is_authorized_hotwallet_contract(&self, addr: String) -> bool {
+        match addr {
+            val if val == *"juno18c5uecrztn4rqakm23fskusasud7s8afujnl8yu54ule2kak5q4sdnvcz4" => {
+                true //DRINK
+            }
+            val if val == *"juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9" => {
+                true //BOTTLE
+            }
+            _ => false,
+        }
+    }
+
     pub fn get_pair_contract(
         &self,
         denoms: (String, String),
@@ -189,6 +214,89 @@ impl State {
                 let mut spend_tally_sources: Vec<Source> = vec![];
                 for n in spend {
                     let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
+                    for m in 0..spend_check_with_sources.sources.len() {
+                        spend_tally_sources.push(Source {
+                            contract_addr: spend_check_with_sources.sources[m]
+                                .contract_addr
+                                .clone(),
+                            query_msg: spend_check_with_sources.sources[m].query_msg.clone(),
+                        });
+                    }
+                    spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
+                }
+                Ok(SourcedCoin {
+                    coin: Coin {
+                        amount: spend_tally,
+                        denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    },
+                    sources: spend_tally_sources,
+                })
+            }
+        }
+    }
+
+    // very soon to refactor (nearly copies above)
+    pub fn check_spend_limits_nonmut(
+        &self,
+        deps: Deps,
+        current_time: Timestamp,
+        addr: String,
+        spend: Vec<Coin>,
+    ) -> Result<SourcedCoin, ContractError> {
+        if self.is_admin(addr.clone()) {
+            Ok(SourcedCoin {
+                coin: Coin {
+                    denom: "unlimited".to_string(),
+                    amount: Uint128::from(0u128),
+                },
+                sources: vec![Source {
+                    contract_addr: "no spend limit check".to_string(),
+                    query_msg: "caller is admin".to_string(),
+                }],
+            })
+        } else {
+            let addr = &addr;
+            let this_wallet_opt: Option<&HotWallet> =
+                self.hot_wallets.iter().find(|a| &a.address == addr);
+            if this_wallet_opt == None {
+                return Err(ContractError::HotWalletDoesNotExist {});
+            }
+            let this_wallet = this_wallet_opt.unwrap();
+
+            // check if we should reset to full spend limit again
+            // (i.e. reset time has passed)
+            if current_time.seconds() > this_wallet.current_period_reset {
+                println!("LIMIT RESET TRIGGERED");
+                // get a current NaiveDateTime so we can easily find the next
+                // reset threshold
+                let mut spend_tally: Uint128 = Uint128::from(0u128);
+                let mut spend_tally_sources: Vec<Source> = vec![];
+                for n in spend {
+                    let spend_check_with_sources =
+                        this_wallet.reduce_limit_nonmut(deps, n.clone(), true)?;
+                    for m in 0..spend_check_with_sources.sources.len() {
+                        spend_tally_sources.push(Source {
+                            contract_addr: spend_check_with_sources.sources[m]
+                                .contract_addr
+                                .clone(),
+                            query_msg: spend_check_with_sources.sources[m].query_msg.clone(),
+                        });
+                    }
+                    spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
+                }
+                Ok(SourcedCoin {
+                    coin: Coin {
+                        amount: spend_tally,
+                        denom: MAINNET_AXLUSDC_IBC.to_string(),
+                    },
+                    sources: spend_tally_sources,
+                })
+            } else {
+                let mut spend_tally: Uint128 = Uint128::from(0u128);
+                let mut spend_tally_sources: Vec<Source> = vec![];
+                for n in spend {
+                    let spend_check_with_sources =
+                        this_wallet.reduce_limit_nonmut(deps, n.clone(), false)?;
                     for m in 0..spend_check_with_sources.sources.len() {
                         spend_tally_sources.push(Source {
                             contract_addr: spend_check_with_sources.sources[m]
