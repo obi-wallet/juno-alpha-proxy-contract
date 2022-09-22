@@ -53,6 +53,24 @@ pub struct State {
 }
 
 impl State {
+    //hardcode for now since these kinds of authorizations
+    //will eventually be handled by calls to gatekeeper, not here
+    pub fn is_authorized_hotwallet_contract(&self, addr: String) -> bool {
+        match addr {
+            val if val
+                == *"juno18c5uecrztn4rqakm23fskusasud7s8afujnl8yu54ule2kak5q4sdnvcz4" =>
+            {
+                true //DRINK
+            }
+            val if val
+                == *"juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9" =>
+            {
+                true //BOTTLE
+            }
+            _ => false,
+        }
+    }
+
     pub fn get_pair_contract(
         &self,
         denoms: (String, String),

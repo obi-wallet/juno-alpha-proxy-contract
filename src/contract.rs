@@ -107,7 +107,7 @@ pub fn execute_execute(
     msgs: Vec<CosmosMsg>,
     simulation: bool,
 ) -> Result<Response, ContractError> {
-    let cfg = STATE.load(deps.storage)?;
+    let mut cfg = STATE.load(deps.storage)?;
     let mut res = Response::new();
     if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
         // if there is no debt AND user is admin, process immediately
@@ -117,6 +117,30 @@ pub fn execute_execute(
         }
         Ok(res)
     } else {
+        // certain authorized token contracts process immediately if hot wallet (or admin)
+        match msgs[0].clone() {
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr,
+                msg: _,
+                funds,
+            }) => {
+                if funds.is_empty() && cfg.is_authorized_hotwallet_contract(contract_addr) {
+                    let this_wallet_opt: Option<&mut HotWallet> = cfg
+                        .hot_wallets
+                        .iter_mut()
+                        .find(|a| &a.address == &info.sender.to_string());
+                    if this_wallet_opt == None {
+                        return Err(ContractError::HotWalletDoesNotExist {});
+                    } else {
+                        let res = Response::new()
+                            .add_attribute("action", "execute_authorized_contract")
+                            .add_message(msgs[0].clone());
+                        return Ok(res);
+                    }
+                }
+            }
+            _ => {}
+        };
         // otherwise, we need to do some checking. Note that attaching
         // fee repayment is handled in the try_bank_send and (todo)
         // the try_wasm_send functions
