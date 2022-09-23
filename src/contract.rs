@@ -150,7 +150,7 @@ pub fn execute_execute(
             match &this_msg {
                 // if it's a Wasm message, it needs to be Cw20 Transfer OR Send
                 CosmosMsg::Wasm(wasm) => {
-                    let partial_res = try_wasm_send(deps, wasm, &mut core_payload)?;
+                    let partial_res = try_wasm_send(deps, wasm, &mut core_payload, info.clone())?;
                     res = res.add_attribute("action", "execute_spend_limit_or_debt");
                     if !simulation {
                         res = res.add_message(partial_res.messages[0].msg.clone());
@@ -188,23 +188,29 @@ fn try_wasm_send(
     deps: &mut DepsMut,
     wasm: &WasmMsg,
     core_payload: &mut CorePayload,
+    info: MessageInfo,
 ) -> Result<Response, ContractError> {
+    let cfg = STATE.load(deps.storage)?;
     match wasm {
         WasmMsg::Execute {
             contract_addr,
             msg,
-            funds,
+            funds: _,
         } => {
             // prevent attaching funds to tx, as Transfer message's
             // amount param is where funds are specified, instead
+            // disabled: this was causing some issues with users whose
+            // fees were not yet repaid
+            /*
             let empty_vec: Vec<Coin> = [].to_vec();
             if funds != &empty_vec {
                 return Err(ContractError::AttachedFundsNotAllowed {});
             }
+            */
             let msg_de: Result<cw20::Cw20ExecuteMsg, StdError> = from_binary(msg);
             match msg_de {
                 Ok(msg_contents) => {
-                    // must be Transfer or Send
+                    // must be Transfer or Send if hot wallet
                     match msg_contents {
                         Cw20ExecuteMsg::Transfer {
                             recipient: _,
@@ -229,7 +235,15 @@ fn try_wasm_send(
                                 amount,
                             }],
                         ),
-                        _ => Err(ContractError::OnlyTransferSendAllowed {}),
+                        _ => {
+                            if cfg.is_admin(info.sender.to_string()) {
+                                Ok(Response::new()
+                                    .add_attribute("note", "admin_bypass_wasmmsg_restrictions")
+                                    .add_message(CosmosMsg::Wasm(wasm.clone())))
+                            } else {
+                                Err(ContractError::OnlyTransferSendAllowed {})
+                            }
+                        }
                     }
                 }
                 Err(_) => Err(ContractError::ErrorDeserializingCw20Message {}),
