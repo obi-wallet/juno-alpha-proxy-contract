@@ -62,19 +62,28 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    cfg.set_pair_contracts(cfg.home_network.clone())?;
-    let version: Version = CONTRACT_VERSION.parse()?;
-    let storage_version: Version = get_contract_version(deps.storage)?.version.parse()?;
-
-    if storage_version < version {
-        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-        // If state structure changed in any contract version in the way migration is needed, it
-        // should occur here
+    match cfg.set_pair_contracts(cfg.home_network.clone()) {
+        Ok(_) => {}
+        Err(_) => {
+            return Ok(Response::new().add_attribute("warning", "failed to inject pair contracts"));
+        }
     }
-    Ok(Response::default())
+    match get_contract_version(deps.storage) {
+        Ok(res) => {
+            let version: Version = CONTRACT_VERSION.parse()?;
+            let storage_version: Version = res.version.parse()?;
+            if storage_version < version {
+                set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+                // If state structure changed in any contract version in the way migration is needed, it
+                // should occur here
+            }
+            Ok(Response::default())
+        }
+        Err(_) => return Ok(Response::new().add_attribute("warning", "no contract versioning")),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
