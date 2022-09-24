@@ -30,7 +30,7 @@ pub enum ExecuteMsg {
     ProposeUpdateAdmin { new_admin: String },
     /// Confirms a proposed admin - must be called by the new admin.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
-    ConfirmUpdateAdmin {},
+    ConfirmUpdateAdmin { signers: Vec<String> },
     /// Cancels a proposed admin - must be called by current admin.
     /// This can be used to cancel during a waiting period.
     CancelUpdateAdmin {},
@@ -61,9 +61,9 @@ pub enum QueryMsg {
     CanSpend { sender: String, msg: CosmosMsg },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct AdminResponse {

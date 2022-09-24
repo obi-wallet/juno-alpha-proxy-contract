@@ -61,24 +61,15 @@ pub fn instantiate(
     Ok(Response::new().add_event(signers_event))
 }
 
+#[allow(unused_variables)]
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-    let mut cfg = STATE.load(deps.storage)?;
-    match cfg.set_pair_contracts(cfg.home_network.clone()) {
-        Ok(_) => {}
-        Err(_) => {
-            return Ok(Response::new().add_attribute("warning", "failed to inject pair contracts"));
-        }
-    }
     match get_contract_version(deps.storage) {
         Ok(res) => {
             let version: Version = CONTRACT_VERSION.parse()?;
             let storage_version: Version = res.version.parse()?;
             if storage_version < version {
                 set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-                // If state structure changed in any contract version in the way migration is needed, it
-                // should occur here
             }
             Ok(Response::default())
         }
@@ -105,8 +96,8 @@ pub fn execute(
         ExecuteMsg::ProposeUpdateAdmin { new_admin } => {
             propose_update_admin(deps, env, info, new_admin)
         }
-        ExecuteMsg::ConfirmUpdateAdmin {} => confirm_update_admin(deps, env, info),
-        ExecuteMsg::CancelUpdateAdmin {} => confirm_update_admin(deps, env, info),
+        ExecuteMsg::ConfirmUpdateAdmin { signers } => confirm_update_admin(deps, env, info, signers),
+        ExecuteMsg::CancelUpdateAdmin { } => cancel_update_admin(deps, env, info),
     }
 }
 
@@ -440,8 +431,16 @@ pub fn confirm_update_admin(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
+    signers: Vec<String>,
 ) -> Result<Response, ContractError> {
-    execute_update_admin(deps, _env, info, false)
+    let mut signers_event = Event::new("obisign");
+    for signer in signers {
+        signers_event =
+            signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
+    }
+    let mut res = execute_update_admin(deps, _env, info, false)?;
+    res = res.add_event(signers_event);
+    Ok(res)
 }
 
 pub fn cancel_update_admin(
