@@ -15,7 +15,7 @@ mod tests {
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        coin, coins, to_binary, BankMsg, Coin, CosmosMsg, DistributionMsg, Response, StakingMsg,
+        coin, coins, to_binary, Attribute, BankMsg, Coin, CosmosMsg, DistributionMsg, Response, StakingMsg,
         SubMsg, Uint128, WasmMsg,
     };
 
@@ -65,9 +65,14 @@ mod tests {
         assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
 
         // but if bob accepts...
-        let msg = ExecuteMsg::ConfirmUpdateAdmin {};
+        let msg = ExecuteMsg::ConfirmUpdateAdmin { signers: vec!["test_confirm_admin".to_string()]};
         let info = mock_info(NEW_ADMIN, &[]);
-        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(res.events.len(), 1);
+        assert_eq!(
+            res.events[0].attributes[0],
+            Attribute::new("signer".to_string(), "test_confirm_admin".to_string())
+        );
 
         // then admin is updated
         let expected = AdminResponse {
