@@ -136,22 +136,21 @@ impl State {
 
     pub fn maybe_get_hot_wallet(&self, addr: String) -> Result<&HotWallet, ContractError> {
         let this_wallet_opt: Option<&HotWallet> =
-        self.hot_wallets.iter().find(|a| &a.address == &addr);
+            self.hot_wallets.iter().find(|a| a.address == addr);
         match this_wallet_opt {
-            None => {
-                Err(ContractError::HotWalletDoesNotExist {})
-            }
+            None => Err(ContractError::HotWalletDoesNotExist {}),
             Some(wal) => Ok(wal),
         }
     }
 
-    pub fn maybe_get_hot_wallet_mut(&mut self, addr: String) -> Result<&mut HotWallet, ContractError> {
+    pub fn maybe_get_hot_wallet_mut(
+        &mut self,
+        addr: String,
+    ) -> Result<&mut HotWallet, ContractError> {
         let this_wallet_opt: Option<&mut HotWallet> =
-        self.hot_wallets.iter_mut().find(|a| &a.address == &addr);
+            self.hot_wallets.iter_mut().find(|a| a.address == addr);
         match this_wallet_opt {
-            None => {
-                Err(ContractError::HotWalletDoesNotExist {})
-            }
+            None => Err(ContractError::HotWalletDoesNotExist {}),
             Some(wal) => Ok(wal),
         }
     }
@@ -229,7 +228,6 @@ impl State {
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
         if this_wallet.should_reset(current_time) {
-
             for n in spend {
                 let spend_check_with_sources =
                     this_wallet.simulate_reduce_limit(deps, n.clone(), true)?.1;

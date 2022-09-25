@@ -30,17 +30,17 @@ mod tests {
         };
 
         // multiple limits are no longer supported, so these should error
-        bad_wallet.clone().check_is_valid().unwrap_err();
+        bad_wallet.check_is_valid().unwrap_err();
         bad_wallet.usdc_denom = Some("false".to_string());
-        bad_wallet.clone().check_is_valid().unwrap_err();
+        bad_wallet.check_is_valid().unwrap_err();
         bad_wallet.usdc_denom = Some("true".to_string());
-        bad_wallet.clone().check_is_valid().unwrap_err();
+        bad_wallet.check_is_valid().unwrap_err();
         bad_wallet.spend_limits = vec![bad_wallet.spend_limits[1].clone()];
-        bad_wallet.clone().check_is_valid().unwrap();
+        bad_wallet.check_is_valid().unwrap();
 
         // now spend limits is fine; check the other usdc denom vals again
         bad_wallet.usdc_denom = Some("false".to_string());
-        bad_wallet.clone().check_is_valid().unwrap_err();
+        bad_wallet.check_is_valid().unwrap_err();
         bad_wallet.usdc_denom = None;
         bad_wallet.check_is_valid().unwrap_err();
     }

@@ -61,7 +61,7 @@ pub enum QueryMsg {
     CanSpend { sender: String, msg: CosmosMsg },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MigrateMsg {}
 

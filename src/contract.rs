@@ -74,7 +74,7 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, Co
             }
             Ok(Response::default())
         }
-        Err(_) => return Ok(Response::new().add_attribute("warning", "no contract versioning")),
+        Err(_) => Ok(Response::new().add_attribute("warning", "no contract versioning")),
     }
 }
 
