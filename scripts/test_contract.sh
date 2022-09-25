@@ -1,6 +1,7 @@
 #!/bin/bash
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
+CONTRACT_CODE_2=1070
 BAD_WALLET=scripttest2
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET $KR --address)
 
