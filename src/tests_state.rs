@@ -62,7 +62,7 @@ mod tests {
 
         println!("Spending 1,000,000 now");
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -75,7 +75,7 @@ mod tests {
             .unwrap();
         println!("Trying 1,000,000 from bad sender");
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 bad_spender.to_string(),
@@ -89,7 +89,7 @@ mod tests {
         // now we shouldn't be able to total over our spend limit
         println!("Trying 99,500,000 (over limit)");
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -103,7 +103,7 @@ mod tests {
         // our even 1 over our spend limit
         println!("Trying 99,000,001 (over limit)");
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -121,7 +121,7 @@ mod tests {
         env_future.block.time =
             Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 env_future.block.time,
                 spender.to_string(),
@@ -172,7 +172,7 @@ mod tests {
         };
 
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -184,7 +184,7 @@ mod tests {
             )
             .unwrap();
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 bad_spender.to_string(),
@@ -195,7 +195,7 @@ mod tests {
             )
             .unwrap_err();
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 now_env.block.time,
                 spender.to_string(),
@@ -216,7 +216,7 @@ mod tests {
         let mut env_future = mock_env();
         env_future.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
         config
-            .check_spend_limits(
+            .check_and_update_spend_limits(
                 deps.as_ref(),
                 env_future.block.time,
                 spender.to_string(),

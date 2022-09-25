@@ -346,7 +346,7 @@ fn try_bank_send(
             }
         }
         _ => {
-            //probably unreachable as check_spend_limits throws
+            //probably unreachable as check_and_update_spend_limits throws
             Err(ContractError::SpendNotAuthorized {})
         }
     }
@@ -358,7 +358,7 @@ fn check_and_spend(
     spend: Vec<Coin>,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    let spend_reduction = cfg.check_spend_limits(
+    let spend_reduction = cfg.check_and_update_spend_limits(
         deps.as_ref(),
         core_payload.current_time,
         core_payload.info.sender.to_string(),
@@ -592,7 +592,7 @@ pub fn query_can_spend(
             })
         }
     };
-    let res = cfg.check_spend_limits_nonmut(deps, env.block.time, sender, funds);
+    let res = cfg.check_spend_limits(deps, env.block.time, sender, funds);
     match res {
         Ok(_) => Ok(CanSpendResponse { can_spend: true }),
         Err(_) => Ok(CanSpendResponse { can_spend: false }),

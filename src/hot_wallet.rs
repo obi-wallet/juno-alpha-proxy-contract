@@ -39,7 +39,11 @@ pub struct HotWallet {
 }
 
 impl HotWallet {
-    pub fn check_is_valid(self) -> StdResult<()> {
+    pub fn should_reset(&self, current_time: Timestamp) -> bool {
+        current_time.seconds() > self.current_period_reset
+    }
+
+    pub fn check_is_valid(&self) -> StdResult<()> {
         if self.usdc_denom != Some("true".to_string())
             || self.spend_limits.len() > 1
             || (self.spend_limits[0].denom != MAINNET_AXLUSDC_IBC

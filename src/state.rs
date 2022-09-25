@@ -134,7 +134,29 @@ impl State {
         self.pending == addr
     }
 
-    pub fn check_spend_limits(
+    pub fn maybe_get_hot_wallet(&self, addr: String) -> Result<&HotWallet, ContractError> {
+        let this_wallet_opt: Option<&HotWallet> =
+        self.hot_wallets.iter().find(|a| &a.address == &addr);
+        match this_wallet_opt {
+            None => {
+                Err(ContractError::HotWalletDoesNotExist {})
+            }
+            Some(wal) => Ok(wal),
+        }
+    }
+
+    pub fn maybe_get_hot_wallet_mut(&mut self, addr: String) -> Result<&mut HotWallet, ContractError> {
+        let this_wallet_opt: Option<&mut HotWallet> =
+        self.hot_wallets.iter_mut().find(|a| &a.address == &addr);
+        match this_wallet_opt {
+            None => {
+                Err(ContractError::HotWalletDoesNotExist {})
+            }
+            Some(wal) => Ok(wal),
+        }
+    }
+
+    pub fn check_and_update_spend_limits(
         &mut self,
         deps: Deps,
         current_time: Timestamp,
@@ -144,14 +166,10 @@ impl State {
         if self.is_admin(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
-        let this_wallet_opt: Option<&mut HotWallet> =
-            self.hot_wallets.iter_mut().find(|a| &a.address == &addr);
-        let this_wallet: &mut HotWallet = match this_wallet_opt {
-            None => {
-                return Err(ContractError::HotWalletDoesNotExist {});
-            }
-            Some(wal) => wal,
-        };
+        let this_wallet = self.maybe_get_hot_wallet_mut(addr)?;
+
+        let mut spend_tally: Uint128 = Uint128::from(0u128);
+        let mut spend_tally_sources: Sources = Sources { sources: vec![] };
 
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
@@ -160,8 +178,6 @@ impl State {
             let new_dt = this_wallet.reset_period(current_time);
             match new_dt {
                 Ok(()) => {
-                    let mut spend_tally: Uint128 = Uint128::from(0u128);
-                    let mut spend_tally_sources: Sources = Sources { sources: vec![] };
                     for n in spend {
                         let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
                         spend_tally_sources.append_sources(spend_check_with_sources.clone());
@@ -179,8 +195,6 @@ impl State {
                 Err(e) => Err(e),
             }
         } else {
-            let mut spend_tally: Uint128 = Uint128::from(0u128);
-            let mut spend_tally_sources: Sources = Sources { sources: vec![] };
             for n in spend {
                 let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
                 spend_tally_sources.append_sources(spend_check_with_sources.clone());
@@ -197,7 +211,7 @@ impl State {
     }
 
     // very soon to refactor (nearly copies above)
-    pub fn check_spend_limits_nonmut(
+    pub fn check_spend_limits(
         &self,
         deps: Deps,
         current_time: Timestamp,
@@ -207,20 +221,15 @@ impl State {
         if self.is_admin(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
-        let this_wallet_opt: Option<&HotWallet> =
-            self.hot_wallets.iter().find(|a| &a.address == &addr);
-        let this_wallet: &HotWallet = match this_wallet_opt {
-            None => {
-                return Err(ContractError::HotWalletDoesNotExist {});
-            }
-            Some(wal) => wal,
-        };
+        let this_wallet = self.maybe_get_hot_wallet(addr)?;
+
+        let mut spend_tally: Uint128 = Uint128::from(0u128);
+        let mut spend_tally_sources: Sources = Sources { sources: vec![] };
 
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
-        if current_time.seconds() > this_wallet.current_period_reset {
-            let mut spend_tally: Uint128 = Uint128::from(0u128);
-            let mut spend_tally_sources: Sources = Sources { sources: vec![] };
+        if this_wallet.should_reset(current_time) {
+
             for n in spend {
                 let spend_check_with_sources =
                     this_wallet.simulate_reduce_limit(deps, n.clone(), true)?.1;
@@ -235,8 +244,6 @@ impl State {
                 wrapped_sources: spend_tally_sources,
             })
         } else {
-            let mut spend_tally: Uint128 = Uint128::from(0u128);
-            let mut spend_tally_sources: Sources = Sources { sources: vec![] };
             for n in spend {
                 let spend_check_with_sources =
                     this_wallet.simulate_reduce_limit(deps, n.clone(), false)?.1;
