@@ -4,9 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::MAINNET_AXLUSDC_IBC,
-    sourced_coin::SourcedCoin,
-    ContractError,
+    constants::MAINNET_AXLUSDC_IBC, sourced_coin::SourcedCoin, sources::Sources, ContractError,
 };
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -41,7 +39,6 @@ pub struct HotWallet {
 }
 
 impl HotWallet {
-
     pub fn check_is_valid(self) -> StdResult<()> {
         if self.usdc_denom != Some("true".to_string())
             || self.spend_limits.len() > 1
@@ -63,10 +60,15 @@ impl HotWallet {
         self.spend_limits[0].limit_remaining = self.spend_limits[0].amount;
     }
 
-    pub fn simulate_reduce_limit(&self, deps: Deps, spend: Coin, reset: bool) -> Result<(u64, SourcedCoin), ContractError> {
+    pub fn simulate_reduce_limit(
+        &self,
+        deps: Deps,
+        spend: Coin,
+        reset: bool,
+    ) -> Result<(u64, SourcedCoin), ContractError> {
         let unconverted_coin = SourcedCoin {
             coin: spend,
-            sources: vec![],
+            wrapped_sources: Sources { sources: vec![] },
         };
         let converted_spend_amt = unconverted_coin.get_converted_to_usdc(deps, false)?;
         // spend can't be bigger than total spend limit
@@ -92,7 +94,8 @@ impl HotWallet {
     }
 
     pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
-        let spend_limit_reduction: (u64, SourcedCoin) = self.simulate_reduce_limit(deps, spend, false)?;
+        let spend_limit_reduction: (u64, SourcedCoin) =
+            self.simulate_reduce_limit(deps, spend, false)?;
         self.spend_limits[0].limit_remaining = spend_limit_reduction.0;
         Ok(spend_limit_reduction.1)
     }

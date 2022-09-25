@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use crate::tests_constants::get_test_sourced_coin;
 use crate::{
-    sourced_coin::SourcedCoin,
     simulation::{DexQueryMsg, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse},
     simulation::{DexQueryMsgFormatted, DexQueryMsgType, FormatQueryMsg, Tally},
-    state::Source,
+    sourced_coin::SourcedCoin,
+    sources::{Source, Sources},
     ContractError,
 };
 
@@ -127,10 +127,12 @@ impl PairContract {
                     denom: response_asset,
                     amount: (res.tally()),
                 },
-                sources: vec![Source {
-                    contract_addr: self.contract_addr.clone(),
-                    query_msg: format!("{:?}", to_binary(&query_msg)?),
-                }],
+                wrapped_sources: Sources {
+                    sources: vec![Source {
+                        contract_addr: self.contract_addr.clone(),
+                        query_msg: format!("{:?}", to_binary(&query_msg)?),
+                    }],
+                },
             }),
             Err(e) => Err(ContractError::PriceCheckFailed(
                 format!("{:?}", to_binary(&query_msg)?),

@@ -9,6 +9,7 @@ pub mod pair_contract;
 pub mod pair_contract_defaults;
 pub mod simulation;
 pub mod sourced_coin;
+pub mod sources;
 pub mod state;
 #[cfg(test)]
 pub mod tests_constants;

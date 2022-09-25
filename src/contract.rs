@@ -16,8 +16,9 @@ use crate::hot_wallet::{HotWallet, HotWalletsResponse};
 use crate::msg::{
     AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use crate::state::{Source, State, STATE};
 use crate::sourced_coin::SourcedCoin;
+use crate::sources::{Source, Sources};
+use crate::state::{State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -96,8 +97,10 @@ pub fn execute(
         ExecuteMsg::ProposeUpdateAdmin { new_admin } => {
             propose_update_admin(deps, env, info, new_admin)
         }
-        ExecuteMsg::ConfirmUpdateAdmin { signers } => confirm_update_admin(deps, env, info, signers),
-        ExecuteMsg::CancelUpdateAdmin { } => cancel_update_admin(deps, env, info),
+        ExecuteMsg::ConfirmUpdateAdmin { signers } => {
+            confirm_update_admin(deps, env, info, signers)
+        }
+        ExecuteMsg::CancelUpdateAdmin {} => cancel_update_admin(deps, env, info),
     }
 }
 
@@ -267,27 +270,26 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                     amount: state.uusd_fee_debt,
                 },
-                sources: vec![Source {
-                    contract_addr: "1 USDC is 1 USDC".to_string(),
-                    query_msg: format!(
-                        "converted {} to {}",
-                        state.uusd_fee_debt, state.uusd_fee_debt
-                    ),
-                }],
+                wrapped_sources: Sources {
+                    sources: vec![Source {
+                        contract_addr: "1 USDC is 1 USDC".to_string(),
+                        query_msg: format!(
+                            "converted {} to {}",
+                            state.uusd_fee_debt, state.uusd_fee_debt
+                        ),
+                    }],
+                },
             },
             "ujuno" | "ujunox" | "testtokens" => {
                 let unconverted_fee = SourcedCoin {
                     coin: Coin {
                         denom: asset.denom.clone(),
-                        amount: state.uusd_fee_debt
+                        amount: state.uusd_fee_debt,
                     },
-                    sources: vec![]
+                    wrapped_sources: Sources { sources: vec![] },
                 };
-                unconverted_fee.get_converted_to_usdc(
-                    deps.as_ref(),
-                    true,
-                )?
-            },
+                unconverted_fee.get_converted_to_usdc(deps.as_ref(), true)?
+            }
             _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
         };
         let mut new_state = state.clone();
@@ -298,7 +300,7 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                 to_address: state.fee_lend_repay_wallet.to_string(),
                 amount: vec![swaps.coin.clone()],
             }),
-            sources: swaps.sources,
+            sources: swaps.wrapped_sources.sources,
         })
     } else {
         Ok(SourcedRepayMsg {

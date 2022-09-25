@@ -14,23 +14,22 @@ use crate::pair_contract_defaults::{
 use crate::sourced_coin::SourcedCoin;
 use crate::ContractError;
 
+use crate::sources::{Source, Sources};
+
 pub fn get_admin_sourced_coin() -> SourcedCoin {
     SourcedCoin {
         coin: Coin {
             denom: String::from("unlimited"),
             amount: Uint128::from(0u128),
         },
-        sources: [Source {
-            contract_addr: String::from("no spend limit check"),
-            query_msg: String::from("caller is admin"),
-        }].to_vec()
+        wrapped_sources: Sources {
+            sources: [Source {
+                contract_addr: String::from("no spend limit check"),
+                query_msg: String::from("caller is admin"),
+            }]
+            .to_vec(),
+        },
     }
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct Source {
-    pub contract_addr: String,
-    pub query_msg: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -148,7 +147,9 @@ impl State {
         let this_wallet_opt: Option<&mut HotWallet> =
             self.hot_wallets.iter_mut().find(|a| &a.address == &addr);
         let this_wallet: &mut HotWallet = match this_wallet_opt {
-            None => { return Err(ContractError::HotWalletDoesNotExist {}); },
+            None => {
+                return Err(ContractError::HotWalletDoesNotExist {});
+            }
             Some(wal) => wal,
         };
 
@@ -160,17 +161,10 @@ impl State {
             match new_dt {
                 Ok(()) => {
                     let mut spend_tally: Uint128 = Uint128::from(0u128);
-                    let mut spend_tally_sources: Vec<Source> = vec![];
+                    let mut spend_tally_sources: Sources = Sources { sources: vec![] };
                     for n in spend {
                         let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
-                        for m in 0..spend_check_with_sources.sources.len() {
-                            spend_tally_sources.push(Source {
-                                contract_addr: spend_check_with_sources.sources[m]
-                                    .contract_addr
-                                    .clone(),
-                                query_msg: spend_check_with_sources.sources[m].query_msg.clone(),
-                            });
-                        }
+                        spend_tally_sources.append_sources(spend_check_with_sources.clone());
                         spend_tally =
                             spend_tally.saturating_add(spend_check_with_sources.coin.amount);
                     }
@@ -179,22 +173,17 @@ impl State {
                             amount: spend_tally,
                             denom: MAINNET_AXLUSDC_IBC.to_string(),
                         },
-                        sources: spend_tally_sources,
+                        wrapped_sources: spend_tally_sources,
                     })
                 }
                 Err(e) => Err(e),
             }
         } else {
             let mut spend_tally: Uint128 = Uint128::from(0u128);
-            let mut spend_tally_sources: Vec<Source> = vec![];
+            let mut spend_tally_sources: Sources = Sources { sources: vec![] };
             for n in spend {
                 let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
-                for m in 0..spend_check_with_sources.sources.len() {
-                    spend_tally_sources.push(Source {
-                        contract_addr: spend_check_with_sources.sources[m].contract_addr.clone(),
-                        query_msg: spend_check_with_sources.sources[m].query_msg.clone(),
-                    });
-                }
+                spend_tally_sources.append_sources(spend_check_with_sources.clone());
                 spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
             }
             Ok(SourcedCoin {
@@ -202,7 +191,7 @@ impl State {
                     amount: spend_tally,
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                 },
-                sources: spend_tally_sources,
+                wrapped_sources: spend_tally_sources,
             })
         }
     }
@@ -217,11 +206,13 @@ impl State {
     ) -> Result<SourcedCoin, ContractError> {
         if self.is_admin(addr.clone()) {
             return Ok(get_admin_sourced_coin());
-        } 
+        }
         let this_wallet_opt: Option<&HotWallet> =
             self.hot_wallets.iter().find(|a| &a.address == &addr);
         let this_wallet: &HotWallet = match this_wallet_opt {
-            None => { return Err(ContractError::HotWalletDoesNotExist {}); },
+            None => {
+                return Err(ContractError::HotWalletDoesNotExist {});
+            }
             Some(wal) => wal,
         };
 
@@ -229,18 +220,11 @@ impl State {
         // (i.e. reset time has passed)
         if current_time.seconds() > this_wallet.current_period_reset {
             let mut spend_tally: Uint128 = Uint128::from(0u128);
-            let mut spend_tally_sources: Vec<Source> = vec![];
+            let mut spend_tally_sources: Sources = Sources { sources: vec![] };
             for n in spend {
                 let spend_check_with_sources =
                     this_wallet.simulate_reduce_limit(deps, n.clone(), true)?.1;
-                for m in 0..spend_check_with_sources.sources.len() {
-                    spend_tally_sources.push(Source {
-                        contract_addr: spend_check_with_sources.sources[m]
-                            .contract_addr
-                            .clone(),
-                        query_msg: spend_check_with_sources.sources[m].query_msg.clone(),
-                    });
-                }
+                spend_tally_sources.append_sources(spend_check_with_sources.clone());
                 spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
             }
             Ok(SourcedCoin {
@@ -248,22 +232,15 @@ impl State {
                     amount: spend_tally,
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                 },
-                sources: spend_tally_sources,
+                wrapped_sources: spend_tally_sources,
             })
         } else {
             let mut spend_tally: Uint128 = Uint128::from(0u128);
-            let mut spend_tally_sources: Vec<Source> = vec![];
+            let mut spend_tally_sources: Sources = Sources { sources: vec![] };
             for n in spend {
                 let spend_check_with_sources =
                     this_wallet.simulate_reduce_limit(deps, n.clone(), false)?.1;
-                for m in 0..spend_check_with_sources.sources.len() {
-                    spend_tally_sources.push(Source {
-                        contract_addr: spend_check_with_sources.sources[m]
-                            .contract_addr
-                            .clone(),
-                        query_msg: spend_check_with_sources.sources[m].query_msg.clone(),
-                    });
-                }
+                spend_tally_sources.append_sources(spend_check_with_sources.clone());
                 spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
             }
             Ok(SourcedCoin {
@@ -271,7 +248,7 @@ impl State {
                     amount: spend_tally,
                     denom: MAINNET_AXLUSDC_IBC.to_string(),
                 },
-                sources: spend_tally_sources,
+                wrapped_sources: spend_tally_sources,
             })
         }
     }

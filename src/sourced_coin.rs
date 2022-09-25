@@ -1,25 +1,30 @@
-use cosmwasm_std::{Coin, Attribute, Deps, Uint128};
+use cosmwasm_std::{Attribute, Coin, Deps, Uint128};
 use schemars::JsonSchema;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{state::{Source, STATE}, ContractError, constants::{MAINNET_AXLUSDC_IBC, get_usdc_sourced_coin}};
+use crate::sources::Sources;
+use crate::{
+    constants::{get_usdc_sourced_coin, MAINNET_AXLUSDC_IBC},
+    state::STATE,
+    ContractError,
+};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct SourcedCoin {
     pub coin: Coin,
-    pub sources: Vec<Source>,
+    pub wrapped_sources: Sources,
 }
 
 impl SourcedCoin {
     pub fn sources_as_attributes(&self) -> Vec<Attribute> {
         let mut attributes: Vec<Attribute> = vec![];
-        for n in 0..self.sources.len() {
+        for n in 0..self.wrapped_sources.sources.len() {
             attributes.push(Attribute {
                 key: format!(
                     "query to contract {}",
-                    self.sources[n].contract_addr.clone()
+                    self.wrapped_sources.sources[n].contract_addr.clone()
                 ),
-                value: self.sources[n].query_msg.clone(),
+                value: self.wrapped_sources.sources[n].query_msg.clone(),
             })
         }
         attributes
@@ -36,12 +41,16 @@ impl SourcedCoin {
             return Ok(get_usdc_sourced_coin(self.coin.amount));
         }
         match reverse {
-            false => {
-                self.simulate_swap(deps, (self.coin.denom.clone(), MAINNET_AXLUSDC_IBC.to_string()), self.coin.amount)
-            }
-            true => {
-                self.simulate_reverse_swap(deps, (MAINNET_AXLUSDC_IBC.to_string(), self.coin.denom.clone()), self.coin.amount)
-            }
+            false => self.simulate_swap(
+                deps,
+                (self.coin.denom.clone(), MAINNET_AXLUSDC_IBC.to_string()),
+                self.coin.amount,
+            ),
+            true => self.simulate_reverse_swap(
+                deps,
+                (MAINNET_AXLUSDC_IBC.to_string(), self.coin.denom.clone()),
+                self.coin.amount,
+            ),
         }
     }
 
