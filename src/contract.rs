@@ -12,12 +12,12 @@ use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::helpers::convert_coin_to_usdc;
 use crate::hot_wallet::{HotWallet, HotWalletsResponse};
 use crate::msg::{
     AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use crate::state::{Source, SourcedCoin, State, STATE};
+use crate::state::{Source, State, STATE};
+use crate::sourced_coin::SourcedCoin;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
@@ -275,12 +275,19 @@ fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayM
                     ),
                 }],
             },
-            "ujuno" | "ujunox" | "testtokens" => convert_coin_to_usdc(
-                deps.as_ref(),
-                asset.denom.clone(),
-                state.uusd_fee_debt,
-                true,
-            )?,
+            "ujuno" | "ujunox" | "testtokens" => {
+                let unconverted_fee = SourcedCoin {
+                    coin: Coin {
+                        denom: asset.denom.clone(),
+                        amount: state.uusd_fee_debt
+                    },
+                    sources: vec![]
+                };
+                unconverted_fee.get_converted_to_usdc(
+                    deps.as_ref(),
+                    true,
+                )?
+            },
             _ => return Err(ContractError::RepayFeesFirst(state.uusd_fee_debt.u128())), // todo: more general handling
         };
         let mut new_state = state.clone();

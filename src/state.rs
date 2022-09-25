@@ -1,5 +1,5 @@
 //use cw_multi_test::Contract;
-use cosmwasm_std::{Addr, Attribute, Coin, Deps, StdError, StdResult, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Coin, Deps, StdError, StdResult, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -11,34 +11,13 @@ use crate::pair_contract::PairContract;
 use crate::pair_contract_defaults::{
     get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
 };
+use crate::sourced_coin::SourcedCoin;
 use crate::ContractError;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct Source {
     pub contract_addr: String,
     pub query_msg: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct SourcedCoin {
-    pub coin: Coin,
-    pub sources: Vec<Source>,
-}
-
-impl SourcedCoin {
-    pub fn sources_as_attributes(&self) -> Vec<Attribute> {
-        let mut attributes: Vec<Attribute> = vec![];
-        for n in 0..self.sources.len() {
-            attributes.push(Attribute {
-                key: format!(
-                    "query to contract {}",
-                    self.sources[n].contract_addr.clone()
-                ),
-                value: self.sources[n].query_msg.clone(),
-            })
-        }
-        attributes
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

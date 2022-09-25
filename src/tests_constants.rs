@@ -1,7 +1,8 @@
 use cosmwasm_std::{Coin, Uint128};
 
 use crate::{
-    state::{Source, SourcedCoin},
+    state::Source,
+    sourced_coin::SourcedCoin,
     ContractError,
 };
 

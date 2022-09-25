@@ -4,7 +4,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::MAINNET_AXLUSDC_IBC, helpers::convert_coin_to_usdc, state::SourcedCoin,
+    constants::MAINNET_AXLUSDC_IBC,
+    sourced_coin::SourcedCoin,
     ContractError,
 };
 
@@ -62,7 +63,11 @@ impl HotWallet {
     }
 
     pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
-        let converted_spend_amt = convert_coin_to_usdc(deps, spend.denom, spend.amount, false)?;
+        let unconverted_coin = SourcedCoin {
+            coin: spend,
+            sources: vec![],
+        };
+        let converted_spend_amt = unconverted_coin.get_converted_to_usdc(deps, false)?;
         // spend can't be bigger than total spend limit
         println!(
             "Current limit is {:?}",
@@ -92,7 +97,11 @@ impl HotWallet {
         spend: Coin,
         reset: bool,
     ) -> Result<SourcedCoin, ContractError> {
-        let converted_spend_amt = convert_coin_to_usdc(deps, spend.denom, spend.amount, false)?;
+        let unconverted_coin = SourcedCoin {
+            coin: spend,
+            sources: vec![],
+        };
+        let converted_spend_amt = unconverted_coin.get_converted_to_usdc(deps, false)?;
         // spend can't be bigger than total spend limit
         let limit_to_check = match reset {
             false => self.spend_limits[0].limit_remaining,
@@ -115,8 +124,6 @@ impl HotWallet {
         Ok(converted_spend_amt)
     }
 
-    // it would be great for hot wallet to also handle its own
-    // period update, spend limit check, etc.
     pub fn reset_period(&mut self, current_time: Timestamp) -> Result<(), ContractError> {
         let new_dt = NaiveDateTime::from_timestamp(current_time.seconds() as i64, 0u32);
         // how far ahead we set new current_period_reset to
