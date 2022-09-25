@@ -27,7 +27,7 @@ error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah
 
 # Try to migrate to CONTRACT_CODE_2
 RES=$($BINARY tx wasm migrate $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}' $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
-echo "Debug: $RES"
+echo "Debug: $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}'"
 error_check "$RES" "Unable to migrate"
 
 # Contract already instantiated; let's try a transaction from authorized admin

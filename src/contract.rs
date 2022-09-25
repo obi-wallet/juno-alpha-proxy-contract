@@ -494,7 +494,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Pending {} => to_binary(&query_pending(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
-        QueryMsg::CanSpend { sender, msg } => to_binary(&query_can_spend(deps, env, sender, msg)?),
+        QueryMsg::CanSpend { sender, msgs } => {
+            to_binary(&query_can_spend(deps, env, sender, msgs)?)
+        }
     }
 }
 
@@ -533,7 +535,7 @@ pub fn query_can_spend(
     deps: Deps,
     env: Env,
     sender: String,
-    msg: CosmosMsg,
+    msgs: Vec<CosmosMsg>,
 ) -> StdResult<CanSpendResponse> {
     let cfg = STATE.load(deps.storage)?;
     // if admin, always – though technically this might not be true
@@ -542,11 +544,16 @@ pub fn query_can_spend(
         return Ok(CanSpendResponse { can_spend: true });
     }
     // if one of authorized token contracts and spender is hot wallet, yes
+    if msgs.len() > 1 {
+        return Err(StdError::GenericErr {
+            msg: "Multi-message txes with hot wallets not supported yet".to_string(),
+        });
+    }
     if let CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr,
         msg: _,
         funds,
-    }) = msg.clone()
+    }) = msgs[0].clone()
     {
         if cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
             && cfg.is_authorized_hotwallet_contract(contract_addr)
@@ -555,7 +562,7 @@ pub fn query_can_spend(
             return Ok(CanSpendResponse { can_spend: true });
         }
     };
-    let funds: Vec<Coin> = match msg {
+    let funds: Vec<Coin> = match msgs[0].clone() {
         //strictly speaking cw20 spend limits not supported yet, unless blanket authorized
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: _,

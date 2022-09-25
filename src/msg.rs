@@ -58,7 +58,10 @@ pub enum QueryMsg {
     HotWallets {},
     /// Returns true if address 1) is admin, 2) is hot wallet and msg is spendable
     /// by hot wallet, or 3) is one of approved cw20s (no funds attached tho)
-    CanSpend { sender: String, msg: CosmosMsg },
+    CanSpend {
+        sender: String,
+        msgs: Vec<CosmosMsg>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

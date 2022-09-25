@@ -195,10 +195,10 @@ mod tests {
             deps.as_ref(),
             current_env.clone(),
             HOT_WALLET.to_string(),
-            CosmosMsg::Bank(BankMsg::Send {
+            vec![CosmosMsg::Bank(BankMsg::Send {
                 to_address: RECEIVER.to_string(),
                 amount: coins(9_000u128, "testtokens"),
-            }),
+            })],
         )
         .unwrap();
         assert!(res.can_spend);
@@ -208,10 +208,10 @@ mod tests {
             deps.as_ref(),
             current_env.clone(),
             HOT_WALLET.to_string(),
-            CosmosMsg::Bank(BankMsg::Send {
+            vec![CosmosMsg::Bank(BankMsg::Send {
                 to_address: RECEIVER.to_string(),
                 amount: coins(999_999_999_000u128, "testtokens"),
-            }),
+            })],
         )
         .unwrap();
         assert!(!res.can_spend);
@@ -221,9 +221,11 @@ mod tests {
             deps.as_ref(),
             current_env.clone(),
             HOT_WALLET.to_string(),
-            CosmosMsg::Distribution(DistributionMsg::SetWithdrawAddress {
-                address: RECEIVER.to_string(),
-            }),
+            vec![CosmosMsg::Distribution(
+                DistributionMsg::SetWithdrawAddress {
+                    address: RECEIVER.to_string(),
+                },
+            )],
         )
         .unwrap_err();
 
@@ -232,7 +234,7 @@ mod tests {
             deps.as_ref(),
             current_env.clone(),
             HOT_WALLET.to_string(),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9"
                     .to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Transfer {
@@ -241,7 +243,7 @@ mod tests {
                 })
                 .unwrap(),
                 funds: vec![],
-            }),
+            })],
         )
         .unwrap();
         assert!(_res.can_spend);
