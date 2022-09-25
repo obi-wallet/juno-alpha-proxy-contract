@@ -25,6 +25,10 @@ echo $RES > latest_run_log.txt
 BALANCE_1=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
 
+# Try to migrate to CONTRACT_CODE_2
+RES=$($BINARY tx wasm migrate $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}' $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Unable to migrate"
+
 # Contract already instantiated; let's try a transaction from authorized admin
 # (send back to admin)
 # Note this is sim_execute only at the moment, for debugging
