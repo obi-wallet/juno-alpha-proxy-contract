@@ -41,6 +41,7 @@ pub struct HotWallet {
 }
 
 impl HotWallet {
+
     pub fn check_is_valid(self) -> StdResult<()> {
         if self.usdc_denom != Some("true".to_string())
             || self.spend_limits.len() > 1
@@ -62,41 +63,7 @@ impl HotWallet {
         self.spend_limits[0].limit_remaining = self.spend_limits[0].amount;
     }
 
-    pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
-        let unconverted_coin = SourcedCoin {
-            coin: spend,
-            sources: vec![],
-        };
-        let converted_spend_amt = unconverted_coin.get_converted_to_usdc(deps, false)?;
-        // spend can't be bigger than total spend limit
-        println!(
-            "Current limit is {:?}",
-            self.spend_limits[0].limit_remaining
-        );
-        println!("Reducing by {:?}", converted_spend_amt.coin);
-        let limit_remaining = self.spend_limits[0]
-            .limit_remaining
-            .checked_sub(converted_spend_amt.coin.amount.u128() as u64);
-        match limit_remaining {
-            Some(limit) => println!("new limit is {:?}", limit),
-            None => println!("Overspend attempt rejected"),
-        }
-        let limit_remaining = match limit_remaining {
-            Some(remaining) => remaining,
-            None => {
-                return Err(ContractError::CannotSpendMoreThanLimit {});
-            }
-        };
-        self.spend_limits[0].limit_remaining = limit_remaining;
-        Ok(converted_spend_amt)
-    }
-
-    pub fn reduce_limit_nonmut(
-        &self,
-        deps: Deps,
-        spend: Coin,
-        reset: bool,
-    ) -> Result<SourcedCoin, ContractError> {
+    pub fn simulate_reduce_limit(&self, deps: Deps, spend: Coin, reset: bool) -> Result<(u64, SourcedCoin), ContractError> {
         let unconverted_coin = SourcedCoin {
             coin: spend,
             sources: vec![],
@@ -115,13 +82,19 @@ impl HotWallet {
             Some(limit) => println!("new limit is {:?}", limit),
             None => println!("Overspend attempt rejected"),
         }
-        let _limit_remaining = match limit_remaining {
+        let limit_remaining = match limit_remaining {
             Some(remaining) => remaining,
             None => {
                 return Err(ContractError::CannotSpendMoreThanLimit {});
             }
         };
-        Ok(converted_spend_amt)
+        Ok((limit_remaining, converted_spend_amt))
+    }
+
+    pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
+        let spend_limit_reduction: (u64, SourcedCoin) = self.simulate_reduce_limit(deps, spend, false)?;
+        self.spend_limits[0].limit_remaining = spend_limit_reduction.0;
+        Ok(spend_limit_reduction.1)
     }
 
     pub fn reset_period(&mut self, current_time: Timestamp) -> Result<(), ContractError> {
