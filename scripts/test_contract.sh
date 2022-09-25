@@ -26,6 +26,9 @@ echo $RES > latest_run_log.txt
 BALANCE_1=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 error_check BALANCE_1 "Failed to get balance for juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8"
 
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
+
 # Try to migrate to CONTRACT_CODE_2
 RES=$($BINARY tx wasm migrate $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}' $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 echo "Debug: $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}'"
