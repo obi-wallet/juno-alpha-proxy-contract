@@ -91,7 +91,7 @@ impl HotWallet {
         let limit_remaining = match limit_remaining {
             Some(remaining) => remaining,
             None => {
-                return Err(ContractError::CannotSpendMoreThanLimit {});
+                return Err(ContractError::CannotSpendMoreThanLimit(converted_spend_amt.coin));
             }
         };
         Ok((limit_remaining, converted_spend_amt))
