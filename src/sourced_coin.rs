@@ -32,9 +32,6 @@ impl SourcedCoin {
 
     /// reverse is true if we have a target USDC amount (for fees)
     /// false if we're converting without a target (for spend limits)
-    /// NOTE: for some reason this is dividing the wrong way, when
-    /// spending 10000 uJuno with reverse as "false", it returns 
-    /// 10000/5 uUsdc rather than 10000*5 uUsdc
     pub fn get_converted_to_usdc(
         &self,
         deps: Deps,

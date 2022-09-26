@@ -1,6 +1,6 @@
 [package]
 name = "obi-proxy-contract"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Peter Keay <pete@obi.money>","Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
 description = "cw1 proxy contract with single admin and multiple spend limit wallets. Fee lend and repay patent pending."
