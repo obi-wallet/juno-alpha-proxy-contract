@@ -4,6 +4,7 @@ source ./scripts/current_contract.sh
 CONTRACT_CODE_2=1070
 BAD_WALLET=scripttest2
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET $KR --address)
+LOOP_TOKEN_CONTRACT=juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup
 
 rm -rf ./latest_run_log.txt
 
@@ -19,8 +20,16 @@ echo ""
 echo -e "${YELLOW}Single Signer Proxy Wallet Contract Tests${NC}"
 echo -n -e "${LBLUE}Funding the contract...${NC}"
 RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
-error_check "$RES" "Contract funding failed"
-echo $RES > latest_run_log.txt
+error_check "$RES" "Contract JUNO funding failed"
+
+echo -n -e "${LBLUE}Funding the contract with USDC...${NC}"
+RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 200000ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034 --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
+error_check "$RES" "Contract USDC funding failed"
+
+echo -n -e "${LBLUE}Funding the contract with LOOP...${NC}"
+LOOP_TRANSFER=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADDRESS '{"transfer":{"recipient":$recipient, "amount":"2000000"}')
+RES=$($BINARY tx wasm execute $LOOP_TOKEN_CONTRACT "$LOOP_TRANSFER" --from $CONTRACT_ADMIN_WALLET $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
+error_check "$RES" "Contract LOOP funding failed"
 
 # this is the address that will receive the "fee repay"
 BALANCE_1=$($BINARY q bank balances juno1ruftad6eytmr3qzmf9k3eya9ah8hsnvkujkej8 --node=$RPC --chain-id=$CHAIN_ID 2>&1)
@@ -209,3 +218,19 @@ QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
 RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 echo "Query results for hot wallets: "
 echo "$RES"
+
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADMIN_WALLET '{"execute": {"msgs": [{"bank": {"send": {"to_address":$recipient,"amount": [{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034",amount: "25000"}]}}}]}}')
+echo -n -e "${LBLUE}TX 15) A small USDC spend should hit the spend limit directly${NC}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed to spend USDC directly against hot wallet limit"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
+
+echo -n -e "${LBLUE}TX 16) And should not be repeatable...${NC}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed as expected" "You cannot spend more than your available spend limit"
+
+# todo
+# loop spend
+# EXECUTE_ARGS=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADMIN_WALLET --arg looptoken $LOOP_TOKEN_CONTRACT '{"execute": {"msgs": [{"wasm": {"execute": {"contract_addr":$looptoken,"msg":'****NEEDBASE64HERE****'}}}]}}')
