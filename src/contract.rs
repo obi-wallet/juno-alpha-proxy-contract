@@ -118,7 +118,27 @@ pub fn execute_execute(
         // if there is no debt AND user is admin, process immediately
         res = res.add_attribute("action", "execute_execute");
         if !simulation {
-            res = res.add_messages(msgs);
+            res = res.add_messages(msgs.clone());
+        }
+        for msg in msgs.clone() {
+            if let CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr,
+                msg: _,
+                funds: _,
+            }) = msg
+            {
+                if contract_addr
+                    == "juno1m7qmz49a9g6zeyzl032aj3rnsu856893cwryx8c4v2gf2s0ewv8qvtcsmx".to_string()
+                {
+                    res = res
+                        .add_event(Event::new("CosmicMint").add_attribute("the_party", "begins"));
+                }
+                if contract_addr
+                    == "juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup".to_string()
+                {
+                    res = res.add_event(Event::new("LoopToken").add_attribute("test", "passed"));
+                }
+            }
         }
         Ok(res)
     } else {
