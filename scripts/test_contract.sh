@@ -150,7 +150,8 @@ RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node
 echo "Query results for hot wallets: "
 echo "$RES"
 
-echo -n -e "${LBLUE}TX 8) Hot wallet spends most of its limit (30000). Should succeed...${NC}"
+echo -n -e "${LBLUE}TX 8) Hot wallet spends most of its limit (6000 ujuno). Should succeed...${NC}"
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM --arg action $ACTION '{($action): {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "6000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend with hot wallet"
 # but then we cannot do it again since limit hasn't reset yet
