@@ -19,7 +19,7 @@ echo " ╚═════╝ ╚═════╝ ╚═╝"
 echo ""
 echo -e "${YELLOW}Single Signer Proxy Wallet Contract Tests${NC}"
 echo -n -e "${LBLUE}Funding the contract...${NC}"
-RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
+RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 400000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
 error_check "$RES" "Contract JUNO funding failed"
 
 echo -n "Waiting to avoid sequence mismatch error..."
