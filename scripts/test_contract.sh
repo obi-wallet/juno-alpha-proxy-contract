@@ -140,10 +140,17 @@ ADD_HOT_WALLET_ARGS_V2="${ADD_HOT_WALLET_ARGS_V1/666/$RESET_TIME}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$ADD_HOT_WALLET_ARGS_V2" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to re-add hot wallet"
 
+# print hot wallet to check on spend limit
+QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
+RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
+echo "Query results for hot wallets: "
+echo "$RES"
+
 # we can send the 40000
 echo -n "Waiting for nodes to update..."
 /usr/bin/sleep 15s && echo " Done."
-echo -n -e "${LBLUE}TX 8) Hot wallet spends most of its limit. Should succeed...${NC}"
+echo -n -e "${LBLUE}TX 8) Hot wallet spends most of its limit (30000). Should succeed...${NC}"
+
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend with hot wallet"
 # but then we cannot do it again since limit hasn't reset yet
