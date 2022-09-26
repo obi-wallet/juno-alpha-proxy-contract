@@ -1,4 +1,3 @@
-use cosmwasm_std::Coin;
 use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
@@ -53,8 +52,8 @@ pub enum ContractError {
     #[error("Hot wallet does not have a spend limit for asset {0}.")]
     CannotSpendThisAsset(String),
 
-    #[error("You cannot spend more than your available spend limit. Trying to spend {0}")]
-    CannotSpendMoreThanLimit(Coin),
+    #[error("You cannot spend more than your available spend limit. Trying to spend {0} {1}")]
+    CannotSpendMoreThanLimit(String, String),
 
     #[error("Uninitialized message.")]
     UninitializedMessage {},
