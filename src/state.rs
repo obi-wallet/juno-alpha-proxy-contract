@@ -209,7 +209,6 @@ impl State {
         }
     }
 
-    // very soon to refactor (nearly copies above)
     pub fn check_spend_limits(
         &self,
         deps: Deps,
