@@ -22,9 +22,15 @@ echo -n -e "${LBLUE}Funding the contract...${NC}"
 RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 200000$DENOM --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
 error_check "$RES" "Contract JUNO funding failed"
 
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
+
 echo -n -e "${LBLUE}Funding the contract with USDC...${NC}"
 RES=$($BINARY tx bank send $CONTRACT_ADMIN_WALLET $CONTRACT_ADDRESS $KR -y 200000ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034 --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
 error_check "$RES" "Contract USDC funding failed"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
 
 echo -n -e "${LBLUE}Funding the contract with LOOP...${NC}"
 LOOP_TRANSFER=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADDRESS '{"transfer":{"recipient":$recipient, "amount":"2000000"}')
