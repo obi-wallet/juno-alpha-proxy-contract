@@ -33,7 +33,7 @@ echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 
 echo -n -e "${LBLUE}Funding the contract with LOOP...${NC}"
-LOOP_TRANSFER=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADDRESS '{"transfer":{"recipient":$recipient, "amount":"2000000"}')
+LOOP_TRANSFER=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADDRESS '{"transfer":{"recipient":$recipient, "amount":"2000000"}}')
 RES=$($BINARY tx wasm execute $LOOP_TOKEN_CONTRACT "$LOOP_TRANSFER" --from $CONTRACT_ADMIN_WALLET $KR -y --fees 5000$DENOM --chain-id=$CHAIN_ID --node=$RPC 2>&1)
 error_check "$RES" "Contract LOOP funding failed"
 
