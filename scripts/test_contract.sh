@@ -1,7 +1,7 @@
 #!/bin/bash
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
-CONTRACT_CODE_2=1085
+CONTRACT_CODE_2=1092
 BAD_WALLET=scripttest2
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET $KR --address)
 LOOP_TOKEN_CONTRACT=juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup
@@ -45,7 +45,7 @@ echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 
 # Try to migrate to CONTRACT_CODE_2
-RES=$($BINARY tx wasm migrate $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}' $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+RES=$($BINARY tx wasm migrate $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}' $KR -y --from=scripttest --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 echo "Debug: $CONTRACT_ADDRESS $CONTRACT_CODE_2 '{}'"
 error_check "$RES" "Unable to migrate"
 
