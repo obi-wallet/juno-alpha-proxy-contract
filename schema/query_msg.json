@@ -65,6 +65,34 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "description": "Returns true if address 1) is admin, 2) is hot wallet and msg is spendable by hot wallet, or 3) is one of approved cw20s (no funds attached tho)",
+      "type": "object",
+      "required": [
+        "can_spend"
+      ],
+      "properties": {
+        "can_spend": {
+          "type": "object",
+          "required": [
+            "msgs",
+            "sender"
+          ],
+          "properties": {
+            "msgs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/CosmosMsg_for_Empty"
+              }
+            },
+            "sender": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {

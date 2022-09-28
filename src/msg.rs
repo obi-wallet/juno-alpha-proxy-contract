@@ -30,7 +30,7 @@ pub enum ExecuteMsg {
     ProposeUpdateAdmin { new_admin: String },
     /// Confirms a proposed admin - must be called by the new admin.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
-    ConfirmUpdateAdmin {},
+    ConfirmUpdateAdmin { signers: Vec<String> },
     /// Cancels a proposed admin - must be called by current admin.
     /// This can be used to cancel during a waiting period.
     CancelUpdateAdmin {},
@@ -56,13 +56,29 @@ pub enum QueryMsg {
     CanExecute { sender: String, msg: CosmosMsg },
     /// Gets an array of all the active HotWallets for this proxy.
     HotWallets {},
+    /// Returns true if address 1) is admin, 2) is hot wallet and msg is spendable
+    /// by hot wallet, or 3) is one of approved cw20s (no funds attached tho)
+    CanSpend {
+        sender: String,
+        msgs: Vec<CosmosMsg>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum MigrateMsg {}
+pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct AdminResponse {
     pub admin: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct CanSpendResponse {
+    pub can_spend: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub enum Cw20ExecuteMsg {
+    Transfer { recipient: String, amount: Uint128 },
 }

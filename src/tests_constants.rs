@@ -1,9 +1,6 @@
 use cosmwasm_std::{Coin, Uint128};
 
-use crate::{
-    state::{Source, SourcedCoin},
-    ContractError,
-};
+use crate::{sourced_coin::SourcedCoin, sources::Source, sources::Sources, ContractError};
 
 pub fn get_test_sourced_coin(
     denoms: (String, String),
@@ -20,10 +17,12 @@ pub fn get_test_sourced_coin(
                 amount,
                 denom: denoms.1,
             },
-            sources: vec![Source {
-                contract_addr: "test conversion localjuno to loop".to_string(),
-                query_msg: format!("converted {} to {}", amount, amount),
-            }],
+            wrapped_sources: Sources {
+                sources: vec![Source {
+                    contract_addr: "test conversion localjuno to loop".to_string(),
+                    query_msg: format!("converted {} to {}", amount, amount),
+                }],
+            },
         }),
         val if val
             == (
@@ -49,10 +48,12 @@ pub fn get_test_sourced_coin(
                     amount: this_amount,
                     denom: denoms.1,
                 },
-                sources: vec![Source {
-                    contract_addr: "test conversion loop to dollars".to_string(),
-                    query_msg: format!("converted {} to {}", amount, this_amount),
-                }],
+                wrapped_sources: Sources {
+                    sources: vec![Source {
+                        contract_addr: "test conversion loop to dollars".to_string(),
+                        query_msg: format!("converted {} to {}", amount, this_amount),
+                    }],
+                },
             })
         }
         val if val == ("uloop".to_string(), "testtokens".to_string()) => Ok(SourcedCoin {
@@ -60,10 +61,12 @@ pub fn get_test_sourced_coin(
                 amount,
                 denom: denoms.1,
             },
-            sources: vec![Source {
-                contract_addr: "test conversion loop to localjuno".to_string(),
-                query_msg: format!("converted {} to {}", amount, amount),
-            }],
+            wrapped_sources: Sources {
+                sources: vec![Source {
+                    contract_addr: "test conversion loop to localjuno".to_string(),
+                    query_msg: format!("converted {} to {}", amount, amount),
+                }],
+            },
         }),
         val if val
             == (
@@ -83,10 +86,12 @@ pub fn get_test_sourced_coin(
                     amount: this_amount,
                     denom: denoms.1,
                 },
-                sources: vec![Source {
-                    contract_addr: "test conversion dollars to loop".to_string(),
-                    query_msg: format!("converted {} to {}", amount, this_amount),
-                }],
+                wrapped_sources: Sources {
+                    sources: vec![Source {
+                        contract_addr: "test conversion dollars to loop".to_string(),
+                        query_msg: format!("converted {} to {}", amount, this_amount),
+                    }],
+                },
             })
         }
         val if val
@@ -107,10 +112,12 @@ pub fn get_test_sourced_coin(
                     amount: this_amount,
                     denom: denoms.1,
                 },
-                sources: vec![Source {
-                    contract_addr: "test conversion dollars to juno".to_string(),
-                    query_msg: format!("converted {} to {}", amount, this_amount),
-                }],
+                wrapped_sources: Sources {
+                    sources: vec![Source {
+                        contract_addr: "test conversion dollars to juno".to_string(),
+                        query_msg: format!("converted {} to {}", amount, this_amount),
+                    }],
+                },
             })
         }
         _ => Err(ContractError::BadSwapDenoms(format!(

@@ -33,9 +33,9 @@ pub enum ContractError {
     SpendNotAuthorized {},
 
     #[error(
-        "Spend-limited transactions must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer)."
+        "Spend-limited transactions are not allowed to be {0}; they must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer)."
     )]
-    BadMessageType {},
+    BadMessageType(String),
 
     #[error("This address is already authorized as a Hot Wallet. Remove it first in order to update it.")]
     HotWalletExists {},
@@ -52,8 +52,8 @@ pub enum ContractError {
     #[error("Hot wallet does not have a spend limit for asset {0}.")]
     CannotSpendThisAsset(String),
 
-    #[error("You cannot spend more than your available spend limit.")]
-    CannotSpendMoreThanLimit {},
+    #[error("You cannot spend more than your available spend limit. Trying to spend {0} {1}")]
+    CannotSpendMoreThanLimit(String, String),
 
     #[error("Uninitialized message.")]
     UninitializedMessage {},

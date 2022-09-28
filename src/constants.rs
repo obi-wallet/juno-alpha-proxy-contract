@@ -1,6 +1,7 @@
 use cosmwasm_std::{Coin, Uint128};
 
-use crate::state::{Source, SourcedCoin};
+use crate::sourced_coin::SourcedCoin;
+use crate::sources::{Source, Sources};
 
 pub const MAINNET_AXLUSDC_IBC: &str =
     "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034";
@@ -21,9 +22,11 @@ pub fn get_usdc_sourced_coin(amount: Uint128) -> SourcedCoin {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
             amount,
         },
-        sources: vec![Source {
-            contract_addr: "1 USDC is 1 USDC".to_string(),
-            query_msg: format!("converted {} to {}", amount, amount),
-        }],
+        wrapped_sources: Sources {
+            sources: vec![Source {
+                contract_addr: "1 USDC is 1 USDC".to_string(),
+                query_msg: format!("converted {} to {}", amount, amount),
+            }],
+        },
     }
 }
