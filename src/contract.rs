@@ -118,7 +118,7 @@ pub fn execute_execute(
         // if there is no debt AND user is admin, process immediately
         res = res.add_attribute("action", "execute_execute");
         if !simulation {
-            res = res.add_messages(msgs.clone());
+            res = res.add_messages(msgs);
         }
         Ok(res)
     } else {
@@ -321,7 +321,7 @@ fn convert_debt_to_asset_spent(
 fn check_and_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
     let state: State = STATE.load(deps.storage)?;
     if state.uusd_fee_debt.u128() > 0u128 {
-        let swaps = convert_debt_to_asset_spent(deps.as_ref(), state.uusd_fee_debt.clone(), asset)?;
+        let swaps = convert_debt_to_asset_spent(deps.as_ref(), state.uusd_fee_debt, asset)?;
         let mut new_state = state.clone();
         new_state.uusd_fee_debt = Uint128::from(0u128);
         STATE.save(deps.storage, &new_state)?;

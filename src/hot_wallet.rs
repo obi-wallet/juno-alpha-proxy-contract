@@ -95,10 +95,10 @@ impl HotWallet {
     pub fn make_usdc_sourced_coin(&self, amount: Uint128, wrapped_sources: Sources) -> SourcedCoin {
         SourcedCoin {
             coin: Coin {
-                amount: amount,
+                amount,
                 denom: MAINNET_AXLUSDC_IBC.to_string(),
             },
-            wrapped_sources: wrapped_sources,
+            wrapped_sources,
         }
     }
 
