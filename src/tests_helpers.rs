@@ -32,6 +32,7 @@ pub fn instantiate_contract(
                 limit_remaining: 1_000_000u64,
             }],
             usdc_denom: Some("true".to_string()),
+            default: Some(true),
         }],
         uusd_fee_debt: starting_debt.amount,
         fee_lend_repay_wallet: "test_repay_address".to_string(),
@@ -77,6 +78,7 @@ pub fn add_test_hotwallet(
                 limit_remaining: limit,
             }],
             usdc_denom: Some("true".to_string()),
+            default: Some(true),
         },
     };
 

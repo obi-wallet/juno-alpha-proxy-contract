@@ -53,6 +53,7 @@ mod tests {
                     limit_remaining: 100_000_000u64,
                 }],
                 usdc_denom: Some("true".to_string()),
+                default: Some(true),
             }],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
@@ -164,6 +165,7 @@ mod tests {
                     limit_remaining: 100_000_000u64,
                 }],
                 usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
+                default: Some(true),
             }],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),

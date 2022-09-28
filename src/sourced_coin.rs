@@ -61,7 +61,7 @@ impl SourcedCoin {
         denoms: (String, String),
         amount: Uint128,
     ) -> Result<SourcedCoin, ContractError> {
-        self.simulate(deps, denoms, amount, true, true)
+        self.get_price_from_simulation(deps, denoms, amount, true, true)
     }
 
     pub fn simulate_swap(
@@ -70,12 +70,12 @@ impl SourcedCoin {
         denoms: (String, String),
         amount: Uint128,
     ) -> Result<SourcedCoin, ContractError> {
-        self.simulate(deps, denoms, amount, false, false)
+        self.get_price_from_simulation(deps, denoms, amount, false, false)
     }
 
     #[allow(unreachable_code)]
     #[allow(unused_variables)]
-    pub fn simulate(
+    pub fn get_price_from_simulation(
         &self,
         deps: Deps,
         denoms: (String, String),

@@ -1,5 +1,5 @@
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
-use cosmwasm_std::{Coin, Deps, StdError, StdResult, Timestamp};
+use cosmwasm_std::{Coin, Deps, StdError, StdResult, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,7 @@ pub struct HotWallet {
     pub period_multiple: u16,
     pub spend_limits: Vec<CoinLimit>,
     pub usdc_denom: Option<String>,
+    pub default: Option<bool>,
 }
 
 impl HotWallet {
@@ -43,7 +44,7 @@ impl HotWallet {
         current_time.seconds() > self.current_period_reset
     }
 
-    pub fn check_is_valid(&self) -> StdResult<()> {
+    pub fn assert_is_valid(&self) -> StdResult<()> {
         if self.usdc_denom != Some("true".to_string())
             || self.spend_limits.len() > 1
             || (self.spend_limits[0].denom != MAINNET_AXLUSDC_IBC
@@ -80,21 +81,59 @@ impl HotWallet {
             false => self.spend_limits[0].limit_remaining,
             true => self.spend_limits[0].amount,
         };
-        println!("Current limit is {:?}", limit_to_check);
-        println!("Reducing by {:?}", converted_spend_amt.coin);
-        let limit_remaining =
-            limit_to_check.checked_sub(converted_spend_amt.coin.amount.u128() as u64);
-        match limit_remaining {
-            Some(limit) => println!("new limit is {:?}", limit),
-            None => println!("Overspend attempt rejected"),
-        }
-        let limit_remaining = match limit_remaining {
-            Some(remaining) => remaining,
-            None => {
-                return Err(ContractError::CannotSpendMoreThanLimit(converted_spend_amt.coin.amount.to_string(), converted_spend_amt.coin.denom));
-            }
-        };
+        let limit_remaining = limit_to_check
+            .checked_sub(converted_spend_amt.coin.amount.u128() as u64)
+            .ok_or_else(|| {
+                ContractError::CannotSpendMoreThanLimit(
+                    converted_spend_amt.coin.amount.to_string(),
+                    converted_spend_amt.coin.denom.clone(),
+                )
+            })?;
         Ok((limit_remaining, converted_spend_amt))
+    }
+
+    pub fn make_usdc_sourced_coin(&self, amount: Uint128, wrapped_sources: Sources) -> SourcedCoin {
+        SourcedCoin {
+            coin: Coin {
+                amount: amount,
+                denom: MAINNET_AXLUSDC_IBC.to_string(),
+            },
+            wrapped_sources: wrapped_sources,
+        }
+    }
+
+    pub fn check_spend_vec(
+        &self,
+        deps: Deps,
+        spend_vec: Vec<Coin>,
+        should_reset: bool,
+    ) -> Result<SourcedCoin, ContractError> {
+        let mut spend_tally = Uint128::from(0u128);
+        let mut spend_tally_sources: Sources = Sources { sources: vec![] };
+
+        for n in spend_vec {
+            let spend_check_with_sources =
+                self.simulate_reduce_limit(deps, n.clone(), should_reset)?.1;
+            spend_tally_sources.append_sources(spend_check_with_sources.clone());
+            spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
+        }
+        Ok(self.make_usdc_sourced_coin(spend_tally, spend_tally_sources))
+    }
+
+    pub fn process_spend_vec(
+        &mut self,
+        deps: Deps,
+        spend_vec: Vec<Coin>,
+    ) -> Result<SourcedCoin, ContractError> {
+        let mut spend_tally = Uint128::from(0u128);
+        let mut spend_tally_sources: Sources = Sources { sources: vec![] };
+
+        for n in spend_vec {
+            let spend_check_with_sources = self.reduce_limit(deps, n.clone())?;
+            spend_tally_sources.append_sources(spend_check_with_sources.clone());
+            spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
+        }
+        Ok(self.make_usdc_sourced_coin(spend_tally, spend_tally_sources))
     }
 
     pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {

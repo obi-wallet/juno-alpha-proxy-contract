@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
-use crate::constants::{MAINNET_AXLUSDC_IBC, MAINNET_ID, TESTNET_ID};
+use crate::constants::{MAINNET_ID, TESTNET_ID};
 use crate::hot_wallet::HotWallet;
 use crate::pair_contract::PairContract;
 use crate::pair_contract_defaults::{
@@ -44,6 +44,13 @@ pub struct State {
 }
 
 impl State {
+    pub fn assert_admin(&self, a: String, e: ContractError) -> Result<(), ContractError> {
+        if self.is_admin(a) {
+            return Err(e);
+        }
+        Ok(())
+    }
+
     pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {
         let this_wallet_opt: Option<&HotWallet> =
             self.hot_wallets.iter().find(|a| a.address == addr);
@@ -167,45 +174,16 @@ impl State {
         }
         let this_wallet = self.maybe_get_hot_wallet_mut(addr)?;
 
-        let mut spend_tally: Uint128 = Uint128::from(0u128);
-        let mut spend_tally_sources: Sources = Sources { sources: vec![] };
-
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
         if current_time.seconds() > this_wallet.current_period_reset {
-            println!("LIMIT RESET TRIGGERED");
             let new_dt = this_wallet.reset_period(current_time);
             match new_dt {
-                Ok(()) => {
-                    for n in spend {
-                        let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
-                        spend_tally_sources.append_sources(spend_check_with_sources.clone());
-                        spend_tally =
-                            spend_tally.saturating_add(spend_check_with_sources.coin.amount);
-                    }
-                    Ok(SourcedCoin {
-                        coin: Coin {
-                            amount: spend_tally,
-                            denom: MAINNET_AXLUSDC_IBC.to_string(),
-                        },
-                        wrapped_sources: spend_tally_sources,
-                    })
-                }
+                Ok(()) => this_wallet.process_spend_vec(deps, spend),
                 Err(e) => Err(e),
             }
         } else {
-            for n in spend {
-                let spend_check_with_sources = this_wallet.reduce_limit(deps, n.clone())?;
-                spend_tally_sources.append_sources(spend_check_with_sources.clone());
-                spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
-            }
-            Ok(SourcedCoin {
-                coin: Coin {
-                    amount: spend_tally,
-                    denom: MAINNET_AXLUSDC_IBC.to_string(),
-                },
-                wrapped_sources: spend_tally_sources,
-            })
+            this_wallet.process_spend_vec(deps, spend)
         }
     }
 
@@ -221,39 +199,12 @@ impl State {
         }
         let this_wallet = self.maybe_get_hot_wallet(addr)?;
 
-        let mut spend_tally: Uint128 = Uint128::from(0u128);
-        let mut spend_tally_sources: Sources = Sources { sources: vec![] };
-
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
         if this_wallet.should_reset(current_time) {
-            for n in spend {
-                let spend_check_with_sources =
-                    this_wallet.simulate_reduce_limit(deps, n.clone(), true)?.1;
-                spend_tally_sources.append_sources(spend_check_with_sources.clone());
-                spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
-            }
-            Ok(SourcedCoin {
-                coin: Coin {
-                    amount: spend_tally,
-                    denom: MAINNET_AXLUSDC_IBC.to_string(),
-                },
-                wrapped_sources: spend_tally_sources,
-            })
+            this_wallet.check_spend_vec(deps, spend, true)
         } else {
-            for n in spend {
-                let spend_check_with_sources =
-                    this_wallet.simulate_reduce_limit(deps, n.clone(), false)?.1;
-                spend_tally_sources.append_sources(spend_check_with_sources.clone());
-                spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
-            }
-            Ok(SourcedCoin {
-                coin: Coin {
-                    amount: spend_tally,
-                    denom: MAINNET_AXLUSDC_IBC.to_string(),
-                },
-                wrapped_sources: spend_tally_sources,
-            })
+            this_wallet.check_spend_vec(deps, spend, false)
         }
     }
 }
