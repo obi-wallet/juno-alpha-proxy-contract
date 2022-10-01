@@ -212,7 +212,7 @@ echo -n -e "${LBLUE}TX 13) Spend some JUNO... and see it run against the USDC sp
 # so spending 1 JUNO should spend 137 LOOP, which is 137/30 ≈ 4.566 USDC.
 # To save on testnet faucet usage, let's spend only 0.01 JUNO... which should ≈ 0.04566 USDC or 45,600 uUSDC.
 # (against a spend limit of 80000)
-EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "10000"}]}}}]}}')
+EXECUTE_ARGS=$(/usr/bin/jq -n --arg denom $DENOM '{"execute": {"msgs": [{"bank": {"send": {"to_address": "juno1hu6t6hdx4djrkdcf5hnlaunmve6f7qer9j6p9k","amount": [{"denom": $denom,amount: "13000"}]}}}]}}')
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend with hot wallet limited in USDC"
 
@@ -228,6 +228,9 @@ echo -n "Waiting to avoid sequence mismatch error..."
 echo -n -e "${LBLUE}TX 14) Second spend should fail as we've used most of our spend limit${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected" "You cannot spend more than your available spend limit"
+
+echo -n "Waiting for nodes to update..."
+/usr/bin/sleep 15s && echo " Done."
 
 # print hot wallet info again to check on spend limit reduction
 QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
