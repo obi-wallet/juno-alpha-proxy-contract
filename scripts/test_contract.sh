@@ -1,7 +1,7 @@
 #!/bin/bash
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
-CONTRACT_CODE_2=1092
+CONTRACT_CODE_2=1104
 BAD_WALLET=scripttest2
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET $KR --address)
 LOOP_TOKEN_CONTRACT=juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup
@@ -234,6 +234,9 @@ QUERY_ARGS=$(/usr/bin/jq -n '{"hot_wallets":{}}')
 RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node=$RPC --chain-id=$CHAIN_ID 2>&1)
 echo "Query results for hot wallets: "
 echo "$RES"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
 
 EXECUTE_ARGS=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADMIN_WALLET '{"execute": {"msgs": [{"bank": {"send": {"to_address":$recipient,"amount": [{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034",amount: "25000"}]}}}]}}')
 echo -n -e "${LBLUE}TX 15) A small USDC spend should hit the spend limit directly${NC}"

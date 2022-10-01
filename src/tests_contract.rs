@@ -360,12 +360,12 @@ mod tests {
         })];
         let test_msgs: Vec<CosmosMsg> = vec![
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: RECEIVER.to_string(),
-                amount: coins(10000, "testtokens"),
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
                 to_address: "test_repay_address".to_string(),
                 amount: coins(100, "testtokens"),
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(10000, "testtokens"),
             }),
         ];
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };

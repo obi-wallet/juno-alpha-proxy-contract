@@ -84,6 +84,12 @@ pub enum ContractError {
 
     #[error("{0}")]
     BadSwapDenoms(String),
+
+    #[error("Cannot send 0 funds")]
+    CannotSpendZero {},
+
+    #[error("Unable to pay debt of {0} uusd")]
+    UnableToRepayDebt(String),
 }
 
 impl From<semver::Error> for ContractError {

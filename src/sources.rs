@@ -1,3 +1,4 @@
+use cosmwasm_std::Attribute;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -24,5 +25,13 @@ impl Sources {
                 query_msg: sourced_coin.wrapped_sources.sources[m].query_msg.clone(),
             });
         }
+    }
+
+    pub fn to_attributes(&self) -> Vec<Attribute> {
+        let mut attributes: Vec<Attribute> = vec![];
+        for source in self.sources.clone() {
+            attributes.push(Attribute::new(source.contract_addr, source.query_msg));
+        }
+        attributes
     }
 }
