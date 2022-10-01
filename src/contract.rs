@@ -16,7 +16,7 @@ use crate::msg::{
     AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use crate::sourced_coin::SourcedCoin;
-use crate::sources::{Source, Sources};
+use crate::sources::{Sources};
 use crate::state::{State, STATE};
 use crate::submsgs::{PendingSubmsg, SubmsgType, WasmmsgType};
 
@@ -142,7 +142,7 @@ pub fn execute_execute(
         // fee repayment is handled in the try_bank_send and (todo)
         // the try_wasm_send functions
         let mut core_payload = CorePayload {
-            info: info.clone(),
+            info,
             this_msg: CosmosMsg::Custom(Empty {}),
             current_time: env.block.time,
         };
@@ -192,11 +192,11 @@ fn check_and_spend_total_coins(
             if cfg.is_admin(core_payload.info.sender.to_string()) {
                 Ok(None)
             } else {
-                return Err(ContractError::OnlyTransferSendAllowed {});
+                Err(ContractError::OnlyTransferSendAllowed {})
             }
         }
         SubmsgType::Unknown => {
-            return Err(ContractError::BadMessageType("unknown".to_string()));
+            Err(ContractError::BadMessageType("unknown".to_string()))
         }
     }
 }
@@ -258,12 +258,9 @@ fn check_coins(
     let mut sourced_repay: Option<SourcedRepayMsg> = None;
     if cfg.uusd_fee_debt > Uint128::from(0u128) {
         'debt_cycle: for coin in spend.clone() {
-            match try_repay_debt(deps, coin) {
-                Ok(msg) => {
-                    sourced_repay = Some(msg);
-                    break 'debt_cycle;
-                }
-                Err(_) => {}
+            if let Ok(msg) = try_repay_debt(deps, coin) {
+                sourced_repay = Some(msg);
+                break 'debt_cycle;
             }
         }
         updated_cfg = STATE.load(deps.storage)?;

@@ -17,7 +17,7 @@ pub struct PendingSubmsgGroup {
     msgs: Vec<PendingSubmsg>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum SubmsgType {
     BankSend,
     BankBurn,
@@ -25,7 +25,7 @@ pub enum SubmsgType {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum WasmmsgType {
     Cw20Transfer,
     Cw20Burn,
@@ -61,9 +61,7 @@ impl PendingSubmsg {
                 self.ty = self.process_execute_type();
                 self.ty.clone()
             }
-            #[allow(unused_variables)]
-            #[allow(non_snake_case)]
-            CosmosMsg::Bank(BankMsg) => {
+            CosmosMsg::Bank(_) => {
                 self.contract_addr = None;
                 self.binarymsg = None;
                 self.funds = vec![];
@@ -71,7 +69,7 @@ impl PendingSubmsg {
                 self.ty = self.process_bank_type();
                 self.ty.clone()
             }
-            _ => return SubmsgType::Unknown,
+            _ => SubmsgType::Unknown,
         }
     }
 
@@ -80,7 +78,7 @@ impl PendingSubmsg {
             None => Err(StdError::GenericErr {
                 msg: "Message does not exist as struct member".to_string(),
             }),
-            Some(msg) => from_binary(&msg),
+            Some(msg) => from_binary(msg),
         };
         match msg_de {
             Ok(msg_contents) => {
