@@ -17,13 +17,23 @@ that no one controls, the update process is now 2 steps:
 1) ProposeUpdateAdmin {new_admin: String}, signed by current admin
 2) ConfirmUpdateAdmin {}, signed by new admin
 
-## Allowing Custom Messages
+### Hot Wallets
 
-By default, this doesn't support `CustomMsg` in order to be fully generic
-among blockchains. However, all types are Generic over `T`, and this is only
-fixed in `handle`. You can import this contract and just redefine your `handle`
-function, setting a different parameter to `ExecuteMsg`, and you can produce
-a chain-specific message.
+Besides admins, the contract can accept "hot wallets" as defined
+in hot_wallet.rs. These wallets can currently perform spend/transfer
+cw20 or bank actions, as long as these don't go over the hot wallet's
+set periodic spend limit.
+
+### Fee Repayment
+
+The contract can have a "fee debt," set upon instantiation. There may
+be other ways for the contract to increase its debt in the future, as
+long as admin is the signer. The contract attempts to repay this debt
+whenever there is a coin send transaction of some kind.
+
+Cw20 price support is currently spotty; therefore, cw20 transfers may
+be rejected until the fee debt is repaid by sending USDC or native
+asset.
 
 ## Running this contract
 
