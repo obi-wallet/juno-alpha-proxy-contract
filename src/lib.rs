@@ -11,6 +11,7 @@ pub mod simulation;
 pub mod sourced_coin;
 pub mod sources;
 pub mod state;
+pub mod submsgs;
 #[cfg(test)]
 pub mod tests_constants;
 #[cfg(test)]
