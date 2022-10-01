@@ -235,6 +235,9 @@ RES=$($BINARY q wasm contract-state smart $CONTRACT_ADDRESS "$QUERY_ARGS" --node
 echo "Query results for hot wallets: "
 echo "$RES"
 
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
+
 EXECUTE_ARGS=$(/usr/bin/jq -n --arg recipient $CONTRACT_ADMIN_WALLET '{"execute": {"msgs": [{"bank": {"send": {"to_address":$recipient,"amount": [{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034",amount: "25000"}]}}}]}}')
 echo -n -e "${LBLUE}TX 15) A small USDC spend should hit the spend limit directly${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
