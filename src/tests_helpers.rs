@@ -89,14 +89,14 @@ pub fn add_test_hotwallet(
 }
 
 pub fn test_spend_bank(
-    mut deps: DepsMut,
+    deps: DepsMut,
     current_env: Env,
     to_address: String,
     amount: Vec<Coin>,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
     let send_msg = CosmosMsg::Bank(BankMsg::Send { to_address, amount });
-    let res = execute_execute(&mut deps.branch(), current_env, info, vec![send_msg], false);
+    let res = execute_execute(deps, current_env, info, vec![send_msg], false);
     let unwrapped_res = match res {
         Ok(res) => res,
         Err(e) => {

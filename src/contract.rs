@@ -11,12 +11,12 @@ use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::hot_wallet::{HotWallet, HotWalletsResponse};
+use crate::hot_wallet::{HotWallet, HotWalletsResponse, CoinLimit};
 use crate::msg::{
     AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
 use crate::sourced_coin::SourcedCoin;
-use crate::sources::{Sources};
+use crate::sources::Sources;
 use crate::state::{State, STATE};
 use crate::submsgs::{PendingSubmsg, SubmsgType, WasmmsgType};
 
@@ -80,14 +80,14 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, Co
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    mut deps: DepsMut,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Execute { msgs } => execute_execute(&mut deps, env, info, msgs, false),
-        ExecuteMsg::SimExecute { msgs } => execute_execute(&mut deps, env, info, msgs, true),
+        ExecuteMsg::Execute { msgs } => execute_execute(deps, env, info, msgs, false),
+        ExecuteMsg::SimExecute { msgs } => execute_execute(deps, env, info, msgs, true),
         ExecuteMsg::AddHotWallet { new_hot_wallet } => {
             add_hot_wallet(deps, env, info, new_hot_wallet)
         }
@@ -101,12 +101,15 @@ pub fn execute(
             confirm_update_admin(deps, env, info, signers)
         }
         ExecuteMsg::CancelUpdateAdmin {} => cancel_update_admin(deps, env, info),
+        ExecuteMsg::UpdateHotWalletSpendLimit { hot_wallet, new_spend_limits } => {
+            update_hot_wallet(deps, env, info, hot_wallet, new_spend_limits)
+        }
     }
 }
 
 // Simulation gatekeeping is all in this block
 pub fn execute_execute(
-    deps: &mut DepsMut,
+    mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msgs: Vec<CosmosMsg>,
@@ -149,7 +152,7 @@ pub fn execute_execute(
         for this_msg in msgs {
             core_payload.this_msg = this_msg.clone();
             let maybe_repay_msg =
-                check_and_spend_total_coins(deps, this_msg.clone(), &mut core_payload)?;
+                check_and_spend_total_coins(deps.branch(), this_msg.clone(), &mut core_payload)?;
             if !simulation {
                 if let Some(msg) = maybe_repay_msg {
                     if let Some(repay_msg) = msg.repay_msg {
@@ -166,7 +169,7 @@ pub fn execute_execute(
 }
 
 fn check_and_spend_total_coins(
-    deps: &mut DepsMut,
+    deps: DepsMut,
     msg: CosmosMsg,
     core_payload: &mut CorePayload,
 ) -> Result<Option<SourcedRepayMsg>, ContractError> {
@@ -189,15 +192,10 @@ fn check_and_spend_total_coins(
         }
         SubmsgType::ExecuteWasm(_other_type) => {
             let cfg = STATE.load(deps.storage)?;
-            if cfg.is_admin(core_payload.info.sender.to_string()) {
-                Ok(None)
-            } else {
-                Err(ContractError::OnlyTransferSendAllowed {})
-            }
+            cfg.assert_admin(core_payload.info.sender.to_string(), ContractError::OnlyTransferSendAllowed {})?;
+            Ok(None)
         }
-        SubmsgType::Unknown => {
-            Err(ContractError::BadMessageType("unknown".to_string()))
-        }
+        SubmsgType::Unknown => Err(ContractError::BadMessageType("unknown".to_string())),
     }
 }
 
@@ -233,12 +231,11 @@ fn convert_debt_to_asset_spent(
     }
 }
 
-fn try_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
+/// Does not actually repay, due to Deps, but
+/// if it returns a message, repay can be added
+fn try_repay_debt(deps: Deps, asset: Coin) -> Result<SourcedRepayMsg, ContractError> {
     let cfg: State = STATE.load(deps.storage)?;
-    let swaps = convert_debt_to_asset_spent(deps.as_ref(), cfg.uusd_fee_debt, asset)?;
-    let mut new_cfg = cfg.clone();
-    new_cfg.uusd_fee_debt = Uint128::from(0u128);
-    STATE.save(deps.storage, &new_cfg)?;
+    let swaps = convert_debt_to_asset_spent(deps, cfg.uusd_fee_debt, asset)?;
     Ok(SourcedRepayMsg {
         repay_msg: Some(BankMsg::Send {
             to_address: cfg.fee_lend_repay_wallet.to_string(),
@@ -249,36 +246,33 @@ fn try_repay_debt(deps: &mut DepsMut, asset: Coin) -> Result<SourcedRepayMsg, Co
 }
 
 fn check_coins(
-    deps: &mut DepsMut,
+    deps: DepsMut,
     core_payload: &mut CorePayload,
     spend: Vec<Coin>,
 ) -> Result<Option<SourcedRepayMsg>, ContractError> {
-    let cfg = STATE.load(deps.storage)?;
-    let mut updated_cfg: State;
+    let mut cfg = STATE.load(deps.storage)?;
     let mut sourced_repay: Option<SourcedRepayMsg> = None;
     if cfg.uusd_fee_debt > Uint128::from(0u128) {
         'debt_cycle: for coin in spend.clone() {
-            if let Ok(msg) = try_repay_debt(deps, coin) {
+            if let Ok(msg) = try_repay_debt(deps.as_ref(), coin) {
                 sourced_repay = Some(msg);
+                cfg.uusd_fee_debt = Uint128::from(0u128);
                 break 'debt_cycle;
             }
         }
-        updated_cfg = STATE.load(deps.storage)?;
-        if updated_cfg.uusd_fee_debt > Uint128::from(0u128) {
+        if cfg.uusd_fee_debt > Uint128::from(0u128) {
             return Err(ContractError::UnableToRepayDebt(
-                updated_cfg.uusd_fee_debt.to_string(),
+                cfg.uusd_fee_debt.to_string(),
             ));
         }
-    } else {
-        updated_cfg = cfg;
     }
-    updated_cfg.check_and_update_spend_limits(
+    cfg.check_and_update_spend_limits(
         deps.as_ref(),
         core_payload.current_time,
         core_payload.info.sender.to_string(),
         spend,
     )?;
-    STATE.save(deps.storage, &updated_cfg)?;
+    STATE.save(deps.storage, &cfg)?;
     Ok(sourced_repay)
 }
 
@@ -289,9 +283,8 @@ pub fn add_hot_wallet(
     new_hot_wallet: HotWallet,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    if !cfg.is_admin(info.sender.to_string()) {
-        Err(ContractError::Unauthorized {})
-    } else if cfg
+    cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
+    if cfg
         .hot_wallets
         .iter()
         .any(|wallet| wallet.address == new_hot_wallet.address)
@@ -325,6 +318,29 @@ pub fn rm_hot_wallet(
         STATE.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
     }
+}
+
+pub fn update_hot_wallet(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    hot_wallet: String,
+    new_spend_limits: Vec<Coin>,
+) -> Result<Response, ContractError> {
+    let mut cfg = STATE.load(deps.storage)?;
+    cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
+    let mut wallet = cfg.hot_wallets
+        .iter_mut()
+        .find(|wallet| wallet.address == hot_wallet)
+        .ok_or_else(|| ContractError::HotWalletDoesNotExist { })?;
+    wallet.spend_limits = new_spend_limits.into_iter().map(|coin| 
+        CoinLimit {
+            amount: coin.amount.u128() as u64,
+            denom: coin.denom,
+            limit_remaining: coin.amount.u128() as u64,
+        }
+    ).collect();
+    Ok(Response::new())
 }
 
 pub fn propose_update_admin(

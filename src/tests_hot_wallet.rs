@@ -75,9 +75,18 @@ mod tests {
             .update_spend_limit(adjusted_spend_limit.clone())
             .unwrap();
         assert_eq!(hot_wallet.spend_limits, vec![adjusted_spend_limit]);
-
+        
         hot_wallet.reset_limits();
         assert_eq!(hot_wallet.spend_limits, vec![starting_spend_limit]);
+
+        let bigger_spend_limit = CoinLimit {
+            denom: MAINNET_AXLUSDC_IBC.to_string(),
+            amount: 420_000_000u64,
+            limit_remaining: 420_000_000u64,
+        };
+
+        hot_wallet.update_spend_limit(bigger_spend_limit.clone()).unwrap();
+        assert_eq!(hot_wallet.spend_limits, vec![bigger_spend_limit]);
     }
 
     #[test]

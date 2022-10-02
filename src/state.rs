@@ -45,7 +45,7 @@ pub struct State {
 
 impl State {
     pub fn assert_admin(&self, a: String, e: ContractError) -> Result<(), ContractError> {
-        if self.is_admin(a) {
+        if !self.is_admin(a) {
             return Err(e);
         }
         Ok(())

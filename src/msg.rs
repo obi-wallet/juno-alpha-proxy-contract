@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CosmosMsg, Uint128};
+use cosmwasm_std::{CosmosMsg, Uint128, Coin};
 
 use crate::hot_wallet::HotWallet;
 
@@ -39,6 +39,9 @@ pub enum ExecuteMsg {
     AddHotWallet { new_hot_wallet: HotWallet },
     /// Removes an active spend-limited wallet.
     RmHotWallet { doomed_hot_wallet: String },
+    /// Updates spend limit for a wallet. Update of period not supported: rm and re-add
+    UpdateHotWalletSpendLimit { hot_wallet: String, new_spend_limits: Vec<Coin> },
+
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
