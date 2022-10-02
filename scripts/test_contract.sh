@@ -1,7 +1,7 @@
 #!/bin/bash
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
-CONTRACT_CODE_2=1104
+CONTRACT_CODE_2=1113
 BAD_WALLET=scripttest2
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET $KR --address)
 LOOP_TOKEN_CONTRACT=juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup
@@ -252,6 +252,25 @@ echo -n "Waiting to avoid sequence mismatch error..."
 echo -n -e "${LBLUE}TX 16) And should not be repeatable...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected" "You cannot spend more than your available spend limit"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
+
+UPDATE_ARGS=$(/usr/bin/jq -n --arg walletaddy $BAD_WALLET_ADDRESS '{"update_hot_wallet":{"hot_wallet":$walletaddy, "new_spend_limits":[{"denom":$denom,"amount":26000,"limit_remaining":26000}]}}')
+echo -n -e "${LBLUE}TX 17) Try to update spend limit without admin privileges. Should fail...${NC}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$UPDATE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed as expected" "Caller is not admin"
+
+echo -n -e "${LBLUE}TX 18) Push a spend limit update as admin (which currently also resets limit remaining but not time remaining...)${NC}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$UPDATE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed to spend USDC directly against hot wallet limit"
+
+echo -n "Waiting to avoid sequence mismatch error..."
+/usr/bin/sleep 15s && echo " Done."
+
+echo -n -e "${LBLUE}TX 19) Now USDC should be spendable...${NC}"
+RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$EXECUTE_ARGS" $KR -y --from=$BAD_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
+error_check "$RES" "Failed to spend USDC directly against hot wallet limit"
 
 # todo
 # loop spend
