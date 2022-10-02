@@ -55,6 +55,12 @@
           "format": "uint64",
           "minimum": 0.0
         },
+        "default": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "period_multiple": {
           "type": "integer",
           "format": "uint16",

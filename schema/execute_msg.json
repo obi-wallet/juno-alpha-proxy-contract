@@ -149,6 +149,34 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "description": "Updates spend limit for a wallet. Update of period not supported: rm and re-add",
+      "type": "object",
+      "required": [
+        "update_hot_wallet_spend_limit"
+      ],
+      "properties": {
+        "update_hot_wallet_spend_limit": {
+          "type": "object",
+          "required": [
+            "hot_wallet",
+            "new_spend_limits"
+          ],
+          "properties": {
+            "hot_wallet": {
+              "type": "string"
+            },
+            "new_spend_limits": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Coin"
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
@@ -385,6 +413,12 @@
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
+        },
+        "default": {
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "period_multiple": {
           "type": "integer",
