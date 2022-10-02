@@ -11,7 +11,7 @@ use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::hot_wallet::{HotWallet, HotWalletsResponse, CoinLimit};
+use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse};
 use crate::msg::{
     AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -101,9 +101,10 @@ pub fn execute(
             confirm_update_admin(deps, env, info, signers)
         }
         ExecuteMsg::CancelUpdateAdmin {} => cancel_update_admin(deps, env, info),
-        ExecuteMsg::UpdateHotWalletSpendLimit { hot_wallet, new_spend_limits } => {
-            update_hot_wallet(deps, env, info, hot_wallet, new_spend_limits)
-        }
+        ExecuteMsg::UpdateHotWalletSpendLimit {
+            hot_wallet,
+            new_spend_limits,
+        } => update_hot_wallet(deps, env, info, hot_wallet, new_spend_limits),
     }
 }
 
@@ -192,7 +193,10 @@ fn check_and_spend_total_coins(
         }
         SubmsgType::ExecuteWasm(_other_type) => {
             let cfg = STATE.load(deps.storage)?;
-            cfg.assert_admin(core_payload.info.sender.to_string(), ContractError::OnlyTransferSendAllowed {})?;
+            cfg.assert_admin(
+                core_payload.info.sender.to_string(),
+                ContractError::OnlyTransferSendAllowed {},
+            )?;
             Ok(None)
         }
         SubmsgType::Unknown => Err(ContractError::BadMessageType("unknown".to_string())),
@@ -329,17 +333,19 @@ pub fn update_hot_wallet(
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
-    let mut wallet = cfg.hot_wallets
+    let mut wallet = cfg
+        .hot_wallets
         .iter_mut()
         .find(|wallet| wallet.address == hot_wallet)
-        .ok_or_else(|| ContractError::HotWalletDoesNotExist { })?;
-    wallet.spend_limits = new_spend_limits.into_iter().map(|coin| 
-        CoinLimit {
+        .ok_or(ContractError::HotWalletDoesNotExist {})?;
+    wallet.spend_limits = new_spend_limits
+        .into_iter()
+        .map(|coin| CoinLimit {
             amount: coin.amount.u128() as u64,
             denom: coin.denom,
             limit_remaining: coin.amount.u128() as u64,
-        }
-    ).collect();
+        })
+        .collect();
     Ok(Response::new())
 }
 

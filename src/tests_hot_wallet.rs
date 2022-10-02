@@ -75,7 +75,7 @@ mod tests {
             .update_spend_limit(adjusted_spend_limit.clone())
             .unwrap();
         assert_eq!(hot_wallet.spend_limits, vec![adjusted_spend_limit]);
-        
+
         hot_wallet.reset_limits();
         assert_eq!(hot_wallet.spend_limits, vec![starting_spend_limit]);
 
@@ -85,7 +85,9 @@ mod tests {
             limit_remaining: 420_000_000u64,
         };
 
-        hot_wallet.update_spend_limit(bigger_spend_limit.clone()).unwrap();
+        hot_wallet
+            .update_spend_limit(bigger_spend_limit.clone())
+            .unwrap();
         assert_eq!(hot_wallet.spend_limits, vec![bigger_spend_limit]);
     }
 
