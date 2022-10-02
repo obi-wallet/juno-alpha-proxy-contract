@@ -170,7 +170,7 @@
             "new_spend_limits": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/Coin"
+                "$ref": "#/definitions/CoinLimit"
               }
             }
           }

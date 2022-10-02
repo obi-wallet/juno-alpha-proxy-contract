@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Coin, CosmosMsg, Uint128};
+use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::hot_wallet::HotWallet;
+use crate::hot_wallet::{HotWallet, CoinLimit};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -42,7 +42,7 @@ pub enum ExecuteMsg {
     /// Updates spend limit for a wallet. Update of period not supported: rm and re-add
     UpdateHotWalletSpendLimit {
         hot_wallet: String,
-        new_spend_limits: Vec<Coin>,
+        new_spend_limits: Vec<CoinLimit>,
     },
 }
 

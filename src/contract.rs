@@ -329,7 +329,7 @@ pub fn update_hot_wallet(
     _env: Env,
     info: MessageInfo,
     hot_wallet: String,
-    new_spend_limits: Vec<Coin>,
+    new_spend_limits: Vec<CoinLimit>,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
@@ -338,14 +338,7 @@ pub fn update_hot_wallet(
         .iter_mut()
         .find(|wallet| wallet.address == hot_wallet)
         .ok_or(ContractError::HotWalletDoesNotExist {})?;
-    wallet.spend_limits = new_spend_limits
-        .into_iter()
-        .map(|coin| CoinLimit {
-            amount: coin.amount.u128() as u64,
-            denom: coin.denom,
-            limit_remaining: coin.amount.u128() as u64,
-        })
-        .collect();
+    wallet.spend_limits = new_spend_limits;
     Ok(Response::new())
 }
 

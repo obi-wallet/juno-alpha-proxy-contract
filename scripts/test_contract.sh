@@ -1,7 +1,7 @@
 #!/bin/bash
 source ./scripts/common.sh
 source ./scripts/current_contract.sh
-CONTRACT_CODE_2=1113
+CONTRACT_CODE_2=1114
 BAD_WALLET=scripttest2
 BAD_WALLET_ADDRESS=$($BINARY keys show $BAD_WALLET $KR --address)
 LOOP_TOKEN_CONTRACT=juno1qsrercqegvs4ye0yqg93knv73ye5dc3prqwd6jcdcuj8ggp6w0us66deup
@@ -261,7 +261,7 @@ echo -n -e "${LBLUE}TX 17) Try to update spend limit without admin privileges. S
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$UPDATE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected" "Caller is not admin"
 
-echo -n -e "${LBLUE}TX 18) Push a spend limit update as admin (which currently also resets limit remaining but not time remaining...)${NC}"
+echo -n -e "${LBLUE}TX 18) Push a spend limit update as admin (which currently doesn't reset time remaining)${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$UPDATE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed to spend USDC directly against hot wallet limit"
 
