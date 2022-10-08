@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::hot_wallet::{HotWallet, CoinLimit};
+use crate::hot_wallet::{CoinLimit, HotWallet};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -13,6 +13,7 @@ pub struct InstantiateMsg {
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
     pub signers: Vec<String>,
+    pub update_delay_hours: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -44,6 +45,10 @@ pub enum ExecuteMsg {
         hot_wallet: String,
         new_spend_limits: Vec<CoinLimit>,
     },
+    /// Updates the update delay (when changing to new admin)
+    UpdateUpdateDelay {
+        hours: u16
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -67,6 +72,8 @@ pub enum QueryMsg {
         sender: String,
         msgs: Vec<CosmosMsg>,
     },
+    /// Returns the update delay (when updating to a new admin) in hours
+    UpdateDelay {}
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -81,6 +88,11 @@ pub struct AdminResponse {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct CanSpendResponse {
     pub can_spend: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct UpdateDelayResponse {
+    pub update_delay_hours: u16,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

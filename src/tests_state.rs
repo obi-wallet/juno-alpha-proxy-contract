@@ -10,6 +10,8 @@ mod tests {
 
     #[test]
     fn is_admin() {
+        let now_env = mock_env();
+
         let admin: &str = "bob";
         let config = State {
             admin: Addr::unchecked(admin),
@@ -19,6 +21,8 @@ mod tests {
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
             pair_contracts: get_local_pair_contracts().to_vec(),
+            update_delay_hours: 0u16,
+            update_pending_time: now_env.block.time,
         };
 
         assert!(config.is_admin(admin.to_string()));
@@ -59,6 +63,8 @@ mod tests {
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
             pair_contracts: get_local_pair_contracts().to_vec(),
+            update_delay_hours: 0u16,
+            update_pending_time: now_env.block.time,
         };
 
         println!("Spending 1,000,000 now");
@@ -171,6 +177,8 @@ mod tests {
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
             pair_contracts: get_local_pair_contracts().to_vec(),
+            update_delay_hours: 0u16,
+            update_pending_time: now_env.block.time,
         };
 
         config

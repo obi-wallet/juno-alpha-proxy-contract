@@ -35,6 +35,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
 
         // ensure expected config
@@ -94,6 +95,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
 
         let msgs = vec![
@@ -141,6 +143,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
 
         // let us make some queries... different msg types by owner and by other
@@ -182,6 +185,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
         // this helper includes a hotwallet
 
@@ -350,6 +354,7 @@ mod tests {
                 denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
                     .to_string(),
             },
+            false,
         );
 
         // under test conditions, "testtokens" are worth 100 USDC each

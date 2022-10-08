@@ -69,6 +69,7 @@ impl Suite {
                         "testsigner3".to_string(),
                     ]
                     .to_vec(),
+                    update_delay_hours: None,
                 },
                 &[],
                 "Whitelist",

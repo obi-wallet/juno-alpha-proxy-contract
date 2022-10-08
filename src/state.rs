@@ -41,14 +41,31 @@ pub struct State {
     pub fee_lend_repay_wallet: Addr,
     pub home_network: String,
     pub pair_contracts: Vec<PairContract>,
+    pub update_delay_hours: u16,
+    pub update_pending_time: Timestamp,
 }
 
 impl State {
+    pub fn assert_update_allowed_now(&self, current_time: Timestamp) -> Result<(), ContractError> {
+        let allowed_time = self
+            .update_pending_time
+            .plus_seconds((self.update_delay_hours as u64).saturating_mul(3600));
+        if allowed_time > current_time {
+            Err(ContractError::UpdateDelayActive {})
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn assert_admin(&self, a: String, e: ContractError) -> Result<(), ContractError> {
         if !self.is_admin(a) {
             return Err(e);
         }
         Ok(())
+    }
+
+    pub fn is_update_pending(&self) -> bool {
+        self.admin != self.pending
     }
 
     pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {

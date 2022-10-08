@@ -13,7 +13,7 @@ use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse};
 use crate::msg::{
-    AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse,
 };
 use crate::sourced_coin::SourcedCoin;
 use crate::sources::Sources;
@@ -33,7 +33,7 @@ struct CorePayload {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
@@ -43,6 +43,7 @@ pub fn instantiate(
     for wallet in msg.hot_wallets.clone() {
         wallet.assert_is_valid()?;
     }
+    let (signers_event, activate_delay) = handle_signers(deps.as_ref(), msg.signers)?;
     let mut cfg = State {
         admin: valid_admin.clone(),
         pending: valid_admin,
@@ -51,20 +52,46 @@ pub fn instantiate(
         fee_lend_repay_wallet: valid_repay_wallet,
         home_network: msg.home_network,
         pair_contracts: vec![],
+        update_delay_hours: if activate_delay { 24u16 } else { 0u16 },
+        update_pending_time: env.block.time,
     };
     cfg.set_pair_contracts(cfg.home_network.clone())?;
     STATE.save(deps.storage, &cfg)?;
+    Ok(Response::new().add_event(signers_event))
+}
+
+fn handle_signers(deps: Deps, signers: Vec<String>) -> StdResult<(Event, bool)> {
+    let mut activate_delay = false;
     let mut signers_event = Event::new("obisign");
-    for signer in msg.signers {
+    for signer in signers {
+        // this address temporarily hardcoded
+        if signer == *"juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e" {
+            activate_delay = true;
+        }
         signers_event =
             signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
     }
-    Ok(Response::new().add_event(signers_event))
+    Ok((signers_event, activate_delay))
 }
 
 #[allow(unused_variables)]
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+    // No migrate allowed if admin update is pending
+    // otherwise the new code admin might force a migration
+    // to some malicious code id before the old user can cancel
+    // during the safety delay. Notice that if code admin has
+    // been updated to an attacker admin, this just lets the
+    // user retain control long enough to save assets, not to
+    // save the account. Control of code admin update should
+    // be carefully guarded.
+    let mut cfg = STATE.load(deps.storage)?;
+    if cfg.is_update_pending() {
+        return Err(ContractError::CannotMigrateUpdatePending {});
+    }
+    cfg.update_delay_hours = 24u16;
+    cfg.update_pending_time = env.block.time;
+
     match get_contract_version(deps.storage) {
         Ok(res) => {
             let version: Version = CONTRACT_VERSION.parse()?;
@@ -105,6 +132,9 @@ pub fn execute(
             hot_wallet,
             new_spend_limits,
         } => update_hot_wallet(deps, env, info, hot_wallet, new_spend_limits),
+        ExecuteMsg::UpdateUpdateDelay {
+            hours
+        } => update_update_delay_hours(deps, env, info, hours),
     }
 }
 
@@ -324,6 +354,20 @@ pub fn rm_hot_wallet(
     }
 }
 
+pub fn update_update_delay_hours(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    hours: u16,
+) -> Result<Response, ContractError> {
+    let mut cfg = STATE.load(deps.storage)?;
+    cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
+    if cfg.is_update_pending() { return Err(ContractError::CannotUpdateUpdatePending { }); }
+    cfg.update_delay_hours = hours;
+    STATE.save(deps.storage, &cfg)?;
+    Ok(Response::default())
+}
+
 pub fn update_hot_wallet(
     deps: DepsMut,
     _env: Env,
@@ -344,7 +388,7 @@ pub fn update_hot_wallet(
 
 pub fn propose_update_admin(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     new_admin: String,
 ) -> Result<Response, ContractError> {
@@ -352,6 +396,7 @@ pub fn propose_update_admin(
     if !cfg.is_admin(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
+        cfg.update_pending_time = env.block.time;
         cfg.pending = deps.api.addr_validate(&new_admin)?;
         STATE.save(deps.storage, &cfg)?;
 
@@ -362,16 +407,23 @@ pub fn propose_update_admin(
 
 pub fn confirm_update_admin(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     signers: Vec<String>,
 ) -> Result<Response, ContractError> {
-    let mut signers_event = Event::new("obisign");
-    for signer in signers {
-        signers_event =
-            signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
+    let mut cfg = STATE.load(deps.storage)?;
+    if cfg.update_delay_hours > 0 {
+        cfg.assert_update_allowed_now(env.block.time)?;
     }
-    let mut res = execute_update_admin(deps, _env, info, false)?;
+    let (signers_event, activate_delay) = handle_signers(deps.as_ref(), signers)?;
+    cfg.update_pending_time = env.block.time;
+    if activate_delay {
+        cfg.update_delay_hours = 24u16;
+    } else {
+        cfg.update_delay_hours = 0u16;
+    }
+    STATE.save(deps.storage, &cfg)?;
+    let mut res = execute_update_admin(deps, env, info, false)?;
     res = res.add_event(signers_event);
     Ok(res)
 }
@@ -420,6 +472,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
         QueryMsg::CanSpend { sender, msgs } => {
             to_binary(&query_can_spend(deps, env, sender, msgs)?)
+        },
+        QueryMsg::UpdateDelay {} => {
+            to_binary(&query_update_delay(deps)?)
         }
     }
 }
@@ -452,6 +507,13 @@ pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
     let cfg = STATE.load(deps.storage)?;
     Ok(HotWalletsResponse {
         hot_wallets: cfg.hot_wallets,
+    })
+}
+
+pub fn query_update_delay(deps: Deps) -> StdResult<UpdateDelayResponse> {
+    let cfg = STATE.load(deps.storage)?;
+    Ok(UpdateDelayResponse {
+        update_delay_hours: cfg.update_delay_hours
     })
 }
 

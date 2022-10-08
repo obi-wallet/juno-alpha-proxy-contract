@@ -90,6 +90,15 @@ pub enum ContractError {
 
     #[error("Unable to pay debt of {0} uusd")]
     UnableToRepayDebt(String),
+
+    #[error("Contract cannot be migrated while an admin update is pending")]
+    CannotMigrateUpdatePending {},
+
+    #[error("Contract update delay cannot be changed while an admin update is pending")]
+    CannotUpdateUpdatePending {},
+
+    #[error("Admin update safety delay has not yet passed")]
+    UpdateDelayActive {},
 }
 
 impl From<semver::Error> for ContractError {

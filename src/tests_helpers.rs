@@ -16,7 +16,11 @@ pub fn instantiate_contract(
     deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
     env: Env,
     starting_debt: Coin,
+    obi_is_signer: bool,
 ) {
+    let signer2: String;
+    if obi_is_signer { signer2 = "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string(); }
+    else { signer2 = "signer2".to_string(); }
     // instantiate the contract
     let instantiate_msg = InstantiateMsg {
         admin: ADMIN.to_string(),
@@ -39,10 +43,11 @@ pub fn instantiate_contract(
         home_network: "local".to_string(),
         signers: [
             "testsigner1".to_string(),
-            "testsigner2".to_string(),
+            signer2.clone(),
             "testsigner3".to_string(),
         ]
         .to_vec(),
+        update_delay_hours: if obi_is_signer { Some(24u16) } else { None },
     };
     let info = mock_info(ADMIN, &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
@@ -50,7 +55,7 @@ pub fn instantiate_contract(
     assert_eq!(res.events.len(), 1);
     assert_eq!(
         res.events[0].attributes[1],
-        Attribute::new("signer".to_string(), "testsigner2".to_string())
+        Attribute::new("signer".to_string(), signer2),
     );
 }
 
