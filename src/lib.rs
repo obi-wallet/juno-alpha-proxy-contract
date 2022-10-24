@@ -24,5 +24,6 @@ mod tests_hot_wallet;
 mod tests_pair_contract;
 #[cfg(test)]
 mod tests_state;
+pub mod signers;
 
 pub use crate::error::ContractError;

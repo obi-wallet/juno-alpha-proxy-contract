@@ -51,19 +51,19 @@
       "additionalProperties": false
     },
     {
-      "description": "Proposes a new admin for the proxy contract – must be called by the existing admin",
+      "description": "Proposes a new owner for the proxy contract – must be called by the existing owner",
       "type": "object",
       "required": [
-        "propose_update_admin"
+        "propose_update_owner"
       ],
       "properties": {
-        "propose_update_admin": {
+        "propose_update_owner": {
           "type": "object",
           "required": [
-            "new_admin"
+            "new_owner"
           ],
           "properties": {
-            "new_admin": {
+            "new_owner": {
               "type": "string"
             }
           }
@@ -72,18 +72,25 @@
       "additionalProperties": false
     },
     {
-      "description": "Confirms a proposed admin - must be called by the new admin. This is to prevent accidentally transitioning to an uncontrolled address.",
+      "description": "Confirms a proposed owner - must be called by the new owner. This is to prevent accidentally transitioning to an uncontrolled address.",
       "type": "object",
       "required": [
-        "confirm_update_admin"
+        "confirm_update_owner"
       ],
       "properties": {
-        "confirm_update_admin": {
+        "confirm_update_owner": {
           "type": "object",
           "required": [
+            "signer_types",
             "signers"
           ],
           "properties": {
+            "signer_types": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "signers": {
               "type": "array",
               "items": {
@@ -96,13 +103,13 @@
       "additionalProperties": false
     },
     {
-      "description": "Cancels a proposed admin - must be called by current admin. This can be used to cancel during a waiting period.",
+      "description": "Cancels a proposed owner - must be called by current owner. This can be used to cancel during a waiting period.",
       "type": "object",
       "required": [
-        "cancel_update_admin"
+        "cancel_update_owner"
       ],
       "properties": {
-        "cancel_update_admin": {
+        "cancel_update_owner": {
           "type": "object"
         }
       },
@@ -172,6 +179,29 @@
               "items": {
                 "$ref": "#/definitions/CoinLimit"
               }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Updates the update delay (when changing to new admin)",
+      "type": "object",
+      "required": [
+        "update_update_delay"
+      ],
+      "properties": {
+        "update_update_delay": {
+          "type": "object",
+          "required": [
+            "hours"
+          ],
+          "properties": {
+            "hours": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
             }
           }
         }

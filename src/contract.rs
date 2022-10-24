@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env, Event,
+    to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
     MessageInfo, Response, StakingMsg, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
@@ -13,8 +13,9 @@ use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse};
 use crate::msg::{
-    AdminResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse,
+    OwnerResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse,
 };
+use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::sources::Sources;
 use crate::state::{State, STATE};
@@ -38,15 +39,17 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let valid_admin: Addr = deps.api.addr_validate(&msg.admin)?;
+    let valid_owner: Addr = deps.api.addr_validate(&msg.owner)?;
     let valid_repay_wallet: Addr = deps.api.addr_validate(&msg.fee_lend_repay_wallet)?;
     for wallet in msg.hot_wallets.clone() {
         wallet.assert_is_valid()?;
     }
-    let (signers_event, activate_delay) = handle_signers(deps.as_ref(), msg.signers)?;
+    let owner_signers = Signers::new(deps.as_ref(), msg.signers, msg.signer_types)?;
+    let (signers_event, activate_delay) = owner_signers.create_event();
     let mut cfg = State {
-        admin: valid_admin.clone(),
-        pending: valid_admin,
+        owner: valid_owner.clone(),
+        owner_signers,
+        pending: valid_owner,
         hot_wallets: msg.hot_wallets,
         uusd_fee_debt: msg.uusd_fee_debt,
         fee_lend_repay_wallet: valid_repay_wallet,
@@ -60,30 +63,16 @@ pub fn instantiate(
     Ok(Response::new().add_event(signers_event))
 }
 
-fn handle_signers(deps: Deps, signers: Vec<String>) -> StdResult<(Event, bool)> {
-    let mut activate_delay = false;
-    let mut signers_event = Event::new("obisign");
-    for signer in signers {
-        // this address temporarily hardcoded
-        if signer == *"juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e" {
-            activate_delay = true;
-        }
-        signers_event =
-            signers_event.add_attribute("signer", deps.api.addr_validate(&signer)?.to_string());
-    }
-    Ok((signers_event, activate_delay))
-}
-
 #[allow(unused_variables)]
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-    // No migrate allowed if admin update is pending
-    // otherwise the new code admin might force a migration
+    // No migrate allowed if owner update is pending
+    // otherwise the new code owner might force a migration
     // to some malicious code id before the old user can cancel
-    // during the safety delay. Notice that if code admin has
-    // been updated to an attacker admin, this just lets the
+    // during the safety delay. Notice that if code owner has
+    // been updated to an attacker owner, this just lets the
     // user retain control long enough to save assets, not to
-    // save the account. Control of code admin update should
+    // save the account. Control of code owner update should
     // be carefully guarded.
     let mut cfg = STATE.load(deps.storage)?;
     if cfg.is_update_pending() {
@@ -121,13 +110,13 @@ pub fn execute(
         ExecuteMsg::RmHotWallet { doomed_hot_wallet } => {
             rm_hot_wallet(deps, env, info, doomed_hot_wallet)
         }
-        ExecuteMsg::ProposeUpdateAdmin { new_admin } => {
-            propose_update_admin(deps, env, info, new_admin)
+        ExecuteMsg::ProposeUpdateOwner { new_owner } => {
+            propose_update_owner(deps, env, info, new_owner)
         }
-        ExecuteMsg::ConfirmUpdateAdmin { signers } => {
-            confirm_update_admin(deps, env, info, signers)
+        ExecuteMsg::ConfirmUpdateOwner { signers, signer_types } => {
+            confirm_update_owner(deps, env, info, signers, signer_types)
         }
-        ExecuteMsg::CancelUpdateAdmin {} => cancel_update_admin(deps, env, info),
+        ExecuteMsg::CancelUpdateOwner {} => cancel_update_owner(deps, env, info),
         ExecuteMsg::UpdateHotWalletSpendLimit {
             hot_wallet,
             new_spend_limits,
@@ -148,14 +137,14 @@ pub fn execute_execute(
 ) -> Result<Response, ContractError> {
     let cfg = STATE.load(deps.storage)?;
     let mut res = Response::new();
-    if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_admin(info.sender.to_string()) {
-        // if there is no debt AND user is admin, process immediately
+    if cfg.uusd_fee_debt == Uint128::from(0u128) && cfg.is_owner(info.sender.to_string()) {
+        // if there is no debt AND user is owner, process immediately
         res = res.add_attribute("action", "execute_execute");
         if !simulation {
             res = res.add_messages(msgs);
         }
     } else {
-        // certain authorized token contracts process immediately if hot wallet (or admin)
+        // certain authorized token contracts process immediately if hot wallet (or owner)
         if let CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr,
             msg: _,
@@ -223,7 +212,7 @@ fn check_and_spend_total_coins(
         }
         SubmsgType::ExecuteWasm(_other_type) => {
             let cfg = STATE.load(deps.storage)?;
-            cfg.assert_admin(
+            cfg.assert_owner(
                 core_payload.info.sender.to_string(),
                 ContractError::OnlyTransferSendAllowed {},
             )?;
@@ -317,7 +306,7 @@ pub fn add_hot_wallet(
     new_hot_wallet: HotWallet,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
+    cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
     if cfg
         .hot_wallets
         .iter()
@@ -339,7 +328,7 @@ pub fn rm_hot_wallet(
     doomed_hot_wallet: String,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    if !cfg.is_admin(info.sender.to_string()) {
+    if !cfg.is_owner(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else if !cfg
         .hot_wallets
@@ -361,7 +350,7 @@ pub fn update_update_delay_hours(
     hours: u16,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
+    cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
     if cfg.is_update_pending() { return Err(ContractError::CannotUpdateUpdatePending { }); }
     cfg.update_delay_hours = hours;
     STATE.save(deps.storage, &cfg)?;
@@ -376,7 +365,7 @@ pub fn update_hot_wallet(
     new_spend_limits: Vec<CoinLimit>,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    cfg.assert_admin(info.sender.to_string(), ContractError::Unauthorized {})?;
+    cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
     let mut wallet = cfg
         .hot_wallets
         .iter_mut()
@@ -386,36 +375,38 @@ pub fn update_hot_wallet(
     Ok(Response::new())
 }
 
-pub fn propose_update_admin(
+pub fn propose_update_owner(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    new_admin: String,
+    new_owner: String,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
-    if !cfg.is_admin(info.sender.to_string()) {
+    if !cfg.is_owner(info.sender.to_string()) {
         Err(ContractError::Unauthorized {})
     } else {
         cfg.update_pending_time = env.block.time;
-        cfg.pending = deps.api.addr_validate(&new_admin)?;
+        cfg.pending = deps.api.addr_validate(&new_owner)?;
         STATE.save(deps.storage, &cfg)?;
 
-        let res = Response::new().add_attribute("action", "propose_update_admin");
+        let res = Response::new().add_attribute("action", "propose_update_owner");
         Ok(res)
     }
 }
 
-pub fn confirm_update_admin(
+pub fn confirm_update_owner(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
     signers: Vec<String>,
+    signer_types: Vec<String>,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     if cfg.update_delay_hours > 0 {
         cfg.assert_update_allowed_now(env.block.time)?;
     }
-    let (signers_event, activate_delay) = handle_signers(deps.as_ref(), signers)?;
+    cfg.owner_signers = Signers::new(deps.as_ref(), signers, signer_types)?;
+    let (signers_event, activate_delay) = cfg.owner_signers.create_event();
     cfg.update_pending_time = env.block.time;
     if activate_delay {
         cfg.update_delay_hours = 24u16;
@@ -423,20 +414,20 @@ pub fn confirm_update_admin(
         cfg.update_delay_hours = 0u16;
     }
     STATE.save(deps.storage, &cfg)?;
-    let mut res = execute_update_admin(deps, env, info, false)?;
+    let mut res = execute_update_owner(deps, env, info, false)?;
     res = res.add_event(signers_event);
     Ok(res)
 }
 
-pub fn cancel_update_admin(
+pub fn cancel_update_owner(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
-    execute_update_admin(deps, _env, info, true)
+    execute_update_owner(deps, _env, info, true)
 }
 
-fn execute_update_admin(
+fn execute_update_owner(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -444,29 +435,29 @@ fn execute_update_admin(
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     if !cfg.is_pending(info.sender.to_string()) {
-        Err(ContractError::CallerIsNotPendingNewAdmin {})
+        Err(ContractError::CallerIsNotPendingNewOwner {})
     } else {
         match cancel {
-            true => cfg.pending = cfg.admin.clone(),
-            false => cfg.admin = cfg.pending.clone(),
+            true => cfg.pending = cfg.owner.clone(),
+            false => cfg.owner = cfg.pending.clone(),
         };
         STATE.save(deps.storage, &cfg)?;
 
-        let res = Response::new().add_attribute("action", "confirm_update_admin");
+        let res = Response::new().add_attribute("action", "confirm_update_owner");
         Ok(res)
     }
 }
 
 fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
     let cfg = STATE.load(deps.storage)?;
-    let can = cfg.is_admin(sender.to_string());
+    let can = cfg.is_owner(sender.to_string());
     Ok(can)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Admin {} => to_binary(&query_admin(deps)?),
+        QueryMsg::Owner {} => to_binary(&query_owner(deps)?),
         QueryMsg::Pending {} => to_binary(&query_pending(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
@@ -479,17 +470,17 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-pub fn query_admin(deps: Deps) -> StdResult<AdminResponse> {
+pub fn query_owner(deps: Deps) -> StdResult<OwnerResponse> {
     let cfg = STATE.load(deps.storage)?;
-    Ok(AdminResponse {
-        admin: cfg.admin.to_string(),
+    Ok(OwnerResponse {
+        owner: cfg.owner.to_string(),
     })
 }
 
-pub fn query_pending(deps: Deps) -> StdResult<AdminResponse> {
+pub fn query_pending(deps: Deps) -> StdResult<OwnerResponse> {
     let cfg = STATE.load(deps.storage)?;
-    Ok(AdminResponse {
-        admin: cfg.pending.to_string(),
+    Ok(OwnerResponse {
+        owner: cfg.pending.to_string(),
     })
 }
 
@@ -524,9 +515,9 @@ pub fn query_can_spend(
     msgs: Vec<CosmosMsg>,
 ) -> StdResult<CanSpendResponse> {
     let cfg = STATE.load(deps.storage)?;
-    // if admin, always – though technically this might not be true
+    // if owner, always – though technically this might not be true
     // if first token send with nothing left to repay fees
-    if cfg.is_admin(sender.clone()) {
+    if cfg.is_owner(sender.clone()) {
         return Ok(CanSpendResponse { can_spend: true });
     }
     // if one of authorized token contracts and spender is hot wallet, yes

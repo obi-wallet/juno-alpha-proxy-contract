@@ -11,6 +11,7 @@ use crate::pair_contract::PairContract;
 use crate::pair_contract_defaults::{
     get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
 };
+use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::ContractError;
 
@@ -34,7 +35,8 @@ pub fn get_admin_sourced_coin() -> SourcedCoin {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct State {
-    pub admin: Addr,
+    pub owner: Addr,
+    pub owner_signers: Signers,
     pub pending: Addr,
     pub hot_wallets: Vec<HotWallet>,
     pub uusd_fee_debt: Uint128, // waiting to pay back fees
@@ -57,15 +59,15 @@ impl State {
         }
     }
 
-    pub fn assert_admin(&self, a: String, e: ContractError) -> Result<(), ContractError> {
-        if !self.is_admin(a) {
+    pub fn assert_owner(&self, a: String, e: ContractError) -> Result<(), ContractError> {
+        if !self.is_owner(a) {
             return Err(e);
         }
         Ok(())
     }
 
     pub fn is_update_pending(&self) -> bool {
-        self.admin != self.pending
+        self.owner != self.pending
     }
 
     pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {
@@ -147,9 +149,9 @@ impl State {
     }
 
     /// returns true if the address is a registered admin
-    pub fn is_admin(&self, addr: String) -> bool {
+    pub fn is_owner(&self, addr: String) -> bool {
         let addr: &str = &addr;
-        self.admin == addr
+        self.owner == addr
     }
 
     /// returns true if the address is pending to become a registered admin
@@ -186,7 +188,7 @@ impl State {
         addr: String,
         spend: Vec<Coin>,
     ) -> Result<SourcedCoin, ContractError> {
-        if self.is_admin(addr.clone()) {
+        if self.is_owner(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
         let this_wallet = self.maybe_get_hot_wallet_mut(addr)?;
@@ -211,7 +213,7 @@ impl State {
         addr: String,
         spend: Vec<Coin>,
     ) -> Result<SourcedCoin, ContractError> {
-        if self.is_admin(addr.clone()) {
+        if self.is_owner(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
         let this_wallet = self.maybe_get_hot_wallet(addr)?;

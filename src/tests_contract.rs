@@ -1,15 +1,15 @@
-pub const ADMIN: &str = "alice";
+pub const OWNER: &str = "alice";
 pub const HOT_WALLET: &str = "hotcarl";
 
 #[cfg(test)]
 mod tests {
     use crate::contract::{
-        execute, query_admin, query_can_execute, query_can_spend, query_hot_wallets,
+        execute, query_owner, query_can_execute, query_can_spend, query_hot_wallets,
     };
     use crate::hot_wallet::PeriodType;
     /* use crate::defaults::get_local_pair_contracts; */
     use super::*;
-    use crate::msg::{AdminResponse, Cw20ExecuteMsg, ExecuteMsg};
+    use crate::msg::{OwnerResponse, Cw20ExecuteMsg, ExecuteMsg};
     use crate::tests_helpers::{add_test_hotwallet, instantiate_contract, test_spend_bank};
     use crate::ContractError;
 
@@ -19,13 +19,13 @@ mod tests {
         StakingMsg, SubMsg, Uint128, WasmMsg,
     };
 
-    const NEW_ADMIN: &str = "bob";
+    const NEW_OWNER: &str = "bob";
     const ANYONE: &str = "anyone";
     const RECEIVER: &str = "diane";
     const HOT_USDC_WALLET: &str = "hotearl";
 
     #[test]
-    fn instantiate_and_modify_admin() {
+    fn instantiate_and_modify_owner() {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
         instantiate_contract(
@@ -39,49 +39,50 @@ mod tests {
         );
 
         // ensure expected config
-        let expected = AdminResponse {
-            admin: ADMIN.to_string(),
+        let expected = OwnerResponse {
+            owner: OWNER.to_string(),
         };
-        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_owner(deps.as_ref()).unwrap(), expected);
 
-        // anyone cannot propose updating admin on the contract
-        let msg = ExecuteMsg::ProposeUpdateAdmin {
-            new_admin: ANYONE.to_string(),
+        // anyone cannot propose updating owner on the contract
+        let msg = ExecuteMsg::ProposeUpdateOwner {
+            new_owner: ANYONE.to_string(),
         };
         let info = mock_info(ANYONE, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
         // but alice can propose an update
-        let msg = ExecuteMsg::ProposeUpdateAdmin {
-            new_admin: NEW_ADMIN.to_string(),
+        let msg = ExecuteMsg::ProposeUpdateOwner {
+            new_owner: NEW_OWNER.to_string(),
         };
-        let info = mock_info(ADMIN, &[]);
+        let info = mock_info(OWNER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // now, the admin isn't updated yet
-        let expected = AdminResponse {
-            admin: ADMIN.to_string(),
+        // now, the owner isn't updated yet
+        let expected = OwnerResponse {
+            owner: OWNER.to_string(),
         };
-        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_owner(deps.as_ref()).unwrap(), expected);
 
         // but if bob accepts...
-        let msg = ExecuteMsg::ConfirmUpdateAdmin {
-            signers: vec!["test_confirm_admin".to_string()],
+        let msg = ExecuteMsg::ConfirmUpdateOwner {
+            signers: vec!["test_confirm_owner".to_string()],
+            signer_types: vec!["new_owner_type".to_string()],
         };
-        let info = mock_info(NEW_ADMIN, &[]);
+        let info = mock_info(NEW_OWNER, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.events.len(), 1);
         assert_eq!(
             res.events[0].attributes[0],
-            Attribute::new("signer".to_string(), "test_confirm_admin".to_string())
+            Attribute::new("signer".to_string(), "test_confirm_owner".to_string())
         );
 
-        // then admin is updated
-        let expected = AdminResponse {
-            admin: NEW_ADMIN.to_string(),
+        // then owner is updated
+        let expected = OwnerResponse {
+            owner: NEW_OWNER.to_string(),
         };
-        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_owner(deps.as_ref()).unwrap(), expected);
     }
 
     #[test]
@@ -117,13 +118,13 @@ mod tests {
 
         // receiver or anyone else cannot execute them ... and gets HotWalletDoesNotExist since
         // this is a spend, so contract assumes we're trying against spend limit
-        // if not admin
+        // if not owner
         let info = mock_info(RECEIVER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, execute_msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::HotWalletDoesNotExist {});
 
-        // but admin can
-        let info = mock_info(ADMIN, &[]);
+        // but owner can
+        let info = mock_info(OWNER, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
         assert_eq!(
             res.messages,
@@ -157,11 +158,11 @@ mod tests {
         });
 
         // owner can send
-        let res = query_can_execute(deps.as_ref(), ADMIN.to_string(), send_msg.clone()).unwrap();
+        let res = query_can_execute(deps.as_ref(), OWNER.to_string(), send_msg.clone()).unwrap();
         assert!(res.can_execute);
 
         // owner can stake
-        let res = query_can_execute(deps.as_ref(), ADMIN.to_string(), staking_msg.clone()).unwrap();
+        let res = query_can_execute(deps.as_ref(), OWNER.to_string(), staking_msg.clone()).unwrap();
         assert!(res.can_execute);
 
         // anyone cannot send
@@ -253,7 +254,7 @@ mod tests {
         assert!(_res.can_spend);
 
         // actually spend as the hot wallet
-        let admin_info = mock_info(ADMIN, &[]);
+        let owner_info = mock_info(OWNER, &[]);
         let hot_wallet_info = mock_info(HOT_WALLET, &[]);
         test_spend_bank(
             deps.as_mut(),
@@ -269,7 +270,7 @@ mod tests {
             deps.as_mut(),
             "hot_diane".to_string(),
             current_env.clone(),
-            admin_info.clone(),
+            owner_info.clone(),
             1u16,
             PeriodType::DAYS,
             1_000_000u64,
@@ -291,7 +292,7 @@ mod tests {
         let _res = execute(
             deps.as_mut(),
             current_env.clone(),
-            admin_info.clone(),
+            owner_info.clone(),
             execute_msg,
         )
         .unwrap();
@@ -306,7 +307,7 @@ mod tests {
             deps.as_mut(),
             HOT_USDC_WALLET.to_string(),
             current_env.clone(),
-            admin_info,
+            owner_info,
             1u16,
             PeriodType::DAYS,
             100_000_000u64,
@@ -375,7 +376,7 @@ mod tests {
         ];
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
-        let info = mock_info(ADMIN, &[]);
+        let info = mock_info(OWNER, &[]);
         let res = execute(deps.as_mut(), mock_env(), info.clone(), execute_msg.clone()).unwrap();
         assert_eq!(
             res.messages,

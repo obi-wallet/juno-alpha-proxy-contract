@@ -1,4 +1,4 @@
-use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
+use crate::msg::{OwnerResponse, ExecuteMsg, InstantiateMsg};
 use anyhow::{anyhow, Result};
 use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, Empty, QueryRequest, StdError, Uint128, WasmMsg, WasmQuery,
@@ -49,7 +49,7 @@ impl Suite {
     #[allow(dead_code)]
     pub fn instantiate_cw1_contract(
         &mut self,
-        admin: String,
+        owner: String,
         hot_wallets: Vec<crate::hot_wallet::HotWallet>,
     ) -> Cw1Contract {
         let contract = self
@@ -58,7 +58,8 @@ impl Suite {
                 self.cw1_id,
                 Addr::unchecked(self.owner.clone()),
                 &InstantiateMsg {
-                    admin,
+                    owner,
+                    signer_types: vec!["type1".to_string(), "type2".to_string(), "type3".to_string()],
                     hot_wallets,
                     uusd_fee_debt: Uint128::from(0u128),
                     fee_lend_repay_wallet: "test_repay_address".to_string(),
@@ -107,7 +108,7 @@ impl Suite {
     }
 
     #[allow(dead_code)]
-    pub fn query<M>(&self, target_contract: Addr, msg: M) -> Result<AdminResponse, StdError>
+    pub fn query<M>(&self, target_contract: Addr, msg: M) -> Result<OwnerResponse, StdError>
     where
         M: Serialize + DeserializeOwned,
     {

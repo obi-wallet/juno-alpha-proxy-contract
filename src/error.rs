@@ -12,7 +12,7 @@ pub enum ContractError {
     #[error("{0}")]
     Overflow(#[from] OverflowError),
 
-    #[error("Caller is not admin.")]
+    #[error("Caller is not owner.")]
     Unauthorized {},
 
     #[error("Spend-limited cw20 transactions cannot have additional funds attached.")]
@@ -58,8 +58,8 @@ pub enum ContractError {
     #[error("Uninitialized message.")]
     UninitializedMessage {},
 
-    #[error("Caller is not pending new admin. Propose new admin first.")]
-    CallerIsNotPendingNewAdmin {},
+    #[error("Caller is not pending new owner. Propose new owner first.")]
+    CallerIsNotPendingNewOwner {},
 
     #[error("Unable to get current asset price to check spend limit for asset. If this transaction is urgent, use your multisig to sign. SUBMSG: {0} CONTRACT: {1} ERROR: {2}")]
     PriceCheckFailed(String, String, String),
@@ -91,13 +91,13 @@ pub enum ContractError {
     #[error("Unable to pay debt of {0} uusd")]
     UnableToRepayDebt(String),
 
-    #[error("Contract cannot be migrated while an admin update is pending")]
+    #[error("Contract cannot be migrated while an owner update is pending")]
     CannotMigrateUpdatePending {},
 
-    #[error("Contract update delay cannot be changed while an admin update is pending")]
+    #[error("Contract update delay cannot be changed while an owner update is pending")]
     CannotUpdateUpdatePending {},
 
-    #[error("Admin update safety delay has not yet passed")]
+    #[error("Owner update safety delay has not yet passed")]
     UpdateDelayActive {},
 }
 

@@ -7,12 +7,13 @@ use crate::hot_wallet::{CoinLimit, HotWallet};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub admin: String,
+    pub owner: String,
     pub hot_wallets: Vec<HotWallet>,
     pub uusd_fee_debt: Uint128,
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
     pub signers: Vec<String>,
+    pub signer_types: Vec<String>,
     pub update_delay_hours: Option<u16>,
 }
 
@@ -27,14 +28,14 @@ pub enum ExecuteMsg {
     /// any messages. Attaches attributes as normal. For debugging purposes –
     /// others should use query
     SimExecute { msgs: Vec<CosmosMsg> },
-    /// Proposes a new admin for the proxy contract – must be called by the existing admin
-    ProposeUpdateAdmin { new_admin: String },
-    /// Confirms a proposed admin - must be called by the new admin.
+    /// Proposes a new owner for the proxy contract – must be called by the existing owner
+    ProposeUpdateOwner { new_owner: String },
+    /// Confirms a proposed owner - must be called by the new owner.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
-    ConfirmUpdateAdmin { signers: Vec<String> },
-    /// Cancels a proposed admin - must be called by current admin.
+    ConfirmUpdateOwner { signers: Vec<String>, signer_types: Vec<String> },
+    /// Cancels a proposed owner - must be called by current owner.
     /// This can be used to cancel during a waiting period.
-    CancelUpdateAdmin {},
+    CancelUpdateOwner {},
     /// Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg
     /// transactions if within the known recurring spend limit.
     AddHotWallet { new_hot_wallet: HotWallet },
@@ -54,10 +55,10 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    /// Shows admin; always mutable
-    Admin {},
-    /// Shows pending admin (subject to becoming new admin when
-    /// ConfirmUpdateAdmin is called successfully)
+    /// Shows owner; always mutable
+    Owner {},
+    /// Shows pending owner (subject to becoming new owner when
+    /// ConfirmUpdateOwner is called successfully)
     Pending {},
     /// Checks permissions of the caller on this proxy.
     /// If CanExecute returns true then a call to `Execute` with the same message,
@@ -81,8 +82,8 @@ pub enum QueryMsg {
 pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct AdminResponse {
-    pub admin: String,
+pub struct OwnerResponse {
+    pub owner: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

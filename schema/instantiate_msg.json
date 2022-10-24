@@ -3,17 +3,15 @@
   "title": "InstantiateMsg",
   "type": "object",
   "required": [
-    "admin",
     "fee_lend_repay_wallet",
     "home_network",
     "hot_wallets",
+    "owner",
+    "signer_types",
     "signers",
     "uusd_fee_debt"
   ],
   "properties": {
-    "admin": {
-      "type": "string"
-    },
     "fee_lend_repay_wallet": {
       "type": "string"
     },
@@ -26,11 +24,28 @@
         "$ref": "#/definitions/HotWallet"
       }
     },
+    "owner": {
+      "type": "string"
+    },
+    "signer_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "signers": {
       "type": "array",
       "items": {
         "type": "string"
       }
+    },
+    "update_delay_hours": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint16",
+      "minimum": 0.0
     },
     "uusd_fee_debt": {
       "$ref": "#/definitions/Uint128"

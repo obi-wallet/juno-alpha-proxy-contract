@@ -10,7 +10,7 @@ use crate::hot_wallet::{CoinLimit, HotWallet};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::{contract::query_hot_wallets, hot_wallet::PeriodType};
 
-use crate::tests_contract::{ADMIN, HOT_WALLET};
+use crate::tests_contract::{OWNER, HOT_WALLET};
 
 pub fn instantiate_contract(
     deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
@@ -23,7 +23,7 @@ pub fn instantiate_contract(
     else { signer2 = "signer2".to_string(); }
     // instantiate the contract
     let instantiate_msg = InstantiateMsg {
-        admin: ADMIN.to_string(),
+        owner: OWNER.to_string(),
         hot_wallets: vec![HotWallet {
             address: HOT_WALLET.to_string(),
             current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
@@ -48,8 +48,9 @@ pub fn instantiate_contract(
         ]
         .to_vec(),
         update_delay_hours: if obi_is_signer { Some(24u16) } else { None },
+        signer_types: vec!["type1".to_string(), "type2".to_string(), "type3".to_string()],
     };
-    let info = mock_info(ADMIN, &[]);
+    let info = mock_info(OWNER, &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
     println!("events: {:?}", res.events);
     assert_eq!(res.events.len(), 1);
