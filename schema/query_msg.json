@@ -29,6 +29,19 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns the array of owner_signers stored in state.",
+      "type": "object",
+      "required": [
+        "signers"
+      ],
+      "properties": {
+        "signers": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Checks permissions of the caller on this proxy. If CanExecute returns true then a call to `Execute` with the same message, before any further state changes, should also succeed. TODO: support can_spend for hot wallets in this check.",
       "type": "object",
       "required": [

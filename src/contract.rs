@@ -13,7 +13,7 @@ use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse};
 use crate::msg::{
-    OwnerResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse,
+    OwnerResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse, SignersResponse,
 };
 use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
@@ -459,6 +459,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Owner {} => to_binary(&query_owner(deps)?),
         QueryMsg::Pending {} => to_binary(&query_pending(deps)?),
+        QueryMsg::Signers {} => to_binary(&query_signers(deps)?),
         QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
         QueryMsg::CanSpend { sender, msgs } => {
@@ -484,6 +485,12 @@ pub fn query_pending(deps: Deps) -> StdResult<OwnerResponse> {
     })
 }
 
+pub fn query_signers(deps: Deps) -> StdResult<SignersResponse> {
+    let cfg = STATE.load(deps.storage)?;
+    Ok(SignersResponse {
+        signers: cfg.owner_signers.signers(),
+    })
+}
 pub fn query_can_execute(
     deps: Deps,
     sender: String,

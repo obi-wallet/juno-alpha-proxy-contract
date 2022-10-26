@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::hot_wallet::{CoinLimit, HotWallet};
+use crate::{hot_wallet::{CoinLimit, HotWallet}, signers::Signer};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -60,6 +60,8 @@ pub enum QueryMsg {
     /// Shows pending owner (subject to becoming new owner when
     /// ConfirmUpdateOwner is called successfully)
     Pending {},
+    /// Returns the array of owner_signers stored in state.
+    Signers {},
     /// Checks permissions of the caller on this proxy.
     /// If CanExecute returns true then a call to `Execute` with the same message,
     /// before any further state changes, should also succeed.
@@ -84,6 +86,11 @@ pub struct MigrateMsg {}
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct OwnerResponse {
     pub owner: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct SignersResponse {
+    pub signers: Vec<Signer>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
