@@ -7,7 +7,10 @@ use cosmwasm_std::{
 
 use cw1::CanExecuteResponse;
 use cw2::{get_contract_version, set_contract_version};
+use cw_storage_plus::Item;
+use schemars::JsonSchema;
 use semver::Version;
+use serde::{Deserialize, Serialize};
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
@@ -16,6 +19,7 @@ use crate::msg::{
     CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, OwnerResponse, QueryMsg,
     SignersResponse, UpdateDelayResponse,
 };
+use crate::pair_contract::PairContract;
 use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::sources::Sources;
@@ -67,6 +71,19 @@ pub fn instantiate(
 #[allow(unused_variables)]
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+    struct OldState {
+        pub admin: Addr,
+        pub pending: Addr,
+        pub hot_wallets: Vec<HotWallet>,
+        pub uusd_fee_debt: Uint128, // waiting to pay back fees
+        pub fee_lend_repay_wallet: Addr,
+        pub home_network: String,
+        pub pair_contracts: Vec<PairContract>,
+        pub update_delay_hours: u16,
+        pub update_pending_time: Timestamp,
+    }
+
     // No migrate allowed if owner update is pending
     // otherwise the new code owner might force a migration
     // to some malicious code id before the old user can cancel
@@ -75,12 +92,41 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Con
     // user retain control long enough to save assets, not to
     // save the account. Control of code owner update should
     // be carefully guarded.
-    let mut cfg = STATE.load(deps.storage)?;
-    if cfg.is_update_pending() {
-        return Err(ContractError::CannotMigrateUpdatePending {});
+    let cfg = STATE.load(deps.storage);
+    match cfg {
+        Err(_) => {
+            const OLDSTATE: Item<OldState> = Item::new("state");
+            let old_cfg: OldState = OLDSTATE.load(deps.storage)?;
+            let cfg = State {
+                update_delay_hours: 24u16,
+                update_pending_time: env.block.time,
+                owner: old_cfg.admin.clone(),
+                owner_signers: Signers::new(
+                    deps.as_ref(),
+                    vec!["missing signers".to_string()],
+                    vec!["missing signers".to_string()],
+                )?,
+                pending: old_cfg.pending.clone(),
+                hot_wallets: old_cfg.hot_wallets,
+                uusd_fee_debt: old_cfg.uusd_fee_debt,
+                fee_lend_repay_wallet: old_cfg.fee_lend_repay_wallet,
+                home_network: old_cfg.home_network,
+                pair_contracts: old_cfg.pair_contracts,
+            };
+            if old_cfg.admin != old_cfg.pending {
+                return Err(ContractError::CannotMigrateUpdatePending {});
+            }
+            STATE.save(deps.storage, &cfg)?;
+        }
+        Ok(mut current_cfg) => {
+            if current_cfg.is_update_pending() {
+                return Err(ContractError::CannotMigrateUpdatePending {});
+            }
+            current_cfg.update_delay_hours = 24u16;
+            current_cfg.update_pending_time = env.block.time;
+            STATE.save(deps.storage, &current_cfg)?;
+        }
     }
-    cfg.update_delay_hours = 24u16;
-    cfg.update_pending_time = env.block.time;
 
     match get_contract_version(deps.storage) {
         Ok(res) => {
