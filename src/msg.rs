@@ -3,16 +3,21 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::hot_wallet::{HotWallet, CoinLimit};
+use crate::{
+    hot_wallet::{CoinLimit, HotWalletParams},
+    signers::Signer,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub admin: String,
-    pub hot_wallets: Vec<HotWallet>,
+    pub owner: String,
+    pub hot_wallets: Vec<HotWalletParams>,
     pub uusd_fee_debt: Uint128,
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
     pub signers: Vec<String>,
+    pub signer_types: Vec<String>,
+    pub update_delay_hours: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -26,34 +31,41 @@ pub enum ExecuteMsg {
     /// any messages. Attaches attributes as normal. For debugging purposes –
     /// others should use query
     SimExecute { msgs: Vec<CosmosMsg> },
-    /// Proposes a new admin for the proxy contract – must be called by the existing admin
-    ProposeUpdateAdmin { new_admin: String },
-    /// Confirms a proposed admin - must be called by the new admin.
+    /// Proposes a new owner for the proxy contract – must be called by the existing owner
+    ProposeUpdateOwner { new_owner: String },
+    /// Confirms a proposed owner - must be called by the new owner.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
-    ConfirmUpdateAdmin { signers: Vec<String> },
-    /// Cancels a proposed admin - must be called by current admin.
+    ConfirmUpdateOwner {
+        signers: Vec<String>,
+        signer_types: Vec<String>,
+    },
+    /// Cancels a proposed owner - must be called by current owner.
     /// This can be used to cancel during a waiting period.
-    CancelUpdateAdmin {},
+    CancelUpdateOwner {},
     /// Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg
     /// transactions if within the known recurring spend limit.
-    AddHotWallet { new_hot_wallet: HotWallet },
+    AddHotWallet { new_hot_wallet: HotWalletParams },
     /// Removes an active spend-limited wallet.
     RmHotWallet { doomed_hot_wallet: String },
     /// Updates spend limit for a wallet. Update of period not supported: rm and re-add
     UpdateHotWalletSpendLimit {
         hot_wallet: String,
-        new_spend_limits: Vec<CoinLimit>,
+        new_spend_limits: CoinLimit,
     },
+    /// Updates the update delay (when changing to new admin)
+    UpdateUpdateDelay { hours: u16 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    /// Shows admin; always mutable
-    Admin {},
-    /// Shows pending admin (subject to becoming new admin when
-    /// ConfirmUpdateAdmin is called successfully)
+    /// Shows owner; always mutable
+    Owner {},
+    /// Shows pending owner (subject to becoming new owner when
+    /// ConfirmUpdateOwner is called successfully)
     Pending {},
+    /// Returns the array of owner_signers stored in state.
+    Signers {},
     /// Checks permissions of the caller on this proxy.
     /// If CanExecute returns true then a call to `Execute` with the same message,
     /// before any further state changes, should also succeed.
@@ -67,6 +79,8 @@ pub enum QueryMsg {
         sender: String,
         msgs: Vec<CosmosMsg>,
     },
+    /// Returns the update delay (when updating to a new admin) in hours
+    UpdateDelay {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -74,13 +88,23 @@ pub enum QueryMsg {
 pub struct MigrateMsg {}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct AdminResponse {
-    pub admin: String,
+pub struct OwnerResponse {
+    pub owner: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct SignersResponse {
+    pub signers: Vec<Signer>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct CanSpendResponse {
     pub can_spend: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct UpdateDelayResponse {
+    pub update_delay_hours: u16,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

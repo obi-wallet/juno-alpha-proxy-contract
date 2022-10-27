@@ -4,31 +4,42 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
-    use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
+    use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletParams, PeriodType};
     use crate::pair_contract_defaults::get_local_pair_contracts;
+    use crate::signers::Signers;
     use crate::state::State;
 
     #[test]
-    fn is_admin() {
-        let admin: &str = "bob";
+    fn is_owner() {
+        let now_env = mock_env();
+        let deps = mock_dependencies();
+        let owner: &str = "bob";
         let config = State {
-            admin: Addr::unchecked(admin),
-            pending: Addr::unchecked(admin),
+            owner: Addr::unchecked(owner),
+            owner_signers: Signers::new(
+                deps.as_ref(),
+                vec!["signer1".to_string(), "signer2".to_string()],
+                vec!["type1".to_string(), "type2".to_string()],
+            )
+            .unwrap(),
+            pending: Addr::unchecked(owner),
             hot_wallets: vec![],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
             pair_contracts: get_local_pair_contracts().to_vec(),
+            update_delay_hours: 0u16,
+            update_pending_time: now_env.block.time,
         };
 
-        assert!(config.is_admin(admin.to_string()));
-        assert!(!config.is_admin("other".to_string()));
+        assert!(config.is_owner(owner.to_string()));
+        assert!(!config.is_owner("other".to_string()));
     }
 
     #[test]
     fn daily_spend_limit() {
         let deps = mock_dependencies();
-        let admin: &str = "bob";
+        let owner: &str = "bob";
         let spender = "owner";
         let bad_spender: &str = "medusa";
         let dt = NaiveDateTime::new(
@@ -39,9 +50,9 @@ mod tests {
         now_env.block.time = Timestamp::from_seconds(dt.timestamp() as u64);
         // 3 day spend limit period
         let mut config = State {
-            admin: Addr::unchecked(admin),
-            pending: Addr::unchecked(admin),
-            hot_wallets: vec![HotWallet {
+            owner: Addr::unchecked(owner),
+            pending: Addr::unchecked(owner),
+            hot_wallets: vec![HotWallet::new(HotWalletParams {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::DAYS,
@@ -54,11 +65,20 @@ mod tests {
                 }],
                 usdc_denom: Some("true".to_string()),
                 default: Some(true),
-            }],
+                authorizations: None,
+            })],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
             pair_contracts: get_local_pair_contracts().to_vec(),
+            update_delay_hours: 0u16,
+            update_pending_time: now_env.block.time,
+            owner_signers: Signers::new(
+                deps.as_ref(),
+                vec!["signer1".to_string(), "signer2".to_string()],
+                vec!["type1".to_string(), "type2".to_string()],
+            )
+            .unwrap(),
         };
 
         println!("Spending 1,000,000 now");
@@ -138,7 +158,7 @@ mod tests {
     #[test]
     fn monthly_spend_limit() {
         let deps = mock_dependencies();
-        let admin: &str = "bob";
+        let owner: &str = "bob";
         let spender = "owner";
         let bad_spender: &str = "medusa";
         let dt = NaiveDateTime::new(
@@ -151,9 +171,9 @@ mod tests {
         // Let's do a 38 month spend limit period
         // and for kicks use a contract address for LOOP
         let mut config = State {
-            admin: Addr::unchecked(admin),
-            pending: Addr::unchecked(admin),
-            hot_wallets: vec![HotWallet {
+            owner: Addr::unchecked(owner),
+            pending: Addr::unchecked(owner),
+            hot_wallets: vec![HotWallet::new(HotWalletParams {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::MONTHS,
@@ -166,11 +186,20 @@ mod tests {
                 }],
                 usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
                 default: Some(true),
-            }],
+                authorizations: None,
+            })],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
             pair_contracts: get_local_pair_contracts().to_vec(),
+            update_delay_hours: 0u16,
+            update_pending_time: now_env.block.time,
+            owner_signers: Signers::new(
+                deps.as_ref(),
+                vec!["signer1".to_string(), "signer2".to_string()],
+                vec!["type1".to_string(), "type2".to_string()],
+            )
+            .unwrap(),
         };
 
         config

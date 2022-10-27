@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 use cw_storage_plus::Item;
 
 use crate::constants::{MAINNET_ID, TESTNET_ID};
-use crate::hot_wallet::HotWallet;
+use crate::hot_wallet::{HotWallet, HotWalletParams};
 use crate::pair_contract::PairContract;
 use crate::pair_contract_defaults::{
     get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
 };
+use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::ContractError;
 
@@ -34,26 +35,44 @@ pub fn get_admin_sourced_coin() -> SourcedCoin {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct State {
-    pub admin: Addr,
+    pub owner: Addr,
+    pub owner_signers: Signers,
     pub pending: Addr,
     pub hot_wallets: Vec<HotWallet>,
     pub uusd_fee_debt: Uint128, // waiting to pay back fees
     pub fee_lend_repay_wallet: Addr,
     pub home_network: String,
     pub pair_contracts: Vec<PairContract>,
+    pub update_delay_hours: u16,
+    pub update_pending_time: Timestamp,
 }
 
 impl State {
-    pub fn assert_admin(&self, a: String, e: ContractError) -> Result<(), ContractError> {
-        if !self.is_admin(a) {
+    pub fn assert_update_allowed_now(&self, current_time: Timestamp) -> Result<(), ContractError> {
+        let allowed_time = self
+            .update_pending_time
+            .plus_seconds((self.update_delay_hours as u64).saturating_mul(3600));
+        if allowed_time > current_time {
+            Err(ContractError::UpdateDelayActive {})
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn assert_owner(&self, a: String, e: ContractError) -> Result<(), ContractError> {
+        if !self.is_owner(a) {
             return Err(e);
         }
         Ok(())
     }
 
+    pub fn is_update_pending(&self) -> bool {
+        self.owner != self.pending
+    }
+
     pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {
         let this_wallet_opt: Option<&HotWallet> =
-            self.hot_wallets.iter().find(|a| a.address == addr);
+            self.hot_wallets.iter().find(|a| a.address() == addr);
         match this_wallet_opt {
             None => Ok(false),
             Some(_) => Ok(true),
@@ -120,19 +139,19 @@ impl State {
         }
     }
 
-    pub fn add_hot_wallet(&mut self, new_hot_wallet: HotWallet) {
-        self.hot_wallets.push(new_hot_wallet);
+    pub fn add_hot_wallet(&mut self, new_hot_wallet: HotWalletParams) {
+        self.hot_wallets.push(HotWallet::new(new_hot_wallet));
     }
 
     pub fn rm_hot_wallet(&mut self, doomed_hot_wallet: String) {
         self.hot_wallets
-            .retain(|wallet| wallet.address != doomed_hot_wallet);
+            .retain(|wallet| wallet.address() != doomed_hot_wallet);
     }
 
     /// returns true if the address is a registered admin
-    pub fn is_admin(&self, addr: String) -> bool {
+    pub fn is_owner(&self, addr: String) -> bool {
         let addr: &str = &addr;
-        self.admin == addr
+        self.owner == addr
     }
 
     /// returns true if the address is pending to become a registered admin
@@ -143,7 +162,7 @@ impl State {
 
     pub fn maybe_get_hot_wallet(&self, addr: String) -> Result<&HotWallet, ContractError> {
         let this_wallet_opt: Option<&HotWallet> =
-            self.hot_wallets.iter().find(|a| a.address == addr);
+            self.hot_wallets.iter().find(|a| a.address() == addr);
         match this_wallet_opt {
             None => Err(ContractError::HotWalletDoesNotExist {}),
             Some(wal) => Ok(wal),
@@ -155,7 +174,7 @@ impl State {
         addr: String,
     ) -> Result<&mut HotWallet, ContractError> {
         let this_wallet_opt: Option<&mut HotWallet> =
-            self.hot_wallets.iter_mut().find(|a| a.address == addr);
+            self.hot_wallets.iter_mut().find(|a| a.address() == addr);
         match this_wallet_opt {
             None => Err(ContractError::HotWalletDoesNotExist {}),
             Some(wal) => Ok(wal),
@@ -169,14 +188,14 @@ impl State {
         addr: String,
         spend: Vec<Coin>,
     ) -> Result<SourcedCoin, ContractError> {
-        if self.is_admin(addr.clone()) {
+        if self.is_owner(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
         let this_wallet = self.maybe_get_hot_wallet_mut(addr)?;
 
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
-        if current_time.seconds() > this_wallet.current_period_reset {
+        if this_wallet.should_reset(current_time) {
             let new_dt = this_wallet.reset_period(current_time);
             match new_dt {
                 Ok(()) => this_wallet.process_spend_vec(deps, spend),
@@ -194,7 +213,7 @@ impl State {
         addr: String,
         spend: Vec<Coin>,
     ) -> Result<SourcedCoin, ContractError> {
-        if self.is_admin(addr.clone()) {
+        if self.is_owner(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
         let this_wallet = self.maybe_get_hot_wallet(addr)?;

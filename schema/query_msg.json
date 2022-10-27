@@ -3,26 +3,39 @@
   "title": "QueryMsg",
   "oneOf": [
     {
-      "description": "Shows admin; always mutable",
+      "description": "Shows owner; always mutable",
       "type": "object",
       "required": [
-        "admin"
+        "owner"
       ],
       "properties": {
-        "admin": {
+        "owner": {
           "type": "object"
         }
       },
       "additionalProperties": false
     },
     {
-      "description": "Shows pending admin (subject to becoming new admin when ConfirmUpdateAdmin is called successfully)",
+      "description": "Shows pending owner (subject to becoming new owner when ConfirmUpdateOwner is called successfully)",
       "type": "object",
       "required": [
         "pending"
       ],
       "properties": {
         "pending": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Returns the array of owner_signers stored in state.",
+      "type": "object",
+      "required": [
+        "signers"
+      ],
+      "properties": {
+        "signers": {
           "type": "object"
         }
       },
@@ -90,6 +103,19 @@
               "type": "string"
             }
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Returns the update delay (when updating to a new admin) in hours",
+      "type": "object",
+      "required": [
+        "update_delay"
+      ],
+      "properties": {
+        "update_delay": {
+          "type": "object"
         }
       },
       "additionalProperties": false

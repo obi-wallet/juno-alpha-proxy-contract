@@ -6,21 +6,28 @@ use cosmwasm_std::{
 
 use crate::contract::{execute, execute_execute, instantiate};
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWallet};
+use crate::hot_wallet::{CoinLimit, HotWalletParams};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::{contract::query_hot_wallets, hot_wallet::PeriodType};
 
-use crate::tests_contract::{ADMIN, HOT_WALLET};
+use crate::tests_contract::{HOT_WALLET, OWNER};
 
 pub fn instantiate_contract(
     deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
     env: Env,
     starting_debt: Coin,
+    obi_is_signer: bool,
 ) {
+    let signer2: String;
+    if obi_is_signer {
+        signer2 = "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string();
+    } else {
+        signer2 = "signer2".to_string();
+    }
     // instantiate the contract
     let instantiate_msg = InstantiateMsg {
-        admin: ADMIN.to_string(),
-        hot_wallets: vec![HotWallet {
+        owner: OWNER.to_string(),
+        hot_wallets: vec![HotWalletParams {
             address: HOT_WALLET.to_string(),
             current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
             period_type: PeriodType::DAYS,
@@ -33,24 +40,31 @@ pub fn instantiate_contract(
             }],
             usdc_denom: Some("true".to_string()),
             default: Some(true),
+            authorizations: None,
         }],
         uusd_fee_debt: starting_debt.amount,
         fee_lend_repay_wallet: "test_repay_address".to_string(),
         home_network: "local".to_string(),
         signers: [
             "testsigner1".to_string(),
-            "testsigner2".to_string(),
+            signer2.clone(),
             "testsigner3".to_string(),
         ]
         .to_vec(),
+        update_delay_hours: if obi_is_signer { Some(24u16) } else { None },
+        signer_types: vec![
+            "type1".to_string(),
+            "type2".to_string(),
+            "type3".to_string(),
+        ],
     };
-    let info = mock_info(ADMIN, &[]);
+    let info = mock_info(OWNER, &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
     println!("events: {:?}", res.events);
     assert_eq!(res.events.len(), 1);
     assert_eq!(
         res.events[0].attributes[1],
-        Attribute::new("signer".to_string(), "testsigner2".to_string())
+        Attribute::new("signer".to_string(), signer2),
     );
 }
 
@@ -66,7 +80,7 @@ pub fn add_test_hotwallet(
     let res = query_hot_wallets(deps.as_ref()).unwrap();
     let old_length = res.hot_wallets.len();
     let execute_msg = ExecuteMsg::AddHotWallet {
-        new_hot_wallet: HotWallet {
+        new_hot_wallet: HotWalletParams {
             address,
             current_period_reset: current_env.block.time.seconds() as u64,
             period_type,
@@ -79,6 +93,7 @@ pub fn add_test_hotwallet(
             }],
             usdc_denom: Some("true".to_string()),
             default: Some(true),
+            authorizations: None,
         },
     };
 
