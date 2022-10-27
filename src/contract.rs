@@ -101,8 +101,8 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Con
                 owner: old_cfg.admin.clone(),
                 owner_signers: Signers::new(
                     deps.as_ref(),
-                    vec!["missing signers".to_string()],
-                    vec!["missing signers".to_string()],
+                    vec!["signersmissing".to_string()],
+                    vec!["signersmissing".to_string()],
                 )?,
                 pending: old_cfg.pending.clone(),
                 hot_wallets: old_cfg.hot_wallets,
