@@ -4,7 +4,7 @@ mod tests {
 
     use crate::{
         constants::MAINNET_AXLUSDC_IBC,
-        hot_wallet::{CoinLimit, HotWallet, PeriodType, HotWalletParams},
+        hot_wallet::{CoinLimit, HotWallet, HotWalletParams, PeriodType},
     };
 
     #[test]
@@ -28,21 +28,28 @@ mod tests {
             ],
             usdc_denom: None,
             default: Some(true),
+            authorizations: None,
         };
 
         let mut bad_wallet = HotWallet::new(bad_wallet_params);
 
         // multiple limits are no longer supported, so these should error
         bad_wallet.get_params().assert_is_valid().unwrap_err();
-        bad_wallet.set_usdc_denom(Some("false".to_string())).unwrap();
+        bad_wallet
+            .set_usdc_denom(Some("false".to_string()))
+            .unwrap();
         bad_wallet.get_params().assert_is_valid().unwrap_err();
         bad_wallet.set_usdc_denom(Some("true".to_string())).unwrap();
         bad_wallet.get_params().assert_is_valid().unwrap_err();
-        bad_wallet.update_spend_limit(bad_wallet.spend_limits()[1].clone()).unwrap();
+        bad_wallet
+            .update_spend_limit(bad_wallet.spend_limits()[1].clone())
+            .unwrap();
         bad_wallet.get_params().assert_is_valid().unwrap();
 
         // now spend limits is fine; check the other usdc denom vals again
-        bad_wallet.set_usdc_denom(Some("false".to_string())).unwrap();
+        bad_wallet
+            .set_usdc_denom(Some("false".to_string()))
+            .unwrap();
         bad_wallet.get_params().assert_is_valid().unwrap_err();
         bad_wallet.set_usdc_denom(None).unwrap();
         bad_wallet.get_params().assert_is_valid().unwrap_err();
@@ -63,9 +70,13 @@ mod tests {
             spend_limits: vec![starting_spend_limit.clone()],
             usdc_denom: Some("true".to_string()),
             default: Some(true),
+            authorizations: None,
         });
 
-        assert_eq!(hot_wallet.spend_limits(), vec![starting_spend_limit.clone()]);
+        assert_eq!(
+            hot_wallet.spend_limits(),
+            vec![starting_spend_limit.clone()]
+        );
 
         let adjusted_spend_limit = CoinLimit {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
@@ -108,6 +119,7 @@ mod tests {
             spend_limits: vec![starting_spend_limit.clone()],
             usdc_denom: Some("true".to_string()),
             default: Some(true),
+            authorizations: None,
         });
 
         let adjusted_spend_limit = CoinLimit {

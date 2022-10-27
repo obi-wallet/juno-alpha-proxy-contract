@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::{hot_wallet::{CoinLimit, HotWalletParams}, signers::Signer};
+use crate::{
+    hot_wallet::{CoinLimit, HotWalletParams},
+    signers::Signer,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -32,7 +35,10 @@ pub enum ExecuteMsg {
     ProposeUpdateOwner { new_owner: String },
     /// Confirms a proposed owner - must be called by the new owner.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
-    ConfirmUpdateOwner { signers: Vec<String>, signer_types: Vec<String> },
+    ConfirmUpdateOwner {
+        signers: Vec<String>,
+        signer_types: Vec<String>,
+    },
     /// Cancels a proposed owner - must be called by current owner.
     /// This can be used to cancel during a waiting period.
     CancelUpdateOwner {},
@@ -47,9 +53,7 @@ pub enum ExecuteMsg {
         new_spend_limits: CoinLimit,
     },
     /// Updates the update delay (when changing to new admin)
-    UpdateUpdateDelay {
-        hours: u16
-    },
+    UpdateUpdateDelay { hours: u16 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -76,7 +80,7 @@ pub enum QueryMsg {
         msgs: Vec<CosmosMsg>,
     },
     /// Returns the update delay (when updating to a new admin) in hours
-    UpdateDelay {}
+    UpdateDelay {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

@@ -1,3 +1,4 @@
+pub mod authorizations;
 pub mod constants;
 pub mod contract;
 pub mod error;
@@ -7,6 +8,7 @@ mod integration_tests;
 pub mod msg;
 pub mod pair_contract;
 pub mod pair_contract_defaults;
+pub mod signers;
 pub mod simulation;
 pub mod sourced_coin;
 pub mod sources;
@@ -24,6 +26,5 @@ mod tests_hot_wallet;
 mod tests_pair_contract;
 #[cfg(test)]
 mod tests_state;
-pub mod signers;
 
 pub use crate::error::ContractError;

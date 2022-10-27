@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Response, StakingMsg, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo,
+    Response, StakingMsg, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
 
 use cw1::CanExecuteResponse;
@@ -11,9 +11,10 @@ use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse, HotWalletParams};
+use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletParams, HotWalletsResponse};
 use crate::msg::{
-    OwnerResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse, SignersResponse,
+    CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, OwnerResponse, QueryMsg,
+    SignersResponse, UpdateDelayResponse,
 };
 use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
@@ -50,9 +51,7 @@ pub fn instantiate(
         owner: valid_owner.clone(),
         owner_signers,
         pending: valid_owner,
-        hot_wallets: msg.hot_wallets.into_iter().map(|wallet| HotWallet::new(
-            wallet
-        )).collect(),
+        hot_wallets: msg.hot_wallets.into_iter().map(HotWallet::new).collect(),
         uusd_fee_debt: msg.uusd_fee_debt,
         fee_lend_repay_wallet: valid_repay_wallet,
         home_network: msg.home_network,
@@ -115,17 +114,18 @@ pub fn execute(
         ExecuteMsg::ProposeUpdateOwner { new_owner } => {
             propose_update_owner(deps, env, info, new_owner)
         }
-        ExecuteMsg::ConfirmUpdateOwner { signers, signer_types } => {
-            confirm_update_owner(deps, env, info, signers, signer_types)
-        }
+        ExecuteMsg::ConfirmUpdateOwner {
+            signers,
+            signer_types,
+        } => confirm_update_owner(deps, env, info, signers, signer_types),
         ExecuteMsg::CancelUpdateOwner {} => cancel_update_owner(deps, env, info),
         ExecuteMsg::UpdateHotWalletSpendLimit {
             hot_wallet,
             new_spend_limits,
         } => update_hot_wallet_spend_limit(deps, env, info, hot_wallet, new_spend_limits),
-        ExecuteMsg::UpdateUpdateDelay {
-            hours
-        } => update_update_delay_hours(deps, env, info, hours),
+        ExecuteMsg::UpdateUpdateDelay { hours } => {
+            update_update_delay_hours(deps, env, info, hours)
+        }
     }
 }
 
@@ -353,7 +353,9 @@ pub fn update_update_delay_hours(
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
-    if cfg.is_update_pending() { return Err(ContractError::CannotUpdateUpdatePending { }); }
+    if cfg.is_update_pending() {
+        return Err(ContractError::CannotUpdateUpdatePending {});
+    }
     cfg.update_delay_hours = hours;
     STATE.save(deps.storage, &cfg)?;
     Ok(Response::default())
@@ -466,10 +468,8 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::HotWallets {} => to_binary(&query_hot_wallets(deps)?),
         QueryMsg::CanSpend { sender, msgs } => {
             to_binary(&query_can_spend(deps, env, sender, msgs)?)
-        },
-        QueryMsg::UpdateDelay {} => {
-            to_binary(&query_update_delay(deps)?)
         }
+        QueryMsg::UpdateDelay {} => to_binary(&query_update_delay(deps)?),
     }
 }
 
@@ -506,7 +506,8 @@ pub fn query_can_execute(
 pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
     let cfg = STATE.load(deps.storage)?;
     Ok(HotWalletsResponse {
-        hot_wallets: cfg.hot_wallets
+        hot_wallets: cfg
+            .hot_wallets
             .into_iter()
             .map(|wallet| wallet.get_params())
             .collect(),
@@ -516,7 +517,7 @@ pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
 pub fn query_update_delay(deps: Deps) -> StdResult<UpdateDelayResponse> {
     let cfg = STATE.load(deps.storage)?;
     Ok(UpdateDelayResponse {
-        update_delay_hours: cfg.update_delay_hours
+        update_delay_hours: cfg.update_delay_hours,
     })
 }
 

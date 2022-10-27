@@ -10,7 +10,7 @@ use crate::hot_wallet::{CoinLimit, HotWalletParams};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::{contract::query_hot_wallets, hot_wallet::PeriodType};
 
-use crate::tests_contract::{OWNER, HOT_WALLET};
+use crate::tests_contract::{HOT_WALLET, OWNER};
 
 pub fn instantiate_contract(
     deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
@@ -19,8 +19,11 @@ pub fn instantiate_contract(
     obi_is_signer: bool,
 ) {
     let signer2: String;
-    if obi_is_signer { signer2 = "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string(); }
-    else { signer2 = "signer2".to_string(); }
+    if obi_is_signer {
+        signer2 = "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string();
+    } else {
+        signer2 = "signer2".to_string();
+    }
     // instantiate the contract
     let instantiate_msg = InstantiateMsg {
         owner: OWNER.to_string(),
@@ -37,6 +40,7 @@ pub fn instantiate_contract(
             }],
             usdc_denom: Some("true".to_string()),
             default: Some(true),
+            authorizations: None,
         }],
         uusd_fee_debt: starting_debt.amount,
         fee_lend_repay_wallet: "test_repay_address".to_string(),
@@ -48,7 +52,11 @@ pub fn instantiate_contract(
         ]
         .to_vec(),
         update_delay_hours: if obi_is_signer { Some(24u16) } else { None },
-        signer_types: vec!["type1".to_string(), "type2".to_string(), "type3".to_string()],
+        signer_types: vec![
+            "type1".to_string(),
+            "type2".to_string(),
+            "type3".to_string(),
+        ],
     };
     let info = mock_info(OWNER, &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
@@ -85,6 +93,7 @@ pub fn add_test_hotwallet(
             }],
             usdc_denom: Some("true".to_string()),
             default: Some(true),
+            authorizations: None,
         },
     };
 

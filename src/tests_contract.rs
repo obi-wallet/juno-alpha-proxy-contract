@@ -4,12 +4,12 @@ pub const HOT_WALLET: &str = "hotcarl";
 #[cfg(test)]
 mod tests {
     use crate::contract::{
-        execute, query_owner, query_can_execute, query_can_spend, query_hot_wallets,
+        execute, query_can_execute, query_can_spend, query_hot_wallets, query_owner,
     };
     use crate::hot_wallet::PeriodType;
     /* use crate::defaults::get_local_pair_contracts; */
     use super::*;
-    use crate::msg::{OwnerResponse, Cw20ExecuteMsg, ExecuteMsg};
+    use crate::msg::{Cw20ExecuteMsg, ExecuteMsg, OwnerResponse};
     use crate::tests_helpers::{add_test_hotwallet, instantiate_contract, test_spend_bank};
     use crate::ContractError;
 

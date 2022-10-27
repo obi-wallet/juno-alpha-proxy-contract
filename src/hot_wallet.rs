@@ -4,11 +4,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::MAINNET_AXLUSDC_IBC, sourced_coin::SourcedCoin, sources::Sources, ContractError,
+    authorizations::Authorizations, constants::MAINNET_AXLUSDC_IBC, sourced_coin::SourcedCoin,
+    sources::Sources, ContractError,
 };
 
 /// The `PeriodType` type is used for recurring components, including spend limits.
-/// Multiples of `DAYS` and `MONTHS` allow for weekly and yearly recurrence. 
+/// Multiples of `DAYS` and `MONTHS` allow for weekly and yearly recurrence.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum PeriodType {
     DAYS,
@@ -49,11 +50,12 @@ pub struct HotWalletParams {
     pub spend_limits: Vec<CoinLimit>,
     pub usdc_denom: Option<String>,
     pub default: Option<bool>,
+    pub authorizations: Option<Authorizations>,
 }
 
 impl HotWalletParams {
     /// Checks that `self` is valid, meaning that there is only one spend limit and
-    /// the limit is in USDC. Previous versions had multiple spend limits; those hot 
+    /// the limit is in USDC. Previous versions had multiple spend limits; those hot
     /// wallets still work but cannot be created this way. This will be expanded to be
     /// more customizable later.
     pub fn assert_is_valid(&self) -> StdResult<()> {
@@ -71,11 +73,9 @@ impl HotWalletParams {
 
 impl HotWallet {
     pub fn new(params: HotWalletParams) -> Self {
-        Self {
-            params: params,
-        }
+        Self { params }
     }
-}  
+}
 
 // simple getters
 impl HotWallet {
@@ -93,7 +93,7 @@ impl HotWallet {
     /// Checks whether the `current_time` is past the `current_period_reset` for
     /// this `HotWallet`, which means that the remaining limit CAN be reset to full.
     /// This function does not actually process the reset; use reset_period()
-    /// 
+    ///
     /// # Arguments
     ///
     /// * `current_time` - a Timestamp of the current time (or simulated reset time).
@@ -110,8 +110,8 @@ impl HotWallet {
         // depends on the spend limit period (type and multiple)
         let new_dt: Result<NaiveDateTime, ContractError> = match self.params.period_type {
             PeriodType::DAYS => {
-                let working_dt =
-                    new_dt.checked_add_signed(chrono::Duration::days(self.params.period_multiple as i64));
+                let working_dt = new_dt
+                    .checked_add_signed(chrono::Duration::days(self.params.period_multiple as i64));
                 match working_dt {
                     Some(dt) => Ok(dt),
                     None => {
@@ -142,7 +142,10 @@ impl HotWallet {
             Ok(dt) => dt,
             Err(e) => return Err(ContractError::DayUpdateError(e.to_string())),
         };
-        println!("Old reset date is {:?}", self.params.current_period_reset.clone());
+        println!(
+            "Old reset date is {:?}",
+            self.params.current_period_reset.clone()
+        );
         println!("Resetting to {:?}", dt.clone().timestamp());
         self.params.current_period_reset = dt.timestamp() as u64;
         Ok(())
