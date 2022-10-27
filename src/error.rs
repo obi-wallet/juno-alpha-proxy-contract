@@ -12,7 +12,7 @@ pub enum ContractError {
     #[error("{0}")]
     Overflow(#[from] OverflowError),
 
-    #[error("Caller is not admin.")]
+    #[error("Caller is not owner.")]
     Unauthorized {},
 
     #[error("Spend-limited cw20 transactions cannot have additional funds attached.")]
@@ -33,9 +33,9 @@ pub enum ContractError {
     SpendNotAuthorized {},
 
     #[error(
-        "Spend-limited transactions must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer)."
+        "Spend-limited transactions are not allowed to be {0}; they must be BankMsg or WasmMsg (Cw20ExecuteMsg Send or Transfer)."
     )]
-    BadMessageType {},
+    BadMessageType(String),
 
     #[error("This address is already authorized as a Hot Wallet. Remove it first in order to update it.")]
     HotWalletExists {},
@@ -52,14 +52,14 @@ pub enum ContractError {
     #[error("Hot wallet does not have a spend limit for asset {0}.")]
     CannotSpendThisAsset(String),
 
-    #[error("You cannot spend more than your available spend limit.")]
-    CannotSpendMoreThanLimit {},
+    #[error("You cannot spend more than your available spend limit. Trying to spend {0} {1}")]
+    CannotSpendMoreThanLimit(String, String),
 
     #[error("Uninitialized message.")]
     UninitializedMessage {},
 
-    #[error("Caller is not pending new admin. Propose new admin first.")]
-    CallerIsNotPendingNewAdmin {},
+    #[error("Caller is not pending new owner. Propose new owner first.")]
+    CallerIsNotPendingNewOwner {},
 
     #[error("Unable to get current asset price to check spend limit for asset. If this transaction is urgent, use your multisig to sign. SUBMSG: {0} CONTRACT: {1} ERROR: {2}")]
     PriceCheckFailed(String, String, String),
@@ -84,6 +84,21 @@ pub enum ContractError {
 
     #[error("{0}")]
     BadSwapDenoms(String),
+
+    #[error("Cannot send 0 funds")]
+    CannotSpendZero {},
+
+    #[error("Unable to pay debt of {0} uusd")]
+    UnableToRepayDebt(String),
+
+    #[error("Contract cannot be migrated while an owner update is pending")]
+    CannotMigrateUpdatePending {},
+
+    #[error("Contract update delay cannot be changed while an owner update is pending")]
+    CannotUpdateUpdatePending {},
+
+    #[error("Owner update safety delay has not yet passed")]
+    UpdateDelayActive {},
 }
 
 impl From<semver::Error> for ContractError {

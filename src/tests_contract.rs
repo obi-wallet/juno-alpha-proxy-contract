@@ -1,30 +1,31 @@
+pub const OWNER: &str = "alice";
+pub const HOT_WALLET: &str = "hotcarl";
+
 #[cfg(test)]
 mod tests {
     use crate::contract::{
-        execute, instantiate, query_admin, query_can_execute, query_hot_wallets,
+        execute, query_can_execute, query_can_spend, query_hot_wallets, query_owner,
     };
-    use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
+    use crate::hot_wallet::PeriodType;
     /* use crate::defaults::get_local_pair_contracts; */
-    use crate::msg::{AdminResponse, ExecuteMsg, InstantiateMsg};
-    use crate::tests_common::{add_test_hotwallet, test_spend_bank};
+    use super::*;
+    use crate::msg::{Cw20ExecuteMsg, ExecuteMsg, OwnerResponse};
+    use crate::tests_helpers::{add_test_hotwallet, instantiate_contract, test_spend_bank};
     use crate::ContractError;
 
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier};
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        coin, coins, Attribute, BankMsg, Coin, CosmosMsg, Empty, Env, MemoryStorage, OwnedDeps,
-        Response, StakingMsg, SubMsg, Uint128,
+        coin, coins, to_binary, Attribute, BankMsg, Coin, CosmosMsg, DistributionMsg, Response,
+        StakingMsg, SubMsg, Uint128, WasmMsg,
     };
-    //use cosmwasm_std::WasmMsg;
 
-    const ADMIN: &str = "alice";
-    const NEW_ADMIN: &str = "bob";
-    const HOT_WALLET: &str = "hotcarl";
+    const NEW_OWNER: &str = "bob";
     const ANYONE: &str = "anyone";
     const RECEIVER: &str = "diane";
     const HOT_USDC_WALLET: &str = "hotearl";
 
     #[test]
-    fn instantiate_and_modify_admin() {
+    fn instantiate_and_modify_owner() {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
         instantiate_contract(
@@ -34,45 +35,54 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
 
         // ensure expected config
-        let expected = AdminResponse {
-            admin: ADMIN.to_string(),
+        let expected = OwnerResponse {
+            owner: OWNER.to_string(),
         };
-        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_owner(deps.as_ref()).unwrap(), expected);
 
-        // anyone cannot propose updating admin on the contract
-        let msg = ExecuteMsg::ProposeUpdateAdmin {
-            new_admin: ANYONE.to_string(),
+        // anyone cannot propose updating owner on the contract
+        let msg = ExecuteMsg::ProposeUpdateOwner {
+            new_owner: ANYONE.to_string(),
         };
         let info = mock_info(ANYONE, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
         // but alice can propose an update
-        let msg = ExecuteMsg::ProposeUpdateAdmin {
-            new_admin: NEW_ADMIN.to_string(),
+        let msg = ExecuteMsg::ProposeUpdateOwner {
+            new_owner: NEW_OWNER.to_string(),
         };
-        let info = mock_info(ADMIN, &[]);
+        let info = mock_info(OWNER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // now, the admin isn't updated yet
-        let expected = AdminResponse {
-            admin: ADMIN.to_string(),
+        // now, the owner isn't updated yet
+        let expected = OwnerResponse {
+            owner: OWNER.to_string(),
         };
-        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+        assert_eq!(query_owner(deps.as_ref()).unwrap(), expected);
 
         // but if bob accepts...
-        let msg = ExecuteMsg::ConfirmUpdateAdmin {};
-        let info = mock_info(NEW_ADMIN, &[]);
-        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // then admin is updated
-        let expected = AdminResponse {
-            admin: NEW_ADMIN.to_string(),
+        let msg = ExecuteMsg::ConfirmUpdateOwner {
+            signers: vec!["test_confirm_owner".to_string()],
+            signer_types: vec!["new_owner_type".to_string()],
         };
-        assert_eq!(query_admin(deps.as_ref()).unwrap(), expected);
+        let info = mock_info(NEW_OWNER, &[]);
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(res.events.len(), 1);
+        assert_eq!(
+            res.events[0].attributes[0],
+            Attribute::new("signer".to_string(), "test_confirm_owner".to_string())
+        );
+
+        // then owner is updated
+        let expected = OwnerResponse {
+            owner: NEW_OWNER.to_string(),
+        };
+        assert_eq!(query_owner(deps.as_ref()).unwrap(), expected);
     }
 
     #[test]
@@ -86,6 +96,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
 
         let msgs = vec![
@@ -107,13 +118,13 @@ mod tests {
 
         // receiver or anyone else cannot execute them ... and gets HotWalletDoesNotExist since
         // this is a spend, so contract assumes we're trying against spend limit
-        // if not admin
+        // if not owner
         let info = mock_info(RECEIVER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, execute_msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::HotWalletDoesNotExist {});
 
-        // but admin can
-        let info = mock_info(ADMIN, &[]);
+        // but owner can
+        let info = mock_info(OWNER, &[]);
         let res = execute(deps.as_mut(), mock_env(), info, execute_msg).unwrap();
         assert_eq!(
             res.messages,
@@ -133,6 +144,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
 
         // let us make some queries... different msg types by owner and by other
@@ -146,11 +158,11 @@ mod tests {
         });
 
         // owner can send
-        let res = query_can_execute(deps.as_ref(), ADMIN.to_string(), send_msg.clone()).unwrap();
+        let res = query_can_execute(deps.as_ref(), OWNER.to_string(), send_msg.clone()).unwrap();
         assert!(res.can_execute);
 
         // owner can stake
-        let res = query_can_execute(deps.as_ref(), ADMIN.to_string(), staking_msg.clone()).unwrap();
+        let res = query_can_execute(deps.as_ref(), OWNER.to_string(), staking_msg.clone()).unwrap();
         assert!(res.can_execute);
 
         // anyone cannot send
@@ -174,6 +186,7 @@ mod tests {
                 amount: Uint128::from(0u128),
                 denom: "ujunox".to_string(),
             },
+            false,
         );
         // this helper includes a hotwallet
 
@@ -182,14 +195,73 @@ mod tests {
         assert!(res.hot_wallets.len() == 1);
         assert!(res.hot_wallets[0].address == HOT_WALLET);
 
-        // spend as the hot wallet
-        let admin_info = mock_info(ADMIN, &[]);
+        // check that can_spend returns true
+        let res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            vec![CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(9_000u128, "testtokens"),
+            })],
+        )
+        .unwrap();
+        assert!(res.can_spend);
+
+        // and returns false with some huge amount
+        let res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            vec![CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(999_999_999_000u128, "testtokens"),
+            })],
+        )
+        .unwrap();
+        assert!(!res.can_spend);
+
+        // plus returns error with some unsupported kind of msg
+        let _res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            vec![CosmosMsg::Distribution(
+                DistributionMsg::SetWithdrawAddress {
+                    address: RECEIVER.to_string(),
+                },
+            )],
+        )
+        .unwrap_err();
+
+        // and returns true with authorized contract
+        let _res = query_can_spend(
+            deps.as_ref(),
+            current_env.clone(),
+            HOT_WALLET.to_string(),
+            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9"
+                    .to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                    recipient: RECEIVER.to_string(),
+                    amount: Uint128::from(1u128),
+                })
+                .unwrap(),
+                funds: vec![],
+            })],
+        )
+        .unwrap();
+        assert!(_res.can_spend);
+
+        // actually spend as the hot wallet
+        let owner_info = mock_info(OWNER, &[]);
+        let hot_wallet_info = mock_info(HOT_WALLET, &[]);
         test_spend_bank(
             deps.as_mut(),
             current_env.clone(),
             RECEIVER.to_string(),
-            coins(999_000u128, "testtokens"),
-            admin_info.clone(),
+            coins(9_000u128, "testtokens"), //900_000 of usdc spend limit down
+            hot_wallet_info,
         )
         .unwrap();
 
@@ -198,7 +270,7 @@ mod tests {
             deps.as_mut(),
             "hot_diane".to_string(),
             current_env.clone(),
-            admin_info.clone(),
+            owner_info.clone(),
             1u16,
             PeriodType::DAYS,
             1_000_000u64,
@@ -220,7 +292,7 @@ mod tests {
         let _res = execute(
             deps.as_mut(),
             current_env.clone(),
-            admin_info.clone(),
+            owner_info.clone(),
             execute_msg,
         )
         .unwrap();
@@ -235,7 +307,7 @@ mod tests {
             deps.as_mut(),
             HOT_USDC_WALLET.to_string(),
             current_env.clone(),
-            admin_info,
+            owner_info,
             1u16,
             PeriodType::DAYS,
             100_000_000u64,
@@ -283,6 +355,7 @@ mod tests {
                 denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
                     .to_string(),
             },
+            false,
         );
 
         // under test conditions, "testtokens" are worth 100 USDC each
@@ -293,17 +366,17 @@ mod tests {
         })];
         let test_msgs: Vec<CosmosMsg> = vec![
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: RECEIVER.to_string(),
-                amount: coins(10000, "testtokens"),
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
                 to_address: "test_repay_address".to_string(),
                 amount: coins(100, "testtokens"),
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: RECEIVER.to_string(),
+                amount: coins(10000, "testtokens"),
             }),
         ];
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
-        let info = mock_info(ADMIN, &[]);
+        let info = mock_info(OWNER, &[]);
         let res = execute(deps.as_mut(), mock_env(), info.clone(), execute_msg.clone()).unwrap();
         assert_eq!(
             res.messages,
@@ -340,44 +413,4 @@ mod tests {
         let local_contracts = get_local_pair_contracts().to_vec();
         assert_eq!(cfg.pair_contracts, local_contracts);
     } */
-
-    fn instantiate_contract(
-        deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
-        env: Env,
-        starting_debt: Coin,
-    ) {
-        // instantiate the contract
-        let instantiate_msg = InstantiateMsg {
-            admin: ADMIN.to_string(),
-            hot_wallets: vec![HotWallet {
-                address: HOT_WALLET.to_string(),
-                current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
-                period_type: PeriodType::DAYS,
-                period_multiple: 1,
-                spend_limits: vec![CoinLimit {
-                    denom: "testtokens".to_string(),
-                    amount: 1_000_000u64,
-                    limit_remaining: 1_000_000u64,
-                }],
-                usdc_denom: Some("true".to_string()),
-            }],
-            uusd_fee_debt: starting_debt.amount,
-            fee_lend_repay_wallet: "test_repay_address".to_string(),
-            home_network: "local".to_string(),
-            signers: [
-                "testsigner1".to_string(),
-                "testsigner2".to_string(),
-                "testsigner3".to_string(),
-            ]
-            .to_vec(),
-        };
-        let info = mock_info(ADMIN, &[]);
-        let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
-        println!("events: {:?}", res.events);
-        assert_eq!(res.events.len(), 1);
-        assert_eq!(
-            res.events[0].attributes[1],
-            Attribute::new("signer".to_string(), "testsigner2".to_string())
-        );
-    }
 }

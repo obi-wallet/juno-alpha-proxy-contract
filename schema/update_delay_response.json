@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UpdateDelayResponse",
+  "type": "object",
+  "required": [
+    "update_delay_hours"
+  ],
+  "properties": {
+    "update_delay_hours": {
+      "type": "integer",
+      "format": "uint16",
+      "minimum": 0.0
+    }
+  }
+}

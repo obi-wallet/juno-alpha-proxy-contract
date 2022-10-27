@@ -113,7 +113,7 @@ error_check () {
   fi
   if [[ $1 == *"You cannot spend more than your available spend limit"* ]]
   then
-    echo "$2: You cannot spend more than your available spend limit"
+    echo "$1"
     exit 1
   fi
   if [[ $1 == *"Uninitialized message"* ]]
