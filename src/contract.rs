@@ -80,8 +80,6 @@ pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Con
         pub fee_lend_repay_wallet: Addr,
         pub home_network: String,
         pub pair_contracts: Vec<PairContract>,
-        pub update_delay_hours: u16,
-        pub update_pending_time: Timestamp,
     }
 
     // No migrate allowed if owner update is pending
