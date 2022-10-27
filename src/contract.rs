@@ -11,7 +11,7 @@ use semver::Version;
 
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse};
+use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletsResponse, HotWalletParams};
 use crate::msg::{
     OwnerResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UpdateDelayResponse, SignersResponse,
 };
@@ -50,7 +50,9 @@ pub fn instantiate(
         owner: valid_owner.clone(),
         owner_signers,
         pending: valid_owner,
-        hot_wallets: msg.hot_wallets,
+        hot_wallets: msg.hot_wallets.into_iter().map(|wallet| HotWallet::new(
+            wallet
+        )).collect(),
         uusd_fee_debt: msg.uusd_fee_debt,
         fee_lend_repay_wallet: valid_repay_wallet,
         home_network: msg.home_network,
@@ -120,7 +122,7 @@ pub fn execute(
         ExecuteMsg::UpdateHotWalletSpendLimit {
             hot_wallet,
             new_spend_limits,
-        } => update_hot_wallet(deps, env, info, hot_wallet, new_spend_limits),
+        } => update_hot_wallet_spend_limit(deps, env, info, hot_wallet, new_spend_limits),
         ExecuteMsg::UpdateUpdateDelay {
             hours
         } => update_update_delay_hours(deps, env, info, hours),
@@ -303,19 +305,19 @@ pub fn add_hot_wallet(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    new_hot_wallet: HotWallet,
+    new_hot_wallet_params: HotWalletParams,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
     if cfg
         .hot_wallets
         .iter()
-        .any(|wallet| wallet.address == new_hot_wallet.address)
+        .any(|wallet| wallet.address() == new_hot_wallet_params.address)
     {
         Err(ContractError::HotWalletExists {})
     } else {
-        let _addrcheck = deps.api.addr_validate(&new_hot_wallet.address)?;
-        cfg.add_hot_wallet(new_hot_wallet);
+        let _addrcheck = deps.api.addr_validate(&new_hot_wallet_params.address)?;
+        cfg.add_hot_wallet(new_hot_wallet_params);
         STATE.save(deps.storage, &cfg)?;
         Ok(Response::new().add_attribute("action", "add_hot_wallet"))
     }
@@ -333,7 +335,7 @@ pub fn rm_hot_wallet(
     } else if !cfg
         .hot_wallets
         .iter()
-        .any(|wallet| wallet.address == doomed_hot_wallet)
+        .any(|wallet| wallet.address() == doomed_hot_wallet)
     {
         Err(ContractError::HotWalletDoesNotExist {})
     } else {
@@ -357,21 +359,21 @@ pub fn update_update_delay_hours(
     Ok(Response::default())
 }
 
-pub fn update_hot_wallet(
+pub fn update_hot_wallet_spend_limit(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     hot_wallet: String,
-    new_spend_limits: Vec<CoinLimit>,
+    new_spend_limits: CoinLimit,
 ) -> Result<Response, ContractError> {
     let mut cfg = STATE.load(deps.storage)?;
     cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
-    let mut wallet = cfg
+    let wallet = cfg
         .hot_wallets
         .iter_mut()
-        .find(|wallet| wallet.address == hot_wallet)
+        .find(|wallet| wallet.address() == hot_wallet)
         .ok_or(ContractError::HotWalletDoesNotExist {})?;
-    wallet.spend_limits = new_spend_limits;
+    wallet.update_spend_limit(new_spend_limits)?;
     Ok(Response::new())
 }
 
@@ -504,7 +506,10 @@ pub fn query_can_execute(
 pub fn query_hot_wallets(deps: Deps) -> StdResult<HotWalletsResponse> {
     let cfg = STATE.load(deps.storage)?;
     Ok(HotWalletsResponse {
-        hot_wallets: cfg.hot_wallets,
+        hot_wallets: cfg.hot_wallets
+            .into_iter()
+            .map(|wallet| wallet.get_params())
+            .collect(),
     })
 }
 

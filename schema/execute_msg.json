@@ -129,7 +129,7 @@
           ],
           "properties": {
             "new_hot_wallet": {
-              "$ref": "#/definitions/HotWallet"
+              "$ref": "#/definitions/HotWalletParams"
             }
           }
         }
@@ -175,10 +175,7 @@
               "type": "string"
             },
             "new_spend_limits": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/CoinLimit"
-              }
+              "$ref": "#/definitions/CoinLimit"
             }
           }
         }
@@ -287,6 +284,7 @@
       }
     },
     "CoinLimit": {
+      "description": "The `CoinLimit` type is a practically extended `Coin` type that includes a remaining limit.",
       "type": "object",
       "required": [
         "amount",
@@ -426,7 +424,7 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "HotWallet": {
+    "HotWalletParams": {
       "type": "object",
       "required": [
         "address",
@@ -473,6 +471,7 @@
       }
     },
     "PeriodType": {
+      "description": "The `PeriodType` type is used for recurring components, including spend limits. Multiples of `DAYS` and `MONTHS` allow for weekly and yearly recurrence.",
       "type": "string",
       "enum": [
         "DAYS",

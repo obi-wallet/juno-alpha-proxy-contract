@@ -4,7 +4,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
-    use crate::hot_wallet::{CoinLimit, HotWallet, PeriodType};
+    use crate::hot_wallet::{CoinLimit, PeriodType, HotWalletParams, HotWallet};
     use crate::pair_contract_defaults::get_local_pair_contracts;
     use crate::signers::Signers;
     use crate::state::State;
@@ -50,7 +50,7 @@ mod tests {
         let mut config = State {
             owner: Addr::unchecked(owner),
             pending: Addr::unchecked(owner),
-            hot_wallets: vec![HotWallet {
+            hot_wallets: vec![HotWallet::new(HotWalletParams {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::DAYS,
@@ -63,7 +63,7 @@ mod tests {
                 }],
                 usdc_denom: Some("true".to_string()),
                 default: Some(true),
-            }],
+            })],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
@@ -168,7 +168,7 @@ mod tests {
         let mut config = State {
             owner: Addr::unchecked(owner),
             pending: Addr::unchecked(owner),
-            hot_wallets: vec![HotWallet {
+            hot_wallets: vec![HotWallet::new(HotWalletParams {
                 address: spender.to_string(),
                 current_period_reset: dt.timestamp() as u64,
                 period_type: PeriodType::MONTHS,
@@ -181,7 +181,7 @@ mod tests {
                 }],
                 usdc_denom: None, // 100 JUNO, 100 axlUSDC, 9000 LOOP
                 default: Some(true),
-            }],
+            })],
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),

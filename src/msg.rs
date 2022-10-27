@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{CosmosMsg, Uint128};
 
-use crate::{hot_wallet::{CoinLimit, HotWallet}, signers::Signer};
+use crate::{hot_wallet::{CoinLimit, HotWalletParams}, signers::Signer};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     pub owner: String,
-    pub hot_wallets: Vec<HotWallet>,
+    pub hot_wallets: Vec<HotWalletParams>,
     pub uusd_fee_debt: Uint128,
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
@@ -38,13 +38,13 @@ pub enum ExecuteMsg {
     CancelUpdateOwner {},
     /// Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg
     /// transactions if within the known recurring spend limit.
-    AddHotWallet { new_hot_wallet: HotWallet },
+    AddHotWallet { new_hot_wallet: HotWalletParams },
     /// Removes an active spend-limited wallet.
     RmHotWallet { doomed_hot_wallet: String },
     /// Updates spend limit for a wallet. Update of period not supported: rm and re-add
     UpdateHotWalletSpendLimit {
         hot_wallet: String,
-        new_spend_limits: Vec<CoinLimit>,
+        new_spend_limits: CoinLimit,
     },
     /// Updates the update delay (when changing to new admin)
     UpdateUpdateDelay {

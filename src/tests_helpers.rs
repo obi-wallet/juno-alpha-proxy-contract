@@ -6,7 +6,7 @@ use cosmwasm_std::{
 
 use crate::contract::{execute, execute_execute, instantiate};
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWallet};
+use crate::hot_wallet::{CoinLimit, HotWalletParams};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::{contract::query_hot_wallets, hot_wallet::PeriodType};
 
@@ -24,7 +24,7 @@ pub fn instantiate_contract(
     // instantiate the contract
     let instantiate_msg = InstantiateMsg {
         owner: OWNER.to_string(),
-        hot_wallets: vec![HotWallet {
+        hot_wallets: vec![HotWalletParams {
             address: HOT_WALLET.to_string(),
             current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
             period_type: PeriodType::DAYS,
@@ -72,7 +72,7 @@ pub fn add_test_hotwallet(
     let res = query_hot_wallets(deps.as_ref()).unwrap();
     let old_length = res.hot_wallets.len();
     let execute_msg = ExecuteMsg::AddHotWallet {
-        new_hot_wallet: HotWallet {
+        new_hot_wallet: HotWalletParams {
             address,
             current_period_reset: current_env.block.time.seconds() as u64,
             period_type,

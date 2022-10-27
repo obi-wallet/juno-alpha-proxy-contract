@@ -9,12 +9,13 @@
     "hot_wallets": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/HotWallet"
+        "$ref": "#/definitions/HotWalletParams"
       }
     }
   },
   "definitions": {
     "CoinLimit": {
+      "description": "The `CoinLimit` type is a practically extended `Coin` type that includes a remaining limit.",
       "type": "object",
       "required": [
         "amount",
@@ -37,7 +38,7 @@
         }
       }
     },
-    "HotWallet": {
+    "HotWalletParams": {
       "type": "object",
       "required": [
         "address",
@@ -84,6 +85,7 @@
       }
     },
     "PeriodType": {
+      "description": "The `PeriodType` type is used for recurring components, including spend limits. Multiples of `DAYS` and `MONTHS` allow for weekly and yearly recurrence.",
       "type": "string",
       "enum": [
         "DAYS",
