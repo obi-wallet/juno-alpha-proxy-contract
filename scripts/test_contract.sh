@@ -256,7 +256,7 @@ error_check "$RES" "Failed as expected" "You cannot spend more than your availab
 echo -n "Waiting to avoid sequence mismatch error..."
 /usr/bin/sleep 15s && echo " Done."
 
-UPDATE_ARGS=$(/usr/bin/jq -n --arg walletaddy $BAD_WALLET_ADDRESS '{"update_hot_wallet_spend_limit":{"hot_wallet":$walletaddy, "new_spend_limits":[{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034","amount":26000,"limit_remaining":26000}]}}')
+UPDATE_ARGS=$(/usr/bin/jq -n --arg walletaddy $BAD_WALLET_ADDRESS '{"update_hot_wallet_spend_limit":{"hot_wallet":$walletaddy, "new_spend_limits":{"denom":"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034","amount":26000,"limit_remaining":26000}}}')
 echo -n -e "${LBLUE}TX 17) Try to update spend limit without admin privileges. Should fail...${NC}"
 RES=$($BINARY tx wasm execute $CONTRACT_ADDRESS "$UPDATE_ARGS" $KR -y --from=$CONTRACT_ADMIN_WALLET --node=$RPC --chain-id=$CHAIN_ID $GAS1 $GAS2 $GAS3 2>&1)
 error_check "$RES" "Failed as expected" "Caller is not admin"
