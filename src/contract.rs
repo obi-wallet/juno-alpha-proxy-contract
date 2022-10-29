@@ -71,6 +71,8 @@ impl<'a> ObiProxyContract<'a> {
             },
             update_delay_hours: if activate_delay { 24u16 } else { 0u16 },
             update_pending_time: env.block.time,
+            auth_count: Uint128::from(0u128),
+            frozen: false,
         };
         cfg.pair_contracts
             .set_pair_contracts(cfg.home_network.clone())?;
@@ -123,6 +125,8 @@ impl<'a> ObiProxyContract<'a> {
                     pair_contracts: PairContracts {
                         pair_contracts: old_cfg.pair_contracts,
                     },
+                    auth_count: Uint128::from(0u128),
+                    frozen: false,
                 };
                 if old_cfg.admin != old_cfg.pending {
                     return Err(ContractError::CannotMigrateUpdatePending {});
@@ -231,7 +235,7 @@ impl<'a> ObiProxyContract<'a> {
         match self.find_authorization(deps.as_ref(), &authorization) {
             Err(_) => {
                 self.authorizations
-                    .save(deps.storage, &cfg.owner.to_string(), &authorization)?;
+                    .save(deps.storage, cfg.owner.as_ref(), &authorization)?;
             }
             Ok(_key) => {
                 // may add expiration here instead in future version

@@ -47,6 +47,8 @@ pub struct State {
     pub pair_contracts: PairContracts,
     pub update_delay_hours: u16,
     pub update_pending_time: Timestamp,
+    pub frozen: bool,
+    pub auth_count: Uint128,
 }
 
 impl State {

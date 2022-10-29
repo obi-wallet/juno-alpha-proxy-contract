@@ -34,13 +34,6 @@ impl<'a> IndexList<Authorization> for AuthorizationIndexes<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct State {
-    pub owner: Addr,
-    pub frozen: bool,
-    pub auth_count: Uint128,
-}
-
 impl Default for ObiProxyContract<'static> {
     fn default() -> Self {
         Self::new(
