@@ -115,12 +115,12 @@ pub struct WasmExecuteMsg {
     funds: Vec<Coin>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct TestExecuteMsg {
     pub foo: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct TestFieldsExecuteMsg {
     pub recipient: String,
     pub strategy: String,
@@ -147,7 +147,7 @@ pub struct UpdateDelayResponse {
     pub update_delay_hours: u16,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct AuthorizationsResponse {
     pub authorizations: Vec<Authorization>,
 }

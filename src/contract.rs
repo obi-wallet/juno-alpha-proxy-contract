@@ -210,13 +210,13 @@ impl<'a> ObiProxyContract<'a> {
 
         match can_execute_result {
             Err(e) => {
-                return Err(ContractError::Std(e));
+                Err(ContractError::Std(e))
             }
             Ok((can_spend, spend_limit_reduction, repay_msg)) => {
                 if !can_spend.can_spend {
-                    return Err(ContractError::Std(StdError::GenericErr {
+                    Err(ContractError::Std(StdError::GenericErr {
                         msg: can_spend.reason,
-                    }));
+                    }))
                 } else {
                     res = res.add_attribute("action", "execute_execute");
                     res = res.add_messages(msgs);
@@ -561,7 +561,7 @@ impl<'a> ObiProxyContract<'a> {
                         processed_msg.add_funds(funds.clone());
                     }
                     let _msg_type = processed_msg.process_and_get_msg_type();
-                    if processed_msg.funds.len() > 0 {
+                    if !processed_msg.funds.is_empty() {
                         // more robust handling needed with multiple fund types;
                         // currently if first is insufficient, fails
                         match self.try_repay_debt(deps, processed_msg.funds[0].clone()) {

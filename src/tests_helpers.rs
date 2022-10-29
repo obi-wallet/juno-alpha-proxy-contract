@@ -19,7 +19,8 @@ pub fn get_test_instantiate_message(
         signer2 = "signer2".to_string();
     }
     // instantiate the contract
-    let instantiate_msg = InstantiateMsg {
+    
+    InstantiateMsg {
         owner: OWNER.to_string(),
         hot_wallets: vec![HotWalletParams {
             address: HOT_WALLET.to_string(),
@@ -41,7 +42,7 @@ pub fn get_test_instantiate_message(
         home_network: "local".to_string(),
         signers: [
             "testsigner1".to_string(),
-            signer2.clone(),
+            signer2,
             "testsigner3".to_string(),
         ]
         .to_vec(),
@@ -51,8 +52,7 @@ pub fn get_test_instantiate_message(
             "type2".to_string(),
             "type3".to_string(),
         ],
-    };
-    instantiate_msg
+    }
 }
 
 pub fn add_test_hotwallet(

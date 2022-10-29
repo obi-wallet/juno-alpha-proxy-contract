@@ -23,7 +23,7 @@ mod tests {
                 current_env.clone(),
                 mock_info(OWNER, &[]),
                 get_test_instantiate_message(
-                    current_env.clone(),
+                    current_env,
                     Coin {
                         amount: Uint128::from(0u128),
                         denom: "ujunox".to_string(),
@@ -207,7 +207,7 @@ mod tests {
                 current_env.clone(),
                 mock_info(OWNER, &[]),
                 get_test_instantiate_message(
-                    current_env.clone(),
+                    current_env,
                     Coin {
                         amount: Uint128::from(0u128),
                         denom: "ujunox".to_string(),
@@ -403,7 +403,7 @@ mod tests {
                 current_env.clone(),
                 mock_info(OWNER, &[]),
                 get_test_instantiate_message(
-                    current_env.clone(),
+                    current_env,
                     Coin {
                         amount: Uint128::from(0u128),
                         denom: "ujunox".to_string(),

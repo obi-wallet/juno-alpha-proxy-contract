@@ -23,7 +23,7 @@ mod tests {
         let these_signers = vec!["signer1".to_string(), "signer2".to_string()];
         let these_types = vec!["nfc".to_string(), "telegram".to_string()];
         let signers =
-            Signers::new(deps.as_ref(), these_signers.clone(), these_types.clone()).unwrap();
+            Signers::new(deps.as_ref(), these_signers.clone(), these_types).unwrap();
 
         let (test_event, should_delay) = signers.create_event();
         assert_eq!(should_delay, false);
@@ -45,7 +45,7 @@ mod tests {
         ];
         let these_types = vec!["nfc".to_string(), "obi".to_string()];
         let signers =
-            Signers::new(deps.as_ref(), these_signers.clone(), these_types.clone()).unwrap();
+            Signers::new(deps.as_ref(), these_signers.clone(), these_types).unwrap();
 
         let (test_event, should_delay) = signers.create_event();
         assert_eq!(should_delay, true);

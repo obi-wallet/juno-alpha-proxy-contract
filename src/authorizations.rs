@@ -185,7 +185,7 @@ impl<'a> ObiProxyContract<'a> {
 
         let msg_value: Value = match &msg.binarymsg {
             None => return Err(ContractError::MissingBinaryMessage {}),
-            Some(bin) => serde_json_wasm::from_slice(&bin)?,
+            Some(bin) => serde_json_wasm::from_slice(bin)?,
         };
 
         let msg_obj = match msg_value.as_object() {
