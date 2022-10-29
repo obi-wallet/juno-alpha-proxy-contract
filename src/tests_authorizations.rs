@@ -2,7 +2,8 @@
 mod tests {
     use crate::authorizations::Authorization;
     use crate::msg::{
-        AuthorizationsResponse, ExecuteMsg, QueryMsg, TestExecuteMsg, TestFieldsExecuteMsg, CanSpendResponse,
+        AuthorizationsResponse, CanSpendResponse, ExecuteMsg, QueryMsg, TestExecuteMsg,
+        TestFieldsExecuteMsg,
     };
     use crate::state::ObiProxyContract;
     use crate::tests_contract::OWNER;
@@ -81,7 +82,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.authorizations.len(), 1);
-        println!("res: {:?}", res);
 
         // given action should fail if NOT BY ACTOR
         let msg = QueryMsg::CanSpend {
@@ -96,8 +96,12 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
-        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        let expected_res = CanSpendResponse {
+            can_spend: false,
+            reason: "Not an authorized action".to_string(),
+        };
+        let res: CanSpendResponse =
+            from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
         assert_eq!(res, expected_res);
 
         // given action should fail if WRONG TARGET CONTRACT
@@ -113,8 +117,12 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
-        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        let expected_res = CanSpendResponse {
+            can_spend: false,
+            reason: "Not an authorized action".to_string(),
+        };
+        let res: CanSpendResponse =
+            from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
         assert_eq!(res, expected_res);
 
         // given action should succeed if contract correct (no field checking yet)
@@ -164,7 +172,6 @@ mod tests {
         let res: AuthorizationsResponse =
             from_binary(&obi.query(deps.as_ref(), mock_env(), query_msg).unwrap()).unwrap();
         assert_eq!(res.authorizations.len(), 0);
-        println!("res: {:?}", res);
 
         //and action fails where before it succeeded
         let msg = QueryMsg::CanSpend {
@@ -179,8 +186,12 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
-        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        let expected_res = CanSpendResponse {
+            can_spend: false,
+            reason: "Not an authorized action".to_string(),
+        };
+        let res: CanSpendResponse =
+            from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
         assert_eq!(res, expected_res);
     }
 
@@ -269,7 +280,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(res.authorizations.len(), 1);
-        println!("res: {:?}", res);
 
         // Now let's remove with fields specified
         let info = mock_info(OWNER, &coins(2, "token"));
@@ -294,7 +304,6 @@ mod tests {
         let res: AuthorizationsResponse =
             from_binary(&obi.query(deps.as_ref(), mock_env(), query_msg).unwrap()).unwrap();
         assert_eq!(res.authorizations.len(), 0);
-        println!("res: {:?}", res);
 
         // let's test with just strategy, and no qualification on recipient
         let info = mock_info(OWNER, &coins(2, "token"));
@@ -323,8 +332,12 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
-        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        let expected_res = CanSpendResponse {
+            can_spend: false,
+            reason: "Not an authorized action".to_string(),
+        };
+        let res: CanSpendResponse =
+            from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
         assert_eq!(res, expected_res);
 
         // succeeds if strategy is allowed

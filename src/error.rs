@@ -2,6 +2,7 @@ use std::str::Utf8Error;
 
 use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
+use std::num::TryFromIntError;
 use thiserror::Error;
 
 use crate::pair_contract::PairContract;
@@ -13,6 +14,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     Overflow(#[from] OverflowError),
+
+    #[error("{0}")]
+    TryFromInt(#[from] TryFromIntError),
 
     #[error("Caller is not owner.")]
     Unauthorized {},
@@ -44,6 +48,9 @@ pub enum ContractError {
 
     #[error("This address is not authorized as a spend limit Hot Wallet.")]
     HotWalletDoesNotExist {},
+
+    #[error("This hot wallet does not exist or is trying to exceed its spend limit.")]
+    HotWalletDoesNotExistOrOverLimit {},
 
     #[error("Failed to advance the reset day: {0}")]
     DayUpdateError(String),

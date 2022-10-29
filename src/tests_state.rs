@@ -90,7 +90,6 @@ mod tests {
             frozen: false,
         };
 
-        println!("Spending 1,000,000 now");
         config
             .check_and_update_spend_limits(
                 deps.as_ref(),
@@ -103,7 +102,6 @@ mod tests {
                 }],
             )
             .unwrap();
-        println!("Trying 1,000,000 from bad sender");
         config
             .check_and_update_spend_limits(
                 deps.as_ref(),
@@ -117,7 +115,6 @@ mod tests {
             )
             .unwrap_err();
         // now we shouldn't be able to total over our spend limit
-        println!("Trying 99,500,000 (over limit)");
         config
             .check_and_update_spend_limits(
                 deps.as_ref(),
@@ -131,7 +128,6 @@ mod tests {
             )
             .unwrap_err();
         // our even 1 over our spend limit
-        println!("Trying 99,000,001 (over limit)");
         config
             .check_and_update_spend_limits(
                 deps.as_ref(),
@@ -146,7 +142,6 @@ mod tests {
             .unwrap_err();
 
         // but go 3 days + 1 second into the future and we should
-        println!("Spending in future! 100,000,000 should pass now");
         let mut env_future = now_env;
         env_future.block.time =
             Timestamp::from_seconds(env_future.block.time.seconds() as u64 + 259206u64);

@@ -107,12 +107,6 @@ impl PairContract {
         }
         let query_msg = self.clone().create_query_msg(amount, flip_assets)?;
         #[cfg(test)]
-        println!(
-            "Bypassing query message on contract {}: {:?}, and bools are reverse: {}, reverse_message_type: {}, amount_is_target: {}",
-            self.contract_addr, query_msg, reverse, reverse_message_type, amount_is_target
-        );
-        println!("flip_assets is {}", flip_assets);
-        #[cfg(test)]
         {
             let test_denom1 = match flip_assets {
                 true => self.denom2,

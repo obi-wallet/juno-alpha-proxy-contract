@@ -30,12 +30,6 @@ pub enum ExecuteMsg {
     Execute {
         msgs: Vec<CosmosMsg>,
     },
-    /// Might still have spend limit etc effects, but avoids attaching
-    /// any messages. Attaches attributes as normal. For debugging purposes –
-    /// others should use query
-    SimExecute {
-        msgs: Vec<CosmosMsg>,
-    },
     /// Proposes a new owner for the proxy contract – must be called by the existing owner
     ProposeUpdateOwner {
         new_owner: String,

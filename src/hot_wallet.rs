@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use cosmwasm_std::{Coin, Deps, StdError, StdResult, Timestamp, Uint128};
 use schemars::JsonSchema;
@@ -142,11 +144,7 @@ impl HotWallet {
             Ok(dt) => dt,
             Err(e) => return Err(ContractError::DayUpdateError(e.to_string())),
         };
-        println!(
-            "Old reset date is {:?}",
-            self.params.current_period_reset.clone()
-        );
-        println!("Resetting to {:?}", dt.clone().timestamp());
+
         self.params.current_period_reset = dt.timestamp() as u64;
         Ok(())
     }
@@ -252,6 +250,22 @@ impl HotWallet {
             self.simulate_reduce_limit(deps, pair_contracts, spend, false)?;
         self.params.spend_limits[0].limit_remaining = spend_limit_reduction.0;
         Ok(spend_limit_reduction.1)
+    }
+
+    pub fn reduce_limit_direct(&mut self, limit_reduction: Coin) -> Result<(), ContractError> {
+        match self.params.spend_limits[0]
+            .limit_remaining
+            .checked_sub(limit_reduction.amount.u128().try_into()?)
+        {
+            Some(val) => {
+                self.params.spend_limits[0].limit_remaining = val;
+                Ok(())
+            }
+            None => Err(ContractError::CannotSpendMoreThanLimit(
+                limit_reduction.denom,
+                limit_reduction.amount.to_string(),
+            )),
+        }
     }
 }
 

@@ -7,9 +7,10 @@ mod tests {
     use crate::state::ObiProxyContract;
     /* use crate::defaults::get_local_pair_contracts; */
     use super::*;
-    use crate::msg::{Cw20ExecuteMsg, ExecuteMsg, OwnerResponse, CanSpendResponse};
+    use crate::msg::{CanSpendResponse, Cw20ExecuteMsg, ExecuteMsg, OwnerResponse};
     use crate::tests_helpers::{add_test_hotwallet, get_test_instantiate_message, test_spend_bank};
     use crate::ContractError;
+    use cosmwasm_std::StdError::GenericErr;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
@@ -137,7 +138,12 @@ mod tests {
         let err = obi
             .execute(deps.as_mut(), mock_env(), info, execute_msg.clone())
             .unwrap_err();
-        assert_eq!(err, ContractError::HotWalletDoesNotExist {});
+        assert_eq!(
+            err,
+            ContractError::Std(GenericErr {
+                msg: "Hot wallet does not exist or over spend limit".to_string()
+            })
+        );
 
         // but owner can
         let info = mock_info(OWNER, &[]);
@@ -247,7 +253,7 @@ mod tests {
                 })],
             )
             .unwrap();
-        assert!(res.can_spend);
+        assert!(res.0.can_spend);
 
         // and returns false with some huge amount
         let res = obi
@@ -262,10 +268,13 @@ mod tests {
                 })],
             )
             .unwrap();
-        assert!(!res.can_spend);
+        assert!(!res.0.can_spend);
 
         // plus returns false with some unsupported kind of msg
-        let expected_res = CanSpendResponse { can_spend: false, reason: "Distribution CosmosMsg not yet supported".to_string()};
+        let expected_res = CanSpendResponse {
+            can_spend: false,
+            reason: "Distribution CosmosMsg not yet supported".to_string(),
+        };
         let res = obi
             .can_spend(
                 deps.as_ref(),
@@ -279,10 +288,10 @@ mod tests {
                 )],
             )
             .unwrap();
-        assert_eq!(res, expected_res);
+        assert_eq!(res.0, expected_res);
 
         // and returns true with authorized contract
-        let _res = obi
+        let res = obi
             .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
@@ -301,7 +310,7 @@ mod tests {
                 })],
             )
             .unwrap();
-        assert!(_res.can_spend);
+        assert!(res.0.can_spend);
 
         // actually spend as the hot wallet
         let owner_info = mock_info(OWNER, &[]);
@@ -353,7 +362,6 @@ mod tests {
 
         // query hot wallets again, should be 1
         let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
-        println!("hot wallets are: {:?}", res.hot_wallets);
         assert!(res.hot_wallets.len() == 1);
 
         // add another hot wallet, this time with high USDC spend limit
@@ -430,12 +438,12 @@ mod tests {
         })];
         let test_msgs: Vec<CosmosMsg> = vec![
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: "test_repay_address".to_string(),
-                amount: coins(100, "testtokens"),
-            }),
-            CosmosMsg::Bank(BankMsg::Send {
                 to_address: RECEIVER.to_string(),
                 amount: coins(10000, "testtokens"),
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "test_repay_address".to_string(),
+                amount: coins(100, "testtokens"),
             }),
         ];
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };

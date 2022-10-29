@@ -102,14 +102,13 @@ pub fn test_spend_bank(
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
     let send_msg = CosmosMsg::Bank(BankMsg::Send { to_address, amount });
-    let res = obi.execute_execute(deps, current_env, info, vec![send_msg], false);
+    let res = obi.execute_execute(deps, current_env, info, vec![send_msg]);
     let unwrapped_res = match res {
         Ok(res) => res,
         Err(e) => {
             return Err(e);
         }
     };
-    println!("{:?}", unwrapped_res);
     assert!(unwrapped_res.messages.len() == 1);
     let submsg = unwrapped_res.messages[0].clone();
     match submsg.msg {

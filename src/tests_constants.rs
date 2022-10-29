@@ -7,10 +7,6 @@ pub fn get_test_sourced_coin(
     amount: Uint128,
     reverse: bool,
 ) -> Result<SourcedCoin, ContractError> {
-    println!(
-        "getting test swap for {:?} {} with reverse {}",
-        denoms, amount, reverse
-    );
     match denoms.clone() {
         val if val == ("testtokens".to_string(), "uloop".to_string()) => Ok(SourcedCoin {
             coin: Coin {
@@ -37,10 +33,8 @@ pub fn get_test_sourced_coin(
                 ) =>
         {
             let this_amount = if reverse {
-                println!("div uloop-usdc by 10000");
                 amount.checked_div(Uint128::from(10000u128)).unwrap()
             } else {
-                println!("mul uloop-usdc by 100");
                 amount.checked_mul(Uint128::from(100u128)).unwrap()
             };
             Ok(SourcedCoin {
@@ -75,10 +69,8 @@ pub fn get_test_sourced_coin(
             ) =>
         {
             let this_amount = if !reverse {
-                println!("div usdc-uloop by 10000");
                 amount.checked_div(Uint128::from(10000u128)).unwrap()
             } else {
-                println!("div usdc-uloop by 100");
                 amount.checked_div(Uint128::from(100u128)).unwrap()
             };
             Ok(SourcedCoin {
@@ -101,10 +93,8 @@ pub fn get_test_sourced_coin(
             ) =>
         {
             let this_amount = if !reverse {
-                println!("div usdc-ujuno by 100");
                 amount.checked_mul(Uint128::from(100u128)).unwrap()
             } else {
-                println!("mul usdc-ujuno by 100");
                 amount.checked_div(Uint128::from(10000u128)).unwrap()
             };
             Ok(SourcedCoin {
