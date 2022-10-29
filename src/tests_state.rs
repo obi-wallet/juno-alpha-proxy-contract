@@ -33,6 +33,8 @@ mod tests {
             },
             update_delay_hours: 0u16,
             update_pending_time: now_env.block.time,
+            auth_count: Uint128::from(0u128),
+            frozen: false,
         };
 
         assert!(config.is_owner(owner.to_string()));
@@ -84,6 +86,8 @@ mod tests {
                 vec!["type1".to_string(), "type2".to_string()],
             )
             .unwrap(),
+            auth_count: Uint128::from(0u128),
+            frozen: false,
         };
 
         println!("Spending 1,000,000 now");
@@ -207,6 +211,8 @@ mod tests {
                 vec!["type1".to_string(), "type2".to_string()],
             )
             .unwrap(),
+            auth_count: Uint128::from(0u128),
+            frozen: false,
         };
 
         config

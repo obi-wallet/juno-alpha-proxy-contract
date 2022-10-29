@@ -1,9 +1,10 @@
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::{Addr, Deps, DepsMut, MessageInfo, Order, Response, StdResult, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_json_value_wasm::Value;
 
-use crate::state::ObiProxyContract;
+use crate::{state::ObiProxyContract, submsgs::PendingSubmsg, ContractError};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Authorization {
@@ -83,5 +84,142 @@ impl<'a> ObiProxyContract<'a> {
             authorizations: IndexedMap::new(authorizations_key, indexes),
             cfg: Item::new(config_key),
         }
+    }
+
+    fn find_authorization(
+        &self,
+        deps: Deps,
+        authorization: &Authorization,
+    ) -> Result<Vec<u8>, ContractError> {
+        let message_name = authorization.message_name.clone();
+        let authorizations: Vec<(Vec<u8>, Authorization)> = self
+            .authorizations
+            .idx
+            .contract
+            .prefix(authorization.clone().contract)
+            .range(deps.storage, None, None, Order::Ascending)
+            .filter(|item| match item {
+                Err(_) => false,
+                Ok(val) => val.1.message_name == message_name,
+            })
+            .collect::<StdResult<Vec<(Vec<u8>, Authorization)>>>()?;
+        for this_auth in authorizations.iter().take(authorizations.len() as usize) {
+            if this_auth.clone().1.fields == authorization.clone().fields {
+                return Ok(this_auth.0.clone());
+            }
+        }
+        Err(ContractError::NoSuchAuthorization {})
+    }
+
+    pub fn add_authorization(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        authorization: Authorization,
+    ) -> Result<Response, ContractError> {
+        let cfg = self.cfg.load(deps.storage)?;
+        if info.sender != cfg.owner {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        match self.find_authorization(deps.as_ref(), &authorization) {
+            Err(_) => {
+                self.authorizations
+                    .save(deps.storage, cfg.owner.as_ref(), &authorization)?;
+            }
+            Ok(_key) => {
+                // may add expiration here instead in future version
+                return Err(ContractError::CustomError {
+                    val: "temporary error: auth exists".to_string(),
+                });
+            }
+        }
+
+        Ok(Response::default())
+    }
+
+    pub fn rm_authorization(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        authorization: Authorization,
+    ) -> Result<Response, ContractError> {
+        if info.sender != self.cfg.load(deps.storage)?.owner {
+            return Err(ContractError::Unauthorized {});
+        }
+        let found_auth_key = match self.find_authorization(deps.as_ref(), &authorization) {
+            Err(_) => return Err(ContractError::NoSuchAuthorization {}),
+            Ok(key) => key,
+        };
+        self.authorizations
+            .remove(deps.storage, std::str::from_utf8(&found_auth_key)?)?;
+        Ok(Response::default())
+    }
+
+    pub fn assert_authorized_action(
+        &self,
+        deps: Deps,
+        sender: Addr,
+        msg: PendingSubmsg,
+    ) -> Result<(), ContractError> {
+        let contract_address = match msg.contract_addr {
+            None => return Err(ContractError::MissingContractAddress {}),
+            Some(addr) => addr,
+        };
+        // check there is an authorization for this contract
+        let authorizations: Vec<Authorization> = self
+            .authorizations
+            .idx
+            .contract
+            .prefix(deps.api.addr_validate(&contract_address)?)
+            .range(deps.storage, None, None, Order::Ascending)
+            .filter(|item| match item {
+                Err(_) => false,
+                Ok(val) => val.1.actor == sender,
+            })
+            .map(|item| Ok(item?.1))
+            .collect::<StdResult<Vec<Authorization>>>()?;
+        if authorizations.is_empty() {
+            return Err(ContractError::NoSuchAuthorization {});
+        }
+
+        let msg_value: Value = match &msg.binarymsg {
+            None => return Err(ContractError::MissingBinaryMessage {}),
+            Some(bin) => serde_json_wasm::from_slice(&bin)?,
+        };
+
+        let msg_obj = match msg_value.as_object() {
+            Some(obj) => obj,
+            None => return Err(ContractError::Unauthorized {}),
+        };
+
+        // allow the msg if a matching authorization has no field reqs,
+        // or if the message matches the field reqs for one authorization
+        'outer: for auth in &authorizations {
+            let this_auth: Authorization = auth.clone();
+            match this_auth.fields {
+                Some(vals) => {
+                    for kv in 0..vals.len() {
+                        let this_key: String = vals[kv].clone().0;
+                        let this_value: String = vals[kv].clone().1;
+                        if msg_obj.contains_key(&this_key) {
+                            if msg_obj[&this_key] != this_value && kv == vals.len() - 1 {
+                                return Err(ContractError::FieldMismatch {
+                                    key: this_key,
+                                    value: this_value,
+                                });
+                            }
+                        } else {
+                            return Err(ContractError::MissingRequiredField {
+                                key: this_key,
+                                value: this_value,
+                            });
+                        }
+                    }
+                }
+                None => break 'outer,
+            }
+        }
+        Ok(())
     }
 }

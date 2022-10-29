@@ -1,24 +1,17 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo,
-    Order, Response, StakingMsg, StdError, StdResult, Timestamp, Uint128, WasmMsg,
+    Response, StakingMsg, StdError, StdResult, Timestamp, Uint128, WasmMsg,
 };
-
-use cw1::CanExecuteResponse;
-use cw2::{get_contract_version, set_contract_version};
-use cw_storage_plus::Item;
-use schemars::JsonSchema;
-use semver::Version;
-use serde::{Deserialize, Serialize};
-use serde_json_value_wasm::Value;
+use cosmwasm_std::{Api, Order};
 
 use crate::authorizations::Authorization;
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
 use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletParams, HotWalletsResponse};
 use crate::msg::{
-    CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, OwnerResponse, QueryMsg,
-    SignersResponse, UpdateDelayResponse, WrappedExecuteMsg,
+    AuthorizationsResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
+    OwnerResponse, QueryMsg, SignersResponse, UpdateDelayResponse,
 };
 use crate::pair_contract::{PairContract, PairContracts};
 use crate::signers::Signers;
@@ -26,10 +19,18 @@ use crate::sourced_coin::SourcedCoin;
 use crate::sources::Sources;
 use crate::state::{ObiProxyContract, State};
 use crate::submsgs::{PendingSubmsg, SubmsgType, WasmmsgType};
+use cw1::CanExecuteResponse;
+use cw2::{get_contract_version, set_contract_version};
+use cw_storage_plus::{Bound, Item};
+use schemars::JsonSchema;
+use semver::Version;
+use serde::{Deserialize, Serialize};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "obi-proxy-contract";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_LIMIT: u32 = 10;
+const MAX_LIMIT: u32 = 30;
 
 struct CorePayload {
     info: MessageInfo,
@@ -196,135 +197,6 @@ impl<'a> ObiProxyContract<'a> {
         }
     }
 
-    fn find_authorization(
-        &self,
-        deps: Deps,
-        authorization: &Authorization,
-    ) -> Result<Vec<u8>, ContractError> {
-        let message_name = authorization.message_name.clone();
-        let authorizations: Vec<(Vec<u8>, Authorization)> = self
-            .authorizations
-            .idx
-            .contract
-            .prefix(authorization.clone().contract)
-            .range(deps.storage, None, None, Order::Ascending)
-            .filter(|item| match item {
-                Err(_) => false,
-                Ok(val) => val.1.message_name == message_name,
-            })
-            .collect::<StdResult<Vec<(Vec<u8>, Authorization)>>>()?;
-        for this_auth in authorizations.iter().take(authorizations.len() as usize) {
-            if this_auth.clone().1.fields == authorization.clone().fields {
-                return Ok(this_auth.0.clone());
-            }
-        }
-        Err(ContractError::NoSuchAuthorization {})
-    }
-
-    pub fn add_authorization(
-        &self,
-        deps: DepsMut,
-        info: MessageInfo,
-        authorization: Authorization,
-    ) -> Result<Response, ContractError> {
-        let cfg = self.cfg.load(deps.storage)?;
-        if info.sender != cfg.owner {
-            return Err(ContractError::Unauthorized {});
-        }
-
-        match self.find_authorization(deps.as_ref(), &authorization) {
-            Err(_) => {
-                self.authorizations
-                    .save(deps.storage, cfg.owner.as_ref(), &authorization)?;
-            }
-            Ok(_key) => {
-                // may add expiration here instead in future version
-                return Err(ContractError::CustomError {
-                    val: "temporary error: auth exists".to_string(),
-                });
-            }
-        }
-
-        Ok(Response::default())
-    }
-
-    pub fn rm_authorization(
-        &self,
-        deps: DepsMut,
-        info: MessageInfo,
-        authorization: Authorization,
-    ) -> Result<Response, ContractError> {
-        if info.sender != self.cfg.load(deps.storage)?.owner {
-            return Err(ContractError::Unauthorized {});
-        }
-        let found_auth_key = match self.find_authorization(deps.as_ref(), &authorization) {
-            Err(_) => return Err(ContractError::NoSuchAuthorization {}),
-            Ok(key) => key,
-        };
-        self.authorizations
-            .remove(deps.storage, std::str::from_utf8(&found_auth_key)?)?;
-        Ok(Response::default())
-    }
-
-    pub fn check_and_execute(
-        &self,
-        deps: DepsMut,
-        _info: MessageInfo,
-        msg: WrappedExecuteMsg,
-    ) -> Result<Response, ContractError> {
-        // check there is an authorization for this contract
-        let authorizations: Vec<Authorization> = self
-            .authorizations
-            .idx
-            .contract
-            .prefix(msg.target_contract)
-            .range(deps.storage, None, None, Order::Ascending)
-            .map(|item| Ok(item?.1))
-            .collect::<StdResult<Vec<Authorization>>>()?;
-        if authorizations.is_empty() {
-            return Err(ContractError::NoSuchAuthorization {});
-        }
-
-        let msg_value: Value = serde_json_wasm::from_slice(&msg.msg)?;
-
-        let msg_obj = match msg_value.as_object() {
-            Some(obj) => obj,
-            None => return Err(ContractError::Unauthorized {}),
-        };
-
-        // allow the msg if a matching authorization has no field reqs,
-        // or if the message matches the field reqs for one authorization
-        'outer: for auth in &authorizations {
-            let this_auth: Authorization = auth.clone();
-            match this_auth.fields {
-                Some(vals) => {
-                    for kv in 0..vals.len() {
-                        let this_key: String = vals[kv].clone().0;
-                        let this_value: String = vals[kv].clone().1;
-                        if msg_obj.contains_key(&this_key) {
-                            if msg_obj[&this_key] != this_value && kv == vals.len() - 1 {
-                                return Err(ContractError::FieldMismatch {
-                                    key: this_key,
-                                    value: this_value,
-                                });
-                            }
-                        } else {
-                            return Err(ContractError::MissingRequiredField {
-                                key: this_key,
-                                value: this_value,
-                            });
-                        }
-                    }
-                }
-                None => break 'outer,
-            }
-        }
-
-        // dispatch the execute message to destination
-
-        Ok(Response::new().add_attribute("method", "check_and_execute"))
-    }
-
     // Simulation gatekeeping is all in this block
     pub fn execute_execute(
         &self,
@@ -343,7 +215,7 @@ impl<'a> ObiProxyContract<'a> {
                 res = res.add_messages(msgs);
             }
         } else {
-            // certain authorized token contracts process immediately if hot wallet (or owner)
+            // certain authorized token contracts can process immediately if hot wallet (or owner)
             if let CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr,
                 msg: _,
@@ -679,6 +551,13 @@ impl<'a> ObiProxyContract<'a> {
                 to_binary(&self.query_can_spend(deps, env, sender, msgs)?)
             }
             QueryMsg::UpdateDelay {} => to_binary(&self.query_update_delay(deps)?),
+            QueryMsg::Authorizations {
+                target_contract,
+                limit,
+                start_after,
+            } => {
+                to_binary(&self.query_authorizations(deps, target_contract, limit, start_after)?)
+            }
         }
     }
 
@@ -744,6 +623,7 @@ impl<'a> ObiProxyContract<'a> {
         if cfg.is_owner(sender.clone()) {
             return Ok(CanSpendResponse { can_spend: true });
         }
+
         // if one of authorized token contracts and spender is hot wallet, yes
         if msgs.len() > 1 {
             return Err(StdError::GenericErr {
@@ -764,15 +644,45 @@ impl<'a> ObiProxyContract<'a> {
             }
         };
         let funds: Vec<Coin> = match msgs[0].clone() {
-            //strictly speaking cw20 spend limits not supported yet, unless blanket authorized
+            //strictly speaking cw20 spend limits not supported yet, unless blanket authorized.
+            //As kludge, send/transfer is blocked if debt exists. Otherwise, depends on
+            //authorization.
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: _,
                 msg: _,
-                funds: _,
+                funds,
             }) => {
-                return Err(StdError::GenericErr {
-                    msg: "Spend-limit-based cw20 transfers not yet supported".to_string(),
-                })
+                let mut processed_msg = PendingSubmsg {
+                    msg: msgs[0].clone(),
+                    contract_addr: None,
+                    binarymsg: None,
+                    funds: vec![],
+                    ty: SubmsgType::Unknown,
+                };
+                processed_msg.add_funds(funds.to_vec());
+                let _type = processed_msg.process_and_get_msg_type();
+                // if is an active authorization, we will check against authorizations
+                // and can check funds later
+                match self.assert_authorized_action(
+                    deps,
+                    deps.api.addr_validate(&sender)?,
+                    processed_msg,
+                ) {
+                    Ok(()) => {
+                        // can't immediately pass but can proceed to fund checking
+                        match funds {
+                            x if x == vec![] => {
+                                return Ok(CanSpendResponse { can_spend: true });
+                            }
+                            _ => funds,
+                        }
+                    }
+                    Err(e) => {
+                        return Err(StdError::GenericErr {
+                            msg: format!("{} {}", "Mapped error: ", e.to_string()),
+                        });
+                    }
+                }
             }
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: _,
@@ -811,5 +721,44 @@ impl<'a> ObiProxyContract<'a> {
             Ok(_) => Ok(CanSpendResponse { can_spend: true }),
             Err(_) => Ok(CanSpendResponse { can_spend: false }),
         }
+    }
+
+    pub fn maybe_addr(&self, api: &dyn Api, human: Option<String>) -> StdResult<Option<Addr>> {
+        human.map(|x| api.addr_validate(&x)).transpose()
+    }
+
+    pub fn query_authorizations(
+        &self,
+        deps: Deps,
+        target_contract: Option<String>,
+        limit: Option<u32>,
+        start_after: Option<String>,
+    ) -> StdResult<AuthorizationsResponse> {
+        let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+        let start_raw = start_after
+            .clone()
+            .map(|s| Bound::ExclusiveRaw(s.into_bytes()));
+        let start_addr = self.maybe_addr(deps.api, start_after)?;
+        let start = start_addr.map(|addr| Bound::exclusive(addr.as_ref()));
+        let authorizations = match target_contract {
+            None => {
+                self.authorizations
+                    .range(deps.storage, start_raw, None, Order::Ascending)
+                    .take(limit)
+                    .map(|item| Ok(/*(String::from_utf8(item?.0)?,*/ item?.1))
+                    .collect::<StdResult<Vec<Authorization>>>()?
+            }
+            Some(target) => {
+                self.authorizations
+                    .idx
+                    .contract
+                    .prefix(deps.api.addr_validate(&target)?)
+                    .range(deps.storage, start, None, Order::Ascending)
+                    .take(limit)
+                    .map(|item| Ok(/*item?.0,*/ item?.1))
+                    .collect::<StdResult<Vec<Authorization>>>()?
+            }
+        };
+        Ok(AuthorizationsResponse { authorizations })
     }
 }

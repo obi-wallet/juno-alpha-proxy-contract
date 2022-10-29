@@ -15,6 +15,8 @@ pub mod sources;
 pub mod state;
 pub mod submsgs;
 #[cfg(test)]
+pub mod tests_authorizations;
+#[cfg(test)]
 pub mod tests_constants;
 #[cfg(test)]
 mod tests_contract;

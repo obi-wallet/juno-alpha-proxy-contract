@@ -119,6 +119,12 @@ pub enum ContractError {
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
+
+    #[error("Missing contract address for WASM execute message")]
+    MissingContractAddress {},
+
+    #[error("Missing binary message for WASM execute message")]
+    MissingBinaryMessage {},
 }
 
 impl From<semver::Error> for ContractError {

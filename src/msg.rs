@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Uint128};
+use cosmwasm_std::{Binary, Coin, CosmosMsg, Uint128};
 
 use crate::{
     authorizations::Authorization,
@@ -30,7 +30,7 @@ pub enum ExecuteMsg {
     Execute {
         msgs: Vec<CosmosMsg>,
     },
-    /// Might still have spend limit etc affects, but avoids attaching
+    /// Might still have spend limit etc effects, but avoids attaching
     /// any messages. Attaches attributes as normal. For debugging purposes –
     /// others should use query
     SimExecute {
@@ -78,6 +78,12 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
+    // GetCount returns the current count as a json-encoded number
+    Authorizations {
+        target_contract: Option<String>,
+        limit: Option<u32>,
+        start_after: Option<String>,
+    },
     /// Shows owner; always mutable
     Owner {},
     /// Shows pending owner (subject to becoming new owner when
@@ -106,10 +112,23 @@ pub enum QueryMsg {
 #[serde(rename_all = "snake_case")]
 pub struct MigrateMsg {}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct WrappedExecuteMsg {
-    pub target_contract: Addr,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct WasmExecuteMsg {
+    contract_addr: String,
+    /// msg is the json-encoded ExecuteMsg struct (as raw Binary)
     pub msg: Binary,
+    funds: Vec<Coin>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TestExecuteMsg {
+    pub foo: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TestFieldsExecuteMsg {
+    pub recipient: String,
+    pub strategy: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -130,6 +149,11 @@ pub struct CanSpendResponse {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct UpdateDelayResponse {
     pub update_delay_hours: u16,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct AuthorizationsResponse {
+    pub authorizations: Vec<Authorization>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
