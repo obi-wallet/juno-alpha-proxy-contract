@@ -2,7 +2,7 @@
 mod tests {
     use crate::authorizations::Authorization;
     use crate::msg::{
-        AuthorizationsResponse, ExecuteMsg, QueryMsg, TestExecuteMsg, TestFieldsExecuteMsg,
+        AuthorizationsResponse, ExecuteMsg, QueryMsg, TestExecuteMsg, TestFieldsExecuteMsg, CanSpendResponse,
     };
     use crate::state::ObiProxyContract;
     use crate::tests_contract::OWNER;
@@ -86,6 +86,7 @@ mod tests {
         // given action should fail if NOT BY ACTOR
         let msg = QueryMsg::CanSpend {
             sender: "anyone".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "targetcontract".to_string(),
                 msg: to_binary(&TestExecuteMsg {
@@ -95,11 +96,14 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let _res = obi.query(deps.as_ref(), mock_env(), msg).unwrap_err();
+        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
+        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        assert_eq!(res, expected_res);
 
         // given action should fail if WRONG TARGET CONTRACT
         let msg = QueryMsg::CanSpend {
             sender: "actor".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "badtargetcontract".to_string(),
                 msg: to_binary(&TestExecuteMsg {
@@ -109,11 +113,14 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let _res = obi.query(deps.as_ref(), mock_env(), msg).unwrap_err();
+        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
+        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        assert_eq!(res, expected_res);
 
         // given action should succeed if contract correct (no field checking yet)
         let msg = QueryMsg::CanSpend {
             sender: "actor".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "targetcontract".to_string(),
                 msg: to_binary(&TestExecuteMsg {
@@ -162,6 +169,7 @@ mod tests {
         //and action fails where before it succeeded
         let msg = QueryMsg::CanSpend {
             sender: "actor".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "targetcontract".to_string(),
                 msg: to_binary(&TestExecuteMsg {
@@ -171,7 +179,9 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let _res = obi.query(deps.as_ref(), mock_env(), msg).unwrap_err();
+        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
+        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        assert_eq!(res, expected_res);
     }
 
     #[test]
@@ -224,6 +234,7 @@ mod tests {
         // given action should succeed if contract correct
         let msg = QueryMsg::CanSpend {
             sender: "actor".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "targetcontract".to_string(),
                 msg: to_binary(&TestFieldsExecuteMsg {
@@ -301,6 +312,7 @@ mod tests {
         // fails if strategy is wrong
         let msg = QueryMsg::CanSpend {
             sender: "actor".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "targetcontract".to_string(),
                 msg: to_binary(&TestFieldsExecuteMsg {
@@ -311,11 +323,14 @@ mod tests {
                 funds: vec![],
             })],
         };
-        let _res = obi.query(deps.as_ref(), mock_env(), msg).unwrap_err();
+        let expected_res = CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string()};
+        let res: CanSpendResponse = from_binary(&obi.query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
+        assert_eq!(res, expected_res);
 
         // succeeds if strategy is allowed
         let msg = QueryMsg::CanSpend {
             sender: "actor".to_string(),
+            funds: vec![],
             msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "targetcontract".to_string(),
                 msg: to_binary(&TestFieldsExecuteMsg {

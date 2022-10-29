@@ -102,6 +102,7 @@ pub enum QueryMsg {
     /// by hot wallet, or 3) is one of approved cw20s (no funds attached tho)
     CanSpend {
         sender: String,
+        funds: Vec<Coin>,
         msgs: Vec<CosmosMsg>,
     },
     /// Returns the update delay (when updating to a new admin) in hours
@@ -144,6 +145,7 @@ pub struct SignersResponse {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct CanSpendResponse {
     pub can_spend: bool,
+    pub reason: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

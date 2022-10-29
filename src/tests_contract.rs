@@ -7,7 +7,7 @@ mod tests {
     use crate::state::ObiProxyContract;
     /* use crate::defaults::get_local_pair_contracts; */
     use super::*;
-    use crate::msg::{Cw20ExecuteMsg, ExecuteMsg, OwnerResponse};
+    use crate::msg::{Cw20ExecuteMsg, ExecuteMsg, OwnerResponse, CanSpendResponse};
     use crate::tests_helpers::{add_test_hotwallet, get_test_instantiate_message, test_spend_bank};
     use crate::ContractError;
 
@@ -236,10 +236,11 @@ mod tests {
 
         // check that can_spend returns true
         let res = obi
-            .query_can_spend(
+            .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
                 HOT_WALLET.to_string(),
+                vec![],
                 vec![CosmosMsg::Bank(BankMsg::Send {
                     to_address: RECEIVER.to_string(),
                     amount: coins(9_000u128, "testtokens"),
@@ -250,10 +251,11 @@ mod tests {
 
         // and returns false with some huge amount
         let res = obi
-            .query_can_spend(
+            .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
                 HOT_WALLET.to_string(),
+                vec![],
                 vec![CosmosMsg::Bank(BankMsg::Send {
                     to_address: RECEIVER.to_string(),
                     amount: coins(999_999_999_000u128, "testtokens"),
@@ -262,26 +264,30 @@ mod tests {
             .unwrap();
         assert!(!res.can_spend);
 
-        // plus returns error with some unsupported kind of msg
-        let _res = obi
-            .query_can_spend(
+        // plus returns false with some unsupported kind of msg
+        let expected_res = CanSpendResponse { can_spend: false, reason: "Distribution CosmosMsg not yet supported".to_string()};
+        let res = obi
+            .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
                 HOT_WALLET.to_string(),
+                vec![],
                 vec![CosmosMsg::Distribution(
                     DistributionMsg::SetWithdrawAddress {
                         address: RECEIVER.to_string(),
                     },
                 )],
             )
-            .unwrap_err();
+            .unwrap();
+        assert_eq!(res, expected_res);
 
         // and returns true with authorized contract
         let _res = obi
-            .query_can_spend(
+            .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
                 HOT_WALLET.to_string(),
+                vec![],
                 vec![CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr:
                         "juno1x5xz6wu8qlau8znmc60tmazzj3ta98quhk7qkamul3am2x8fsaqqcwy7n9"

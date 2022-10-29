@@ -547,8 +547,8 @@ impl<'a> ObiProxyContract<'a> {
                 to_binary(&self.query_can_execute(deps, sender, msg)?)
             }
             QueryMsg::HotWallets {} => to_binary(&self.query_hot_wallets(deps)?),
-            QueryMsg::CanSpend { sender, msgs } => {
-                to_binary(&self.query_can_spend(deps, env, sender, msgs)?)
+            QueryMsg::CanSpend { sender, funds, msgs } => {
+                to_binary(&self.can_spend(deps, env, sender, funds, msgs)?)
             }
             QueryMsg::UpdateDelay {} => to_binary(&self.query_update_delay(deps)?),
             QueryMsg::Authorizations {
@@ -610,18 +610,42 @@ impl<'a> ObiProxyContract<'a> {
         })
     }
 
-    pub fn query_can_spend(
+    pub fn can_spend(
         &self,
         deps: Deps,
         env: Env,
         sender: String,
+        funds: Vec<Coin>,
         msgs: Vec<CosmosMsg>,
     ) -> StdResult<CanSpendResponse> {
         let cfg = self.cfg.load(deps.storage)?;
         // if owner, always – though technically this might not be true
         // if first token send with nothing left to repay fees
         if cfg.is_owner(sender.clone()) {
-            return Ok(CanSpendResponse { can_spend: true });
+            if cfg.uusd_fee_debt > Uint128::from(0u128) {
+                for n in 0..msgs.len() {
+                    let mut processed_msg = PendingSubmsg {
+                        msg: msgs[n].clone(),
+                        contract_addr: None,
+                        binarymsg: None,
+                        funds: vec![],
+                        ty: SubmsgType::Unknown,
+                    };
+                    if n == 0 { processed_msg.add_funds(funds.clone()); }
+                    let _msg_type = processed_msg.process_and_get_msg_type();
+                    if processed_msg.funds.len() > 0 {
+                        // more robust handling needed with multiple fund types;
+                        // currently if first is insufficient, fails
+                        match self.try_repay_debt(deps, funds[0].clone()) {
+                            Err(e) => { return Ok(CanSpendResponse { can_spend: false, reason: e.to_string() }) },
+                            Ok(_) => { return Ok(CanSpendResponse { can_spend: true, reason: "Spender is owner, debt is repayable".to_string() }); }
+                        }
+                    }
+                }
+                return Ok(CanSpendResponse { can_spend: true, reason: "Spender is owner; funds not being sent".to_string() });
+            } else {
+                return Ok(CanSpendResponse { can_spend: true, reason: "Spender is owner, with zero debt".to_string() });
+            }
         }
 
         // if one of authorized token contracts and spender is hot wallet, yes
@@ -640,7 +664,7 @@ impl<'a> ObiProxyContract<'a> {
                 && cfg.is_authorized_hotwallet_contract(contract_addr)
                 && funds == vec![]
             {
-                return Ok(CanSpendResponse { can_spend: true });
+                return Ok(CanSpendResponse { can_spend: true, reason: "Active hot wallet spending blanket-authorized token".to_string()});
             }
         };
         let funds: Vec<Coin> = match msgs[0].clone() {
@@ -660,7 +684,7 @@ impl<'a> ObiProxyContract<'a> {
                     ty: SubmsgType::Unknown,
                 };
                 processed_msg.add_funds(funds.to_vec());
-                let _type = processed_msg.process_and_get_msg_type();
+                let _msg_type = processed_msg.process_and_get_msg_type();
                 // if is an active authorization, we will check against authorizations
                 // and can check funds later
                 match self.assert_authorized_action(
@@ -672,15 +696,13 @@ impl<'a> ObiProxyContract<'a> {
                         // can't immediately pass but can proceed to fund checking
                         match funds {
                             x if x == vec![] => {
-                                return Ok(CanSpendResponse { can_spend: true });
+                                return Ok(CanSpendResponse { can_spend: true, reason: "Authorized action with no funds".to_string()});
                             }
                             _ => funds,
                         }
                     }
-                    Err(e) => {
-                        return Err(StdError::GenericErr {
-                            msg: format!("{} {}", "Mapped error: ", e.to_string()),
-                        });
+                    Err(_) => {
+                        return Ok(CanSpendResponse { can_spend: false, reason: "Not an authorized action".to_string() });
                     }
                 }
             }
@@ -695,19 +717,13 @@ impl<'a> ObiProxyContract<'a> {
                 vec![amount]
             }
             CosmosMsg::Custom(_) => {
-                return Err(StdError::GenericErr {
-                    msg: "Custom CosmosMsg not yet supported".to_string(),
-                })
+                return Ok(CanSpendResponse { can_spend: false, reason: "Custom CosmosMsg not yet supported".to_string()});
             }
             CosmosMsg::Distribution(_) => {
-                return Err(StdError::GenericErr {
-                    msg: "Distribution CosmosMsg not yet supported".to_string(),
-                })
+                return Ok(CanSpendResponse { can_spend: false, reason: "Distribution CosmosMsg not yet supported".to_string()});
             }
             _ => {
-                return Err(StdError::GenericErr {
-                    msg: "This CosmosMsg type not yet supported".to_string(),
-                })
+                return Ok(CanSpendResponse { can_spend: false, reason: "This CosmosMsg type not yet supported".to_string()});
             }
         };
         let res = cfg.check_spend_limits(
@@ -718,8 +734,8 @@ impl<'a> ObiProxyContract<'a> {
             funds,
         );
         match res {
-            Ok(_) => Ok(CanSpendResponse { can_spend: true }),
-            Err(_) => Ok(CanSpendResponse { can_spend: false }),
+            Ok(_) => Ok(CanSpendResponse { can_spend: true, reason: "Hot wallet, with spending within spend limits".to_string() }),
+            Err(_) => Ok(CanSpendResponse { can_spend: false, reason: "Hot wallet, but spending is over fund limit".to_string()}),
         }
     }
 
