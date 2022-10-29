@@ -1,3 +1,5 @@
+use std::str::Utf8Error;
+
 use cosmwasm_std::OverflowError;
 use cosmwasm_std::StdError;
 use thiserror::Error;
@@ -76,7 +78,7 @@ pub enum ContractError {
     #[error("Mismatched pair contract.")]
     MismatchedPairContract {},
 
-    #[error("Pair contract for asset {0} to {1} not found, DUMP: {:3}")]
+    #[error("Pair contract for asset {} to {} not found, DUMP: {:?}", 0, 1, 2)]
     PairContractNotFound(String, String, Vec<PairContract>),
 
     #[error("Semver parsing error: {0}")]
@@ -99,6 +101,24 @@ pub enum ContractError {
 
     #[error("Owner update safety delay has not yet passed")]
     UpdateDelayActive {},
+
+    #[error(transparent)]
+    JsonError(#[from] serde_json_value_wasm::de::Error),
+
+    #[error("{0}")]
+    Utf8(#[from] Utf8Error),
+
+    #[error("No authorization for target contract")]
+    NoSuchAuthorization,
+
+    #[error("Field mismatch: field {key:?} must contain parameter {value:?}")]
+    FieldMismatch { key: String, value: String },
+
+    #[error("Missing required field: field {key:?} must contain parameter {value:?}")]
+    MissingRequiredField { key: String, value: String },
+
+    #[error("Custom Error val: {val:?}")]
+    CustomError { val: String },
 }
 
 impl From<semver::Error> for ContractError {

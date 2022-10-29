@@ -1,9 +1,10 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CosmosMsg, Uint128};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Uint128};
 
 use crate::{
+    authorizations::Authorization,
     hot_wallet::{CoinLimit, HotWalletParams},
     signers::Signer,
 };
@@ -26,13 +27,19 @@ pub enum ExecuteMsg {
     /// Execute requests the contract to re-dispatch all these messages with the
     /// contract's address as sender. Every implementation has it's own logic to
     /// determine in
-    Execute { msgs: Vec<CosmosMsg> },
+    Execute {
+        msgs: Vec<CosmosMsg>,
+    },
     /// Might still have spend limit etc affects, but avoids attaching
     /// any messages. Attaches attributes as normal. For debugging purposes –
     /// others should use query
-    SimExecute { msgs: Vec<CosmosMsg> },
+    SimExecute {
+        msgs: Vec<CosmosMsg>,
+    },
     /// Proposes a new owner for the proxy contract – must be called by the existing owner
-    ProposeUpdateOwner { new_owner: String },
+    ProposeUpdateOwner {
+        new_owner: String,
+    },
     /// Confirms a proposed owner - must be called by the new owner.
     /// This is to prevent accidentally transitioning to an uncontrolled address.
     ConfirmUpdateOwner {
@@ -44,16 +51,28 @@ pub enum ExecuteMsg {
     CancelUpdateOwner {},
     /// Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg
     /// transactions if within the known recurring spend limit.
-    AddHotWallet { new_hot_wallet: HotWalletParams },
+    AddHotWallet {
+        new_hot_wallet: HotWalletParams,
+    },
     /// Removes an active spend-limited wallet.
-    RmHotWallet { doomed_hot_wallet: String },
+    RmHotWallet {
+        doomed_hot_wallet: String,
+    },
     /// Updates spend limit for a wallet. Update of period not supported: rm and re-add
     UpdateHotWalletSpendLimit {
         hot_wallet: String,
         new_spend_limits: CoinLimit,
     },
     /// Updates the update delay (when changing to new admin)
-    UpdateUpdateDelay { hours: u16 },
+    UpdateUpdateDelay {
+        hours: u16,
+    },
+    AddAuthorization {
+        new_authorization: Authorization,
+    },
+    RemoveAuthorization {
+        authorization_to_remove: Authorization,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -86,6 +105,12 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MigrateMsg {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct WrappedExecuteMsg {
+    pub target_contract: Addr,
+    pub msg: Binary,
+}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct OwnerResponse {

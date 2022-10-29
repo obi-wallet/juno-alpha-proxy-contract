@@ -1,0 +1,3 @@
+[submodule "packages/serde-json-value-wasm"]
+	path = packages/serde-json-value-wasm
+	url = https://github.com/chris-ricketts/serde-json-value-wasm.git

@@ -1,23 +1,17 @@
-use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockQuerier};
-use cosmwasm_std::{
-    Attribute, BankMsg, Coin, CosmosMsg, DepsMut, Empty, Env, MemoryStorage, MessageInfo,
-    OwnedDeps, Response,
-};
+use cosmwasm_std::{BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 
-use crate::contract::{execute, execute_execute, instantiate};
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWalletParams};
+use crate::hot_wallet::{CoinLimit, HotWalletParams, PeriodType};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
-use crate::{contract::query_hot_wallets, hot_wallet::PeriodType};
+use crate::state::ObiProxyContract;
 
 use crate::tests_contract::{HOT_WALLET, OWNER};
 
-pub fn instantiate_contract(
-    deps: &mut OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>,
+pub fn get_test_instantiate_message(
     env: Env,
     starting_debt: Coin,
     obi_is_signer: bool,
-) {
+) -> InstantiateMsg {
     let signer2: String;
     if obi_is_signer {
         signer2 = "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string();
@@ -58,18 +52,12 @@ pub fn instantiate_contract(
             "type3".to_string(),
         ],
     };
-    let info = mock_info(OWNER, &[]);
-    let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();
-    println!("events: {:?}", res.events);
-    assert_eq!(res.events.len(), 1);
-    assert_eq!(
-        res.events[0].attributes[1],
-        Attribute::new("signer".to_string(), signer2),
-    );
+    instantiate_msg
 }
 
 pub fn add_test_hotwallet(
     mut deps: DepsMut,
+    obi: &mut ObiProxyContract,
     address: String,
     current_env: Env,
     info: MessageInfo,
@@ -77,7 +65,7 @@ pub fn add_test_hotwallet(
     period_type: PeriodType,
     limit: u64,
 ) -> Result<Response, ContractError> {
-    let res = query_hot_wallets(deps.as_ref()).unwrap();
+    let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
     let old_length = res.hot_wallets.len();
     let execute_msg = ExecuteMsg::AddHotWallet {
         new_hot_wallet: HotWalletParams {
@@ -97,21 +85,24 @@ pub fn add_test_hotwallet(
         },
     };
 
-    let _res = execute(deps.branch(), current_env, info, execute_msg).unwrap();
-    let res = query_hot_wallets(deps.as_ref()).unwrap();
+    let _res = obi
+        .execute(deps.branch(), current_env, info, execute_msg)
+        .unwrap();
+    let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
     assert!(res.hot_wallets.len() == old_length + 1);
     Ok(Response::new())
 }
 
 pub fn test_spend_bank(
     deps: DepsMut,
+    obi: &mut ObiProxyContract,
     current_env: Env,
     to_address: String,
     amount: Vec<Coin>,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
     let send_msg = CosmosMsg::Bank(BankMsg::Send { to_address, amount });
-    let res = execute_execute(deps, current_env, info, vec![send_msg], false);
+    let res = obi.execute_execute(deps, current_env, info, vec![send_msg], false);
     let unwrapped_res = match res {
         Ok(res) => res,
         Err(e) => {

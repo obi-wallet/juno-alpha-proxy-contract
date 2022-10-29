@@ -4,8 +4,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    authorizations::Authorizations, constants::MAINNET_AXLUSDC_IBC, sourced_coin::SourcedCoin,
-    sources::Sources, ContractError,
+    authorizations::Authorization, constants::MAINNET_AXLUSDC_IBC, pair_contract::PairContracts,
+    sourced_coin::SourcedCoin, sources::Sources, ContractError,
 };
 
 /// The `PeriodType` type is used for recurring components, including spend limits.
@@ -50,7 +50,7 @@ pub struct HotWalletParams {
     pub spend_limits: Vec<CoinLimit>,
     pub usdc_denom: Option<String>,
     pub default: Option<bool>,
-    pub authorizations: Option<Authorizations>,
+    pub authorizations: Option<Vec<Authorization>>,
 }
 
 impl HotWalletParams {
@@ -168,6 +168,7 @@ impl HotWallet {
     pub fn simulate_reduce_limit(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         spend: Coin,
         reset: bool,
     ) -> Result<(u64, SourcedCoin), ContractError> {
@@ -175,7 +176,8 @@ impl HotWallet {
             coin: spend,
             wrapped_sources: Sources { sources: vec![] },
         };
-        let converted_spend_amt = unconverted_coin.get_converted_to_usdc(deps, false)?;
+        let converted_spend_amt =
+            unconverted_coin.get_converted_to_usdc(deps, pair_contracts, false)?;
         // spend can't be bigger than total spend limit
         let limit_to_check = match reset {
             false => self.params.spend_limits[0].limit_remaining,
@@ -205,6 +207,7 @@ impl HotWallet {
     pub fn check_spend_vec(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         spend_vec: Vec<Coin>,
         should_reset: bool,
     ) -> Result<SourcedCoin, ContractError> {
@@ -212,8 +215,9 @@ impl HotWallet {
         let mut spend_tally_sources: Sources = Sources { sources: vec![] };
 
         for n in spend_vec {
-            let spend_check_with_sources =
-                self.simulate_reduce_limit(deps, n.clone(), should_reset)?.1;
+            let spend_check_with_sources = self
+                .simulate_reduce_limit(deps, pair_contracts.clone(), n.clone(), should_reset)?
+                .1;
             spend_tally_sources.append_sources(spend_check_with_sources.clone());
             spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
         }
@@ -223,22 +227,29 @@ impl HotWallet {
     pub fn process_spend_vec(
         &mut self,
         deps: Deps,
+        pair_contracts: PairContracts,
         spend_vec: Vec<Coin>,
     ) -> Result<SourcedCoin, ContractError> {
         let mut spend_tally = Uint128::from(0u128);
         let mut spend_tally_sources: Sources = Sources { sources: vec![] };
 
         for n in spend_vec {
-            let spend_check_with_sources = self.reduce_limit(deps, n.clone())?;
+            let spend_check_with_sources =
+                self.reduce_limit(deps, pair_contracts.clone(), n.clone())?;
             spend_tally_sources.append_sources(spend_check_with_sources.clone());
             spend_tally = spend_tally.saturating_add(spend_check_with_sources.coin.amount);
         }
         Ok(self.make_usdc_sourced_coin(spend_tally, spend_tally_sources))
     }
 
-    pub fn reduce_limit(&mut self, deps: Deps, spend: Coin) -> Result<SourcedCoin, ContractError> {
+    pub fn reduce_limit(
+        &mut self,
+        deps: Deps,
+        pair_contracts: PairContracts,
+        spend: Coin,
+    ) -> Result<SourcedCoin, ContractError> {
         let spend_limit_reduction: (u64, SourcedCoin) =
-            self.simulate_reduce_limit(deps, spend, false)?;
+            self.simulate_reduce_limit(deps, pair_contracts, spend, false)?;
         self.params.spend_limits[0].limit_remaining = spend_limit_reduction.0;
         Ok(spend_limit_reduction.1)
     }

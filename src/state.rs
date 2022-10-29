@@ -1,21 +1,23 @@
 //use cw_multi_test::Contract;
-use cosmwasm_std::{Addr, Coin, Deps, StdError, StdResult, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Coin, Deps, StdResult, Timestamp, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cw_storage_plus::Item;
+use cw_storage_plus::{IndexedMap, Item};
 
-use crate::constants::{MAINNET_ID, TESTNET_ID};
+use crate::authorizations::{Authorization, AuthorizationIndexes};
 use crate::hot_wallet::{HotWallet, HotWalletParams};
-use crate::pair_contract::PairContract;
-use crate::pair_contract_defaults::{
-    get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
-};
+use crate::pair_contract::PairContracts;
 use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::ContractError;
 
 use crate::sources::{Source, Sources};
+
+pub struct ObiProxyContract<'a> {
+    pub cfg: Item<'a, State>,
+    pub authorizations: IndexedMap<'a, &'a str, Authorization, AuthorizationIndexes<'a>>,
+}
 
 pub fn get_admin_sourced_coin() -> SourcedCoin {
     SourcedCoin {
@@ -42,7 +44,7 @@ pub struct State {
     pub uusd_fee_debt: Uint128, // waiting to pay back fees
     pub fee_lend_repay_wallet: Addr,
     pub home_network: String,
-    pub pair_contracts: Vec<PairContract>,
+    pub pair_contracts: PairContracts,
     pub update_delay_hours: u16,
     pub update_pending_time: Timestamp,
 }
@@ -90,52 +92,6 @@ impl State {
                 true //BOTTLE
             }
             _ => false,
-        }
-    }
-
-    pub fn get_pair_contract(
-        &self,
-        denoms: (String, String),
-    ) -> Result<(PairContract, bool), ContractError> {
-        for n in 0..self.pair_contracts.len() {
-            if self.pair_contracts[n].denom1 == denoms.0
-                && self.pair_contracts[n].denom2 == denoms.1
-            {
-                return Ok((self.pair_contracts[n].clone(), false));
-            } else if self.pair_contracts[n].denom2 == denoms.0
-                && self.pair_contracts[n].denom1 == denoms.1
-            {
-                return Ok((self.pair_contracts[n].clone(), true));
-            }
-        }
-        Err(ContractError::PairContractNotFound(
-            denoms.0,
-            denoms.1,
-            self.pair_contracts.clone(),
-        ))
-    }
-
-    pub fn set_pair_contracts(&mut self, network: String) -> Result<(), StdError> {
-        match network {
-            val if val == MAINNET_ID => {
-                self.pair_contracts = get_mainnet_pair_contracts().to_vec();
-                Ok(())
-            }
-            val if val == TESTNET_ID => {
-                self.pair_contracts = get_testnet_pair_contracts().to_vec();
-                Ok(())
-            }
-            val if val == *"local" => {
-                self.pair_contracts = get_local_pair_contracts().to_vec();
-                Ok(())
-            }
-            val if val == *"EMPTY" => {
-                self.pair_contracts = [].to_vec();
-                Ok(())
-            }
-            _ => Err(StdError::GenericErr {
-                msg: "Failed to init pair contracts; unsupported chain id".to_string(),
-            }),
         }
     }
 
@@ -191,6 +147,7 @@ impl State {
         if self.is_owner(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
+        let pair_contracts = self.pair_contracts.clone();
         let this_wallet = self.maybe_get_hot_wallet_mut(addr)?;
 
         // check if we should reset to full spend limit again
@@ -198,17 +155,18 @@ impl State {
         if this_wallet.should_reset(current_time) {
             let new_dt = this_wallet.reset_period(current_time);
             match new_dt {
-                Ok(()) => this_wallet.process_spend_vec(deps, spend),
+                Ok(()) => this_wallet.process_spend_vec(deps, pair_contracts, spend),
                 Err(e) => Err(e),
             }
         } else {
-            this_wallet.process_spend_vec(deps, spend)
+            this_wallet.process_spend_vec(deps, pair_contracts, spend)
         }
     }
 
     pub fn check_spend_limits(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         current_time: Timestamp,
         addr: String,
         spend: Vec<Coin>,
@@ -221,11 +179,9 @@ impl State {
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
         if this_wallet.should_reset(current_time) {
-            this_wallet.check_spend_vec(deps, spend, true)
+            this_wallet.check_spend_vec(deps, pair_contracts, spend, true)
         } else {
-            this_wallet.check_spend_vec(deps, spend, false)
+            this_wallet.check_spend_vec(deps, pair_contracts, spend, false)
         }
     }
 }
-
-pub const STATE: Item<State> = Item::new("state");

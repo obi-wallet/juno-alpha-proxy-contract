@@ -16,9 +16,9 @@ fn mock_app() -> App {
 #[allow(dead_code)]
 fn contract_cw1() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        crate::contract::execute,
-        crate::contract::instantiate,
-        crate::contract::query,
+        crate::entry::execute,
+        crate::entry::instantiate,
+        crate::entry::query,
     );
     Box::new(contract)
 }

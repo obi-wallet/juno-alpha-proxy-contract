@@ -5,6 +5,7 @@ mod tests {
     use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 
     use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletParams, PeriodType};
+    use crate::pair_contract::PairContracts;
     use crate::pair_contract_defaults::get_local_pair_contracts;
     use crate::signers::Signers;
     use crate::state::State;
@@ -27,7 +28,9 @@ mod tests {
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
-            pair_contracts: get_local_pair_contracts().to_vec(),
+            pair_contracts: PairContracts {
+                pair_contracts: get_local_pair_contracts().to_vec(),
+            },
             update_delay_hours: 0u16,
             update_pending_time: now_env.block.time,
         };
@@ -70,7 +73,9 @@ mod tests {
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
-            pair_contracts: get_local_pair_contracts().to_vec(),
+            pair_contracts: PairContracts {
+                pair_contracts: get_local_pair_contracts().to_vec(),
+            },
             update_delay_hours: 0u16,
             update_pending_time: now_env.block.time,
             owner_signers: Signers::new(
@@ -191,7 +196,9 @@ mod tests {
             uusd_fee_debt: Uint128::from(0u128),
             fee_lend_repay_wallet: Addr::unchecked("test_repay_address"),
             home_network: "local".to_string(),
-            pair_contracts: get_local_pair_contracts().to_vec(),
+            pair_contracts: PairContracts {
+                pair_contracts: get_local_pair_contracts().to_vec(),
+            },
             update_delay_hours: 0u16,
             update_pending_time: now_env.block.time,
             owner_signers: Signers::new(

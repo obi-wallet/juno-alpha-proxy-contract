@@ -2,10 +2,10 @@ use cosmwasm_std::{Attribute, Coin, Deps, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::pair_contract::PairContracts;
 use crate::sources::Sources;
 use crate::{
     constants::{get_usdc_sourced_coin, MAINNET_AXLUSDC_IBC},
-    state::STATE,
     ContractError,
 };
 
@@ -35,6 +35,7 @@ impl SourcedCoin {
     pub fn get_converted_to_usdc(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         reverse: bool,
     ) -> Result<SourcedCoin, ContractError> {
         if self.coin.denom.clone() == MAINNET_AXLUSDC_IBC {
@@ -43,11 +44,13 @@ impl SourcedCoin {
         match reverse {
             false => self.simulate_swap(
                 deps,
+                pair_contracts,
                 (self.coin.denom.clone(), MAINNET_AXLUSDC_IBC.to_string()),
                 self.coin.amount,
             ),
             true => self.simulate_reverse_swap(
                 deps,
+                pair_contracts,
                 (MAINNET_AXLUSDC_IBC.to_string(), self.coin.denom.clone()),
                 self.coin.amount,
             ),
@@ -58,19 +61,21 @@ impl SourcedCoin {
     pub fn simulate_reverse_swap(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         denoms: (String, String),
         amount: Uint128,
     ) -> Result<SourcedCoin, ContractError> {
-        self.get_price_from_simulation(deps, denoms, amount, true, true)
+        self.get_price_from_simulation(deps, pair_contracts, denoms, amount, true, true)
     }
 
     pub fn simulate_swap(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         denoms: (String, String),
         amount: Uint128,
     ) -> Result<SourcedCoin, ContractError> {
-        self.get_price_from_simulation(deps, denoms, amount, false, false)
+        self.get_price_from_simulation(deps, pair_contracts, denoms, amount, false, false)
     }
 
     #[allow(unreachable_code)]
@@ -78,19 +83,13 @@ impl SourcedCoin {
     pub fn get_price_from_simulation(
         &self,
         deps: Deps,
+        pair_contracts: PairContracts,
         denoms: (String, String),
         amount: Uint128,
         target_amount: bool,        // when you want to meet a target number
         reverse_message_type: bool, // type of simulation message
     ) -> Result<SourcedCoin, ContractError> {
-        let cfg = STATE.load(deps.storage)?;
-        let pair_contract = cfg.get_pair_contract(denoms)?; // bool is whether reversed
-        pair_contract.0.query_contract(
-            deps,
-            amount,
-            pair_contract.1,
-            target_amount,
-            reverse_message_type,
-        )
+        let (pair_contract, reverse) = pair_contracts.get_pair_contract(denoms)?; // bool is whether reversed
+        pair_contract.query_contract(deps, amount, reverse, target_amount, reverse_message_type)
     }
 }

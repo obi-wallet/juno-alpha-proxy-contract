@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use crate::tests_constants::get_test_sourced_coin;
 use crate::{
+    constants::{MAINNET_ID, TESTNET_ID},
+    pair_contract_defaults::{
+        get_local_pair_contracts, get_mainnet_pair_contracts, get_testnet_pair_contracts,
+    },
     simulation::{DexQueryMsg, Token1ForToken2PriceResponse, Token2ForToken1PriceResponse},
     simulation::{DexQueryMsgFormatted, DexQueryMsgType, FormatQueryMsg, Tally},
     sourced_coin::SourcedCoin,
@@ -24,6 +28,59 @@ pub struct PairContract {
     pub denom1: String,
     pub denom2: String,
     pub query_format: PairMessageType,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub struct PairContracts {
+    pub(crate) pair_contracts: Vec<PairContract>,
+}
+
+impl PairContracts {
+    pub fn get_pair_contract(
+        &self,
+        denoms: (String, String),
+    ) -> Result<(PairContract, bool), ContractError> {
+        for n in 0..self.pair_contracts.len() {
+            if self.pair_contracts[n].denom1 == denoms.0
+                && self.pair_contracts[n].denom2 == denoms.1
+            {
+                return Ok((self.pair_contracts[n].clone(), false));
+            } else if self.pair_contracts[n].denom2 == denoms.0
+                && self.pair_contracts[n].denom1 == denoms.1
+            {
+                return Ok((self.pair_contracts[n].clone(), true));
+            }
+        }
+        Err(ContractError::PairContractNotFound(
+            denoms.0,
+            denoms.1,
+            self.pair_contracts.clone(),
+        ))
+    }
+
+    pub fn set_pair_contracts(&mut self, network: String) -> Result<(), StdError> {
+        match network {
+            val if val == MAINNET_ID => {
+                self.pair_contracts = get_mainnet_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == TESTNET_ID => {
+                self.pair_contracts = get_testnet_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == *"local" => {
+                self.pair_contracts = get_local_pair_contracts().to_vec();
+                Ok(())
+            }
+            val if val == *"EMPTY" => {
+                self.pair_contracts = [].to_vec();
+                Ok(())
+            }
+            _ => Err(StdError::GenericErr {
+                msg: "Failed to init pair contracts; unsupported chain id".to_string(),
+            }),
+        }
+    }
 }
 
 impl PairContract {
