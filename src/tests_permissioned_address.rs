@@ -4,13 +4,15 @@ mod tests {
 
     use crate::{
         constants::MAINNET_AXLUSDC_IBC,
-        hot_wallet::{CoinLimit, HotWallet, HotWalletParams, PeriodType},
+        permissioned_address::{
+            CoinLimit, PeriodType, PermissionedAddress, PermissionedAddressParams,
+        },
     };
 
     #[test]
-    fn hot_wallet_check_is_valid() {
-        let bad_wallet_params = HotWalletParams {
-            address: "my_hot_wallet".to_string(),
+    fn permissioned_address_check_is_valid() {
+        let bad_wallet_params = PermissionedAddressParams {
+            address: "my_permissioned_address".to_string(),
             current_period_reset: 1510010, //seconds, meaningless here
             period_type: PeriodType::DAYS,
             period_multiple: 1,
@@ -31,7 +33,7 @@ mod tests {
             authorizations: None,
         };
 
-        let mut bad_wallet = HotWallet::new(bad_wallet_params);
+        let mut bad_wallet = PermissionedAddress::new(bad_wallet_params);
 
         // multiple limits are no longer supported, so these should error
         bad_wallet.get_params().assert_is_valid().unwrap_err();
@@ -56,14 +58,14 @@ mod tests {
     }
 
     #[test]
-    fn hot_wallet_update_and_reset_spend_limit() {
+    fn permissioned_address_update_and_reset_spend_limit() {
         let starting_spend_limit = CoinLimit {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
             amount: 1_000_000u64,
             limit_remaining: 1_000_000u64,
         };
-        let mut hot_wallet = HotWallet::new(HotWalletParams {
-            address: "my_hot_wallet".to_string(),
+        let mut permissioned_address = PermissionedAddress::new(PermissionedAddressParams {
+            address: "my_permissioned_address".to_string(),
             current_period_reset: 1510010, //seconds, meaningless here
             period_type: PeriodType::DAYS,
             period_multiple: 1,
@@ -74,7 +76,7 @@ mod tests {
         });
 
         assert_eq!(
-            hot_wallet.spend_limits(),
+            permissioned_address.spend_limits(),
             vec![starting_spend_limit.clone()]
         );
 
@@ -84,13 +86,19 @@ mod tests {
             limit_remaining: 600_000u64,
         };
 
-        hot_wallet
+        permissioned_address
             .update_spend_limit(adjusted_spend_limit.clone())
             .unwrap();
-        assert_eq!(hot_wallet.spend_limits(), vec![adjusted_spend_limit]);
+        assert_eq!(
+            permissioned_address.spend_limits(),
+            vec![adjusted_spend_limit]
+        );
 
-        hot_wallet.reset_limits();
-        assert_eq!(hot_wallet.spend_limits(), vec![starting_spend_limit]);
+        permissioned_address.reset_limits();
+        assert_eq!(
+            permissioned_address.spend_limits(),
+            vec![starting_spend_limit]
+        );
 
         let bigger_spend_limit = CoinLimit {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
@@ -98,21 +106,24 @@ mod tests {
             limit_remaining: 420_000_000u64,
         };
 
-        hot_wallet
+        permissioned_address
             .update_spend_limit(bigger_spend_limit.clone())
             .unwrap();
-        assert_eq!(hot_wallet.spend_limits(), vec![bigger_spend_limit]);
+        assert_eq!(
+            permissioned_address.spend_limits(),
+            vec![bigger_spend_limit]
+        );
     }
 
     #[test]
-    fn hot_wallet_update_reset_time_period() {
+    fn permissioned_address_update_reset_time_period() {
         let starting_spend_limit = CoinLimit {
             denom: MAINNET_AXLUSDC_IBC.to_string(),
             amount: 1_000_000u64,
             limit_remaining: 1_000_000u64,
         };
-        let mut hot_wallet = HotWallet::new(HotWalletParams {
-            address: "my_hot_wallet".to_string(),
+        let mut permissioned_address = PermissionedAddress::new(PermissionedAddressParams {
+            address: "my_permissioned_address".to_string(),
             current_period_reset: 1_510_010, //seconds
             period_type: PeriodType::DAYS,
             period_multiple: 1,
@@ -128,15 +139,24 @@ mod tests {
             limit_remaining: 600_000u64,
         };
 
-        hot_wallet
+        permissioned_address
             .update_spend_limit(adjusted_spend_limit.clone())
             .unwrap();
-        assert_eq!(hot_wallet.spend_limits(), vec![adjusted_spend_limit]);
+        assert_eq!(
+            permissioned_address.spend_limits(),
+            vec![adjusted_spend_limit]
+        );
 
-        hot_wallet
+        permissioned_address
             .reset_period(Timestamp::from_seconds(1_510_011))
             .unwrap();
-        assert_eq!(hot_wallet.spend_limits(), vec![starting_spend_limit]);
-        assert_eq!(hot_wallet.current_period_reset(), 1_510_011 + 86_400);
+        assert_eq!(
+            permissioned_address.spend_limits(),
+            vec![starting_spend_limit]
+        );
+        assert_eq!(
+            permissioned_address.current_period_reset(),
+            1_510_011 + 86_400
+        );
     }
 }

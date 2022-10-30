@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use cw_storage_plus::{IndexedMap, Item};
 
 use crate::authorizations::{Authorization, AuthorizationIndexes};
-use crate::hot_wallet::{HotWallet, HotWalletParams};
 use crate::pair_contract::PairContracts;
+use crate::permissioned_address::{PermissionedAddress, PermissionedAddressParams};
 use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::ContractError;
@@ -40,7 +40,7 @@ pub struct State {
     pub owner: Addr,
     pub owner_signers: Signers,
     pub pending: Addr,
-    pub hot_wallets: Vec<HotWallet>,
+    pub permissioned_addresses: Vec<PermissionedAddress>,
     pub uusd_fee_debt: Uint128, // waiting to pay back fees
     pub fee_lend_repay_wallet: Addr,
     pub home_network: String,
@@ -74,9 +74,11 @@ impl State {
         self.owner != self.pending
     }
 
-    pub fn is_active_hot_wallet(&self, addr: Addr) -> StdResult<bool> {
-        let this_wallet_opt: Option<&HotWallet> =
-            self.hot_wallets.iter().find(|a| a.address() == addr);
+    pub fn is_active_permissioned_address(&self, addr: Addr) -> StdResult<bool> {
+        let this_wallet_opt: Option<&PermissionedAddress> = self
+            .permissioned_addresses
+            .iter()
+            .find(|a| a.address() == addr);
         match this_wallet_opt {
             None => Ok(false),
             Some(_) => Ok(true),
@@ -85,7 +87,7 @@ impl State {
 
     //hardcode for now since these kinds of authorizations
     //will eventually be handled by calls to gatekeeper, not here
-    pub fn is_authorized_hotwallet_contract(&self, addr: String) -> bool {
+    pub fn is_authorized_permissioned_address_contract(&self, addr: String) -> bool {
         match addr {
             val if val == *"juno18c5uecrztn4rqakm23fskusasud7s8afujnl8yu54ule2kak5q4sdnvcz4" => {
                 true //DRINK
@@ -97,13 +99,17 @@ impl State {
         }
     }
 
-    pub fn add_hot_wallet(&mut self, new_hot_wallet: HotWalletParams) {
-        self.hot_wallets.push(HotWallet::new(new_hot_wallet));
+    pub fn add_permissioned_address(
+        &mut self,
+        new_permissioned_address: PermissionedAddressParams,
+    ) {
+        self.permissioned_addresses
+            .push(PermissionedAddress::new(new_permissioned_address));
     }
 
-    pub fn rm_hot_wallet(&mut self, doomed_hot_wallet: String) {
-        self.hot_wallets
-            .retain(|wallet| wallet.address() != doomed_hot_wallet);
+    pub fn rm_permissioned_address(&mut self, doomed_permissioned_address: String) {
+        self.permissioned_addresses
+            .retain(|wallet| wallet.address() != doomed_permissioned_address);
     }
 
     /// returns true if the address is a registered admin
@@ -118,23 +124,30 @@ impl State {
         self.pending == addr
     }
 
-    pub fn maybe_get_hot_wallet(&self, addr: String) -> Result<&HotWallet, ContractError> {
-        let this_wallet_opt: Option<&HotWallet> =
-            self.hot_wallets.iter().find(|a| a.address() == addr);
+    pub fn maybe_get_permissioned_address(
+        &self,
+        addr: String,
+    ) -> Result<&PermissionedAddress, ContractError> {
+        let this_wallet_opt: Option<&PermissionedAddress> = self
+            .permissioned_addresses
+            .iter()
+            .find(|a| a.address() == addr);
         match this_wallet_opt {
-            None => Err(ContractError::HotWalletDoesNotExist {}),
+            None => Err(ContractError::PermissionedAddressDoesNotExist {}),
             Some(wal) => Ok(wal),
         }
     }
 
-    pub fn maybe_get_hot_wallet_mut(
+    pub fn maybe_get_permissioned_address_mut(
         &mut self,
         addr: String,
-    ) -> Result<&mut HotWallet, ContractError> {
-        let this_wallet_opt: Option<&mut HotWallet> =
-            self.hot_wallets.iter_mut().find(|a| a.address() == addr);
+    ) -> Result<&mut PermissionedAddress, ContractError> {
+        let this_wallet_opt: Option<&mut PermissionedAddress> = self
+            .permissioned_addresses
+            .iter_mut()
+            .find(|a| a.address() == addr);
         match this_wallet_opt {
-            None => Err(ContractError::HotWalletDoesNotExist {}),
+            None => Err(ContractError::PermissionedAddressDoesNotExist {}),
             Some(wal) => Ok(wal),
         }
     }
@@ -150,7 +163,7 @@ impl State {
             return Ok(get_admin_sourced_coin());
         }
         let pair_contracts = self.pair_contracts.clone();
-        let this_wallet = self.maybe_get_hot_wallet_mut(addr)?;
+        let this_wallet = self.maybe_get_permissioned_address_mut(addr)?;
 
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)
@@ -176,7 +189,7 @@ impl State {
         if self.is_owner(addr.clone()) {
             return Ok(get_admin_sourced_coin());
         }
-        let this_wallet = self.maybe_get_hot_wallet(addr)?;
+        let this_wallet = self.maybe_get_permissioned_address(addr)?;
 
         // check if we should reset to full spend limit again
         // (i.e. reset time has passed)

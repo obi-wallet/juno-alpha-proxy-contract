@@ -1,29 +1,28 @@
 use cosmwasm_std::{BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWalletParams, PeriodType};
 use crate::msg::{ExecuteMsg, InstantiateMsg};
+use crate::permissioned_address::{CoinLimit, PeriodType, PermissionedAddressParams};
 use crate::state::ObiProxyContract;
 
-use crate::tests_contract::{HOT_WALLET, OWNER};
+use crate::tests_contract::{OWNER, PERMISSIONED_ADDRESS};
 
 pub fn get_test_instantiate_message(
     env: Env,
     starting_debt: Coin,
     obi_is_signer: bool,
 ) -> InstantiateMsg {
-    let signer2: String;
-    if obi_is_signer {
-        signer2 = "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string();
+    let signer2: String = if obi_is_signer {
+        "juno17w77rnps59cnallfskg42s3ntnlhrzu2mjkr3e".to_string()
     } else {
-        signer2 = "signer2".to_string();
-    }
+        "signer2".to_string()
+    };
     // instantiate the contract
-    
+
     InstantiateMsg {
         owner: OWNER.to_string(),
-        hot_wallets: vec![HotWalletParams {
-            address: HOT_WALLET.to_string(),
+        permissioned_addresses: vec![PermissionedAddressParams {
+            address: PERMISSIONED_ADDRESS.to_string(),
             current_period_reset: env.block.time.seconds() as u64, // this is fine since it will calc on first spend
             period_type: PeriodType::DAYS,
             period_multiple: 1,
@@ -55,7 +54,8 @@ pub fn get_test_instantiate_message(
     }
 }
 
-pub fn add_test_hotwallet(
+#[allow(clippy::too_many_arguments)]
+pub fn add_test_permissioned_address(
     mut deps: DepsMut,
     obi: &mut ObiProxyContract,
     address: String,
@@ -65,10 +65,10 @@ pub fn add_test_hotwallet(
     period_type: PeriodType,
     limit: u64,
 ) -> Result<Response, ContractError> {
-    let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
-    let old_length = res.hot_wallets.len();
-    let execute_msg = ExecuteMsg::AddHotWallet {
-        new_hot_wallet: HotWalletParams {
+    let res = obi.query_permissioned_addresses(deps.as_ref()).unwrap();
+    let old_length = res.permissioned_addresses.len();
+    let execute_msg = ExecuteMsg::AddPermissionedAddress {
+        new_permissioned_address: PermissionedAddressParams {
             address,
             current_period_reset: current_env.block.time.seconds() as u64,
             period_type,
@@ -88,8 +88,8 @@ pub fn add_test_hotwallet(
     let _res = obi
         .execute(deps.branch(), current_env, info, execute_msg)
         .unwrap();
-    let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
-    assert!(res.hot_wallets.len() == old_length + 1);
+    let res = obi.query_permissioned_addresses(deps.as_ref()).unwrap();
+    assert!(res.permissioned_addresses.len() == old_length + 1);
     Ok(Response::new())
 }
 

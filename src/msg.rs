@@ -5,14 +5,14 @@ use cosmwasm_std::{Binary, Coin, CosmosMsg, Uint128};
 
 use crate::{
     authorizations::Authorization,
-    hot_wallet::{CoinLimit, HotWalletParams},
+    permissioned_address::{CoinLimit, PermissionedAddressParams},
     signers::Signer,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     pub owner: String,
-    pub hot_wallets: Vec<HotWalletParams>,
+    pub permissioned_addresses: Vec<PermissionedAddressParams>,
     pub uusd_fee_debt: Uint128,
     pub fee_lend_repay_wallet: String,
     pub home_network: String,
@@ -45,16 +45,16 @@ pub enum ExecuteMsg {
     CancelUpdateOwner {},
     /// Adds a spend-limited wallet, which can call cw20 Transfer/Send and BankMsg
     /// transactions if within the known recurring spend limit.
-    AddHotWallet {
-        new_hot_wallet: HotWalletParams,
+    AddPermissionedAddress {
+        new_permissioned_address: PermissionedAddressParams,
     },
     /// Removes an active spend-limited wallet.
-    RmHotWallet {
-        doomed_hot_wallet: String,
+    RmPermissionedAddress {
+        doomed_permissioned_address: String,
     },
     /// Updates spend limit for a wallet. Update of period not supported: rm and re-add
-    UpdateHotWalletSpendLimit {
-        hot_wallet: String,
+    UpdatePermissionedAddressSpendLimit {
+        permissioned_address: String,
         new_spend_limits: CoinLimit,
     },
     /// Updates the update delay (when changing to new admin)
@@ -88,12 +88,12 @@ pub enum QueryMsg {
     /// Checks permissions of the caller on this proxy.
     /// If CanExecute returns true then a call to `Execute` with the same message,
     /// before any further state changes, should also succeed.
-    /// TODO: support can_spend for hot wallets in this check.
+    /// TODO: support can_spend for permissioned addresss in this check.
     CanExecute { sender: String, msg: CosmosMsg },
-    /// Gets an array of all the active HotWallets for this proxy.
-    HotWallets {},
-    /// Returns true if address 1) is admin, 2) is hot wallet and msg is spendable
-    /// by hot wallet, or 3) is one of approved cw20s (no funds attached tho)
+    /// Gets an array of all the active PermissionedAddresss for this proxy.
+    PermissionedAddresss {},
+    /// Returns true if address 1) is admin, 2) is permissioned address and msg is spendable
+    /// by permissioned address, or 3) is one of approved cw20s (no funds attached tho)
     CanSpend {
         sender: String,
         funds: Vec<Coin>,

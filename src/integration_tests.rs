@@ -50,7 +50,7 @@ impl Suite {
     pub fn instantiate_cw1_contract(
         &mut self,
         owner: String,
-        hot_wallets: Vec<crate::hot_wallet::HotWalletParams>,
+        permissioned_addresses: Vec<crate::permissioned_address::PermissionedAddressParams>,
     ) -> Cw1Contract {
         let contract = self
             .app
@@ -64,7 +64,7 @@ impl Suite {
                         "type2".to_string(),
                         "type3".to_string(),
                     ],
-                    hot_wallets,
+                    permissioned_addresses,
                     uusd_fee_debt: Uint128::from(0u128),
                     fee_lend_repay_wallet: "test_repay_address".to_string(),
                     home_network: "local".to_string(),

@@ -1,14 +1,16 @@
 pub const OWNER: &str = "alice";
-pub const HOT_WALLET: &str = "hotcarl";
+pub const PERMISSIONED_ADDRESS: &str = "hotcarl";
 
 #[cfg(test)]
 mod tests {
-    use crate::hot_wallet::PeriodType;
+    use crate::permissioned_address::PeriodType;
     use crate::state::ObiProxyContract;
     /* use crate::defaults::get_local_pair_contracts; */
     use super::*;
     use crate::msg::{CanSpendResponse, Cw20ExecuteMsg, ExecuteMsg, OwnerResponse};
-    use crate::tests_helpers::{add_test_hotwallet, get_test_instantiate_message, test_spend_bank};
+    use crate::tests_helpers::{
+        add_test_permissioned_address, get_test_instantiate_message, test_spend_bank,
+    };
     use crate::ContractError;
     use cosmwasm_std::StdError::GenericErr;
 
@@ -21,7 +23,7 @@ mod tests {
     const NEW_OWNER: &str = "bob";
     const ANYONE: &str = "anyone";
     const RECEIVER: &str = "diane";
-    const HOT_USDC_WALLET: &str = "hotearl";
+    const PERMISSIONED_USDC_WALLET: &str = "hotearl";
 
     #[test]
     fn instantiate_and_modify_owner() {
@@ -131,7 +133,7 @@ mod tests {
         // make some nice message
         let execute_msg = ExecuteMsg::Execute { msgs: msgs.clone() };
 
-        // receiver or anyone else cannot execute them ... and gets HotWalletDoesNotExist since
+        // receiver or anyone else cannot execute them ... and gets PermissionedAddressDoesNotExist since
         // this is a spend, so contract assumes we're trying against spend limit
         // if not owner
         let info = mock_info(RECEIVER, &[]);
@@ -141,7 +143,7 @@ mod tests {
         assert_eq!(
             err,
             ContractError::Std(GenericErr {
-                msg: "Hot wallet does not exist or over spend limit".to_string()
+                msg: "Permissioned address does not exist or over spend limit".to_string()
             })
         );
 
@@ -214,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn add_spend_rm_hot_wallet() {
+    fn add_spend_rm_permissioned_address() {
         let mut deps = mock_dependencies();
         let current_env = mock_env();
         let mut obi = ObiProxyContract::default();
@@ -233,19 +235,19 @@ mod tests {
                 ),
             )
             .unwrap();
-        // this helper includes a hotwallet
+        // this helper includes a PermissionedAddress
 
-        // query to see we have "hotcarl" as hot wallet
-        let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
-        assert!(res.hot_wallets.len() == 1);
-        assert!(res.hot_wallets[0].address == HOT_WALLET);
+        // query to see we have "hotcarl" as permissioned address
+        let res = obi.query_permissioned_addresses(deps.as_ref()).unwrap();
+        assert!(res.permissioned_addresses.len() == 1);
+        assert!(res.permissioned_addresses[0].address == PERMISSIONED_ADDRESS);
 
         // check that can_spend returns true
         let res = obi
             .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
-                HOT_WALLET.to_string(),
+                PERMISSIONED_ADDRESS.to_string(),
                 vec![],
                 vec![CosmosMsg::Bank(BankMsg::Send {
                     to_address: RECEIVER.to_string(),
@@ -260,7 +262,7 @@ mod tests {
             .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
-                HOT_WALLET.to_string(),
+                PERMISSIONED_ADDRESS.to_string(),
                 vec![],
                 vec![CosmosMsg::Bank(BankMsg::Send {
                     to_address: RECEIVER.to_string(),
@@ -279,7 +281,7 @@ mod tests {
             .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
-                HOT_WALLET.to_string(),
+                PERMISSIONED_ADDRESS.to_string(),
                 vec![],
                 vec![CosmosMsg::Distribution(
                     DistributionMsg::SetWithdrawAddress {
@@ -295,7 +297,7 @@ mod tests {
             .can_spend(
                 deps.as_ref(),
                 current_env.clone(),
-                HOT_WALLET.to_string(),
+                PERMISSIONED_ADDRESS.to_string(),
                 vec![],
                 vec![CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr:
@@ -312,21 +314,21 @@ mod tests {
             .unwrap();
         assert!(res.0.can_spend);
 
-        // actually spend as the hot wallet
+        // actually spend as the permissioned address
         let owner_info = mock_info(OWNER, &[]);
-        let hot_wallet_info = mock_info(HOT_WALLET, &[]);
+        let permissioned_address_info = mock_info(PERMISSIONED_ADDRESS, &[]);
         test_spend_bank(
             deps.as_mut(),
             &mut obi,
             current_env.clone(),
             RECEIVER.to_string(),
             coins(9_000u128, "testtokens"), //900_000 of usdc spend limit down
-            hot_wallet_info,
+            permissioned_address_info,
         )
         .unwrap();
 
-        // add a second hot wallet
-        add_test_hotwallet(
+        // add a second permissioned address
+        add_test_permissioned_address(
             deps.as_mut(),
             &mut obi,
             "hot_diane".to_string(),
@@ -338,10 +340,10 @@ mod tests {
         )
         .unwrap();
 
-        // rm the hot wallet
+        // rm the permissioned address
         let bad_info = mock_info(ANYONE, &[]);
-        let execute_msg = ExecuteMsg::RmHotWallet {
-            doomed_hot_wallet: HOT_WALLET.to_string(),
+        let execute_msg = ExecuteMsg::RmPermissionedAddress {
+            doomed_permissioned_address: PERMISSIONED_ADDRESS.to_string(),
         };
         let _res = obi
             .execute(
@@ -360,15 +362,15 @@ mod tests {
             )
             .unwrap();
 
-        // query hot wallets again, should be 1
-        let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
-        assert!(res.hot_wallets.len() == 1);
+        // query permissioned addresss again, should be 1
+        let res = obi.query_permissioned_addresses(deps.as_ref()).unwrap();
+        assert!(res.permissioned_addresses.len() == 1);
 
-        // add another hot wallet, this time with high USDC spend limit
-        add_test_hotwallet(
+        // add another permissioned address, this time with high USDC spend limit
+        add_test_permissioned_address(
             deps.as_mut(),
             &mut obi,
-            HOT_USDC_WALLET.to_string(),
+            PERMISSIONED_USDC_WALLET.to_string(),
             current_env.clone(),
             owner_info,
             1u16,
@@ -376,13 +378,13 @@ mod tests {
             100_000_000u64,
         )
         .unwrap();
-        let res = obi.query_hot_wallets(deps.as_ref()).unwrap();
-        assert!(res.hot_wallets.len() == 2);
+        let res = obi.query_permissioned_addresses(deps.as_ref()).unwrap();
+        assert!(res.permissioned_addresses.len() == 2);
 
         // now spend ... local tests will force price to be 1 = 100 USDC
         // so our spend limit of 100_000_000 will equal 1_000_000 testtokens
 
-        let mocked_info = mock_info(HOT_USDC_WALLET, &[]);
+        let mocked_info = mock_info(PERMISSIONED_USDC_WALLET, &[]);
         let mut quick_spend_test = |amount: u128| -> Result<Response, ContractError> {
             test_spend_bank(
                 deps.as_mut(),

@@ -82,7 +82,7 @@ impl PendingSubmsg {
         };
         match msg_de {
             Ok(msg_contents) => {
-                // must be Transfer or Send if hot wallet
+                // must be Transfer or Send if permissioned address
                 match msg_contents {
                     Cw20ExecuteMsg::Transfer {
                         recipient: _,

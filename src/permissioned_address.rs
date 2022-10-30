@@ -33,18 +33,18 @@ pub struct CoinLimit {
     pub limit_remaining: u64,
 }
 
-/// The `HotWallet` type allows addresses to trigger actions by this contract
+/// The `PermissionedAddress` type allows addresses to trigger actions by this contract
 /// under certain conditions. The addresses may or may not be signers: some
 /// possible other use cases include dependents, employees or contractors,
 /// wealth managers, single-purpose addresses used by a service somewhere,
 /// subscriptions or recurring payments, etc.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct HotWallet {
-    params: HotWalletParams,
+pub struct PermissionedAddress {
+    params: PermissionedAddressParams,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct HotWalletParams {
+pub struct PermissionedAddressParams {
     pub address: String,
     pub current_period_reset: u64, //seconds
     pub period_type: PeriodType,
@@ -55,10 +55,10 @@ pub struct HotWalletParams {
     pub authorizations: Option<Vec<Authorization>>,
 }
 
-impl HotWalletParams {
+impl PermissionedAddressParams {
     /// Checks that `self` is valid, meaning that there is only one spend limit and
-    /// the limit is in USDC. Previous versions had multiple spend limits; those hot
-    /// wallets still work but cannot be created this way. This will be expanded to be
+    /// the limit is in USDC. Previous versions had multiple spend limits; those permissioned
+    /// addresses still work but cannot be created this way. This will be expanded to be
     /// more customizable later.
     pub fn assert_is_valid(&self) -> StdResult<()> {
         if self.usdc_denom != Some("true".to_string())
@@ -73,27 +73,27 @@ impl HotWalletParams {
     }
 }
 
-impl HotWallet {
-    pub fn new(params: HotWalletParams) -> Self {
+impl PermissionedAddress {
+    pub fn new(params: PermissionedAddressParams) -> Self {
         Self { params }
     }
 }
 
 // simple getters
-impl HotWallet {
+impl PermissionedAddress {
     pub fn address(&self) -> String {
         self.params.address.clone()
     }
 
-    pub fn get_params(&self) -> HotWalletParams {
+    pub fn get_params(&self) -> PermissionedAddressParams {
         self.params.clone()
     }
 }
 
 // spending limit time period reset handlers
-impl HotWallet {
+impl PermissionedAddress {
     /// Checks whether the `current_time` is past the `current_period_reset` for
-    /// this `HotWallet`, which means that the remaining limit CAN be reset to full.
+    /// this `PermissionedAddress`, which means that the remaining limit CAN be reset to full.
     /// This function does not actually process the reset; use reset_period()
     ///
     /// # Arguments
@@ -151,7 +151,7 @@ impl HotWallet {
 }
 
 // handlers for modifying spend limits (not reset times)
-impl HotWallet {
+impl PermissionedAddress {
     /// Replaces this wallet's current spending limit. Since only single USDC
     /// limit is currently supported, all limits are replaced.
     pub fn update_spend_limit(&mut self, new_limit: CoinLimit) -> StdResult<()> {
@@ -271,7 +271,7 @@ impl HotWallet {
 
 // functions for tests only
 #[cfg(test)]
-impl HotWallet {
+impl PermissionedAddress {
     /// Deprecated, will be axed when better spend limit asset/multiasset
     /// handling is implemented.
     pub fn usdc_denom(&self) -> Option<String> {
@@ -293,6 +293,6 @@ impl HotWallet {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct HotWalletsResponse {
-    pub hot_wallets: Vec<HotWalletParams>,
+pub struct PermissionedAddresssResponse {
+    pub permissioned_addresses: Vec<PermissionedAddressParams>,
 }

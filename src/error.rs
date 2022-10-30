@@ -43,14 +43,14 @@ pub enum ContractError {
     )]
     BadMessageType(String),
 
-    #[error("This address is already authorized as a Hot Wallet. Remove it first in order to update it.")]
-    HotWalletExists {},
+    #[error("This address is already authorized as a Permissioned Address. Remove it first in order to update it.")]
+    PermissionedAddressExists {},
 
-    #[error("This address is not authorized as a spend limit Hot Wallet.")]
-    HotWalletDoesNotExist {},
+    #[error("This address is not authorized as a spend limit Permissioned Address.")]
+    PermissionedAddressDoesNotExist {},
 
-    #[error("This hot wallet does not exist or is trying to exceed its spend limit.")]
-    HotWalletDoesNotExistOrOverLimit {},
+    #[error("This permissioned address does not exist or is trying to exceed its spend limit.")]
+    PermissionedAddressDoesNotExistOrOverLimit {},
 
     #[error("Failed to advance the reset day: {0}")]
     DayUpdateError(String),
@@ -58,7 +58,7 @@ pub enum ContractError {
     #[error("Failed to advance the reset month")]
     MonthUpdateError {},
 
-    #[error("Hot wallet does not have a spend limit for asset {0}.")]
+    #[error("Permissioned address does not have a spend limit for asset {0}.")]
     CannotSpendThisAsset(String),
 
     #[error("You cannot spend more than your available spend limit. Trying to spend {0} {1}")]

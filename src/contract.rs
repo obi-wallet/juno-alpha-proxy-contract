@@ -8,12 +8,14 @@ use cosmwasm_std::{Api, Order};
 use crate::authorizations::Authorization;
 use crate::constants::MAINNET_AXLUSDC_IBC;
 use crate::error::ContractError;
-use crate::hot_wallet::{CoinLimit, HotWallet, HotWalletParams, HotWalletsResponse};
 use crate::msg::{
     AuthorizationsResponse, CanSpendResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
     OwnerResponse, QueryMsg, SignersResponse, UpdateDelayResponse,
 };
 use crate::pair_contract::{PairContract, PairContracts};
+use crate::permissioned_address::{
+    CoinLimit, PermissionedAddress, PermissionedAddressParams, PermissionedAddresssResponse,
+};
 use crate::signers::Signers;
 use crate::sourced_coin::SourcedCoin;
 use crate::sources::Sources;
@@ -48,7 +50,7 @@ impl<'a> ObiProxyContract<'a> {
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         let valid_owner: Addr = deps.api.addr_validate(&msg.owner)?;
         let valid_repay_wallet: Addr = deps.api.addr_validate(&msg.fee_lend_repay_wallet)?;
-        for wallet in msg.hot_wallets.clone() {
+        for wallet in msg.permissioned_addresses.clone() {
             wallet.assert_is_valid()?;
         }
         let owner_signers = Signers::new(deps.as_ref(), msg.signers, msg.signer_types)?;
@@ -57,7 +59,11 @@ impl<'a> ObiProxyContract<'a> {
             owner: valid_owner.clone(),
             owner_signers,
             pending: valid_owner,
-            hot_wallets: msg.hot_wallets.into_iter().map(HotWallet::new).collect(),
+            permissioned_addresses: msg
+                .permissioned_addresses
+                .into_iter()
+                .map(PermissionedAddress::new)
+                .collect(),
             uusd_fee_debt: msg.uusd_fee_debt,
             fee_lend_repay_wallet: valid_repay_wallet,
             home_network: msg.home_network,
@@ -86,7 +92,7 @@ impl<'a> ObiProxyContract<'a> {
         struct OldState {
             pub admin: Addr,
             pub pending: Addr,
-            pub hot_wallets: Vec<HotWallet>,
+            pub permissioned_addresses: Vec<PermissionedAddress>,
             pub uusd_fee_debt: Uint128, // waiting to pay back fees
             pub fee_lend_repay_wallet: Addr,
             pub home_network: String,
@@ -113,7 +119,7 @@ impl<'a> ObiProxyContract<'a> {
                     owner: old_cfg.admin.clone(),
                     owner_signers: Signers::new(deps.as_ref(), vec![], vec![])?,
                     pending: old_cfg.pending.clone(),
-                    hot_wallets: old_cfg.hot_wallets,
+                    permissioned_addresses: old_cfg.permissioned_addresses,
                     uusd_fee_debt: old_cfg.uusd_fee_debt,
                     fee_lend_repay_wallet: old_cfg.fee_lend_repay_wallet,
                     home_network: old_cfg.home_network,
@@ -160,12 +166,12 @@ impl<'a> ObiProxyContract<'a> {
     ) -> Result<Response, ContractError> {
         match msg {
             ExecuteMsg::Execute { msgs } => self.execute_execute(deps, env, info, msgs),
-            ExecuteMsg::AddHotWallet { new_hot_wallet } => {
-                self.add_hot_wallet(deps, env, info, new_hot_wallet)
-            }
-            ExecuteMsg::RmHotWallet { doomed_hot_wallet } => {
-                self.rm_hot_wallet(deps, env, info, doomed_hot_wallet)
-            }
+            ExecuteMsg::AddPermissionedAddress {
+                new_permissioned_address,
+            } => self.add_permissioned_address(deps, env, info, new_permissioned_address),
+            ExecuteMsg::RmPermissionedAddress {
+                doomed_permissioned_address,
+            } => self.rm_permissioned_address(deps, env, info, doomed_permissioned_address),
             ExecuteMsg::ProposeUpdateOwner { new_owner } => {
                 self.propose_update_owner(deps, env, info, new_owner)
             }
@@ -174,10 +180,16 @@ impl<'a> ObiProxyContract<'a> {
                 signer_types,
             } => self.confirm_update_owner(deps, env, info, signers, signer_types),
             ExecuteMsg::CancelUpdateOwner {} => self.cancel_update_owner(deps, env, info),
-            ExecuteMsg::UpdateHotWalletSpendLimit {
-                hot_wallet,
+            ExecuteMsg::UpdatePermissionedAddressSpendLimit {
+                permissioned_address,
                 new_spend_limits,
-            } => self.update_hot_wallet_spend_limit(deps, env, info, hot_wallet, new_spend_limits),
+            } => self.update_permissioned_address_spend_limit(
+                deps,
+                env,
+                info,
+                permissioned_address,
+                new_spend_limits,
+            ),
             ExecuteMsg::UpdateUpdateDelay { hours } => {
                 self.update_update_delay_hours(deps, env, info, hours)
             }
@@ -209,9 +221,7 @@ impl<'a> ObiProxyContract<'a> {
         );
 
         match can_execute_result {
-            Err(e) => {
-                Err(ContractError::Std(e))
-            }
+            Err(e) => Err(ContractError::Std(e)),
             Ok((can_spend, spend_limit_reduction, repay_msg)) => {
                 if !can_spend.can_spend {
                     Err(ContractError::Std(StdError::GenericErr {
@@ -227,9 +237,10 @@ impl<'a> ObiProxyContract<'a> {
                         }
                     }
                     if let Some(spend_limit_reduction) = spend_limit_reduction {
-                        let this_hot_wallet =
-                            cfg.maybe_get_hot_wallet_mut(info.sender.to_string())?;
-                        this_hot_wallet.reduce_limit_direct(spend_limit_reduction.coin)?;
+                        let this_permissioned_address =
+                            cfg.maybe_get_permissioned_address_mut(info.sender.to_string())?;
+                        this_permissioned_address
+                            .reduce_limit_direct(spend_limit_reduction.coin)?;
                     }
                     self.cfg.save(deps.storage, &cfg)?;
                     Ok(res)
@@ -282,49 +293,51 @@ impl<'a> ObiProxyContract<'a> {
         })
     }
 
-    pub fn add_hot_wallet(
+    pub fn add_permissioned_address(
         &self,
         deps: DepsMut,
         _env: Env,
         info: MessageInfo,
-        new_hot_wallet_params: HotWalletParams,
+        new_permissioned_address_params: PermissionedAddressParams,
     ) -> Result<Response, ContractError> {
         let mut cfg = self.cfg.load(deps.storage)?;
         cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
         if cfg
-            .hot_wallets
+            .permissioned_addresses
             .iter()
-            .any(|wallet| wallet.address() == new_hot_wallet_params.address)
+            .any(|wallet| wallet.address() == new_permissioned_address_params.address)
         {
-            Err(ContractError::HotWalletExists {})
+            Err(ContractError::PermissionedAddressExists {})
         } else {
-            let _addrcheck = deps.api.addr_validate(&new_hot_wallet_params.address)?;
-            cfg.add_hot_wallet(new_hot_wallet_params);
+            let _addrcheck = deps
+                .api
+                .addr_validate(&new_permissioned_address_params.address)?;
+            cfg.add_permissioned_address(new_permissioned_address_params);
             self.cfg.save(deps.storage, &cfg)?;
-            Ok(Response::new().add_attribute("action", "add_hot_wallet"))
+            Ok(Response::new().add_attribute("action", "add_permissioned_address"))
         }
     }
 
-    pub fn rm_hot_wallet(
+    pub fn rm_permissioned_address(
         &self,
         deps: DepsMut,
         _env: Env,
         info: MessageInfo,
-        doomed_hot_wallet: String,
+        doomed_permissioned_address: String,
     ) -> Result<Response, ContractError> {
         let mut cfg = self.cfg.load(deps.storage)?;
         if !cfg.is_owner(info.sender.to_string()) {
             Err(ContractError::Unauthorized {})
         } else if !cfg
-            .hot_wallets
+            .permissioned_addresses
             .iter()
-            .any(|wallet| wallet.address() == doomed_hot_wallet)
+            .any(|wallet| wallet.address() == doomed_permissioned_address)
         {
-            Err(ContractError::HotWalletDoesNotExist {})
+            Err(ContractError::PermissionedAddressDoesNotExist {})
         } else {
-            cfg.rm_hot_wallet(doomed_hot_wallet);
+            cfg.rm_permissioned_address(doomed_permissioned_address);
             self.cfg.save(deps.storage, &cfg)?;
-            Ok(Response::new().add_attribute("action", "rm_hot_wallet"))
+            Ok(Response::new().add_attribute("action", "rm_permissioned_address"))
         }
     }
 
@@ -345,21 +358,21 @@ impl<'a> ObiProxyContract<'a> {
         Ok(Response::default())
     }
 
-    pub fn update_hot_wallet_spend_limit(
+    pub fn update_permissioned_address_spend_limit(
         &self,
         deps: DepsMut,
         _env: Env,
         info: MessageInfo,
-        hot_wallet: String,
+        permissioned_address: String,
         new_spend_limits: CoinLimit,
     ) -> Result<Response, ContractError> {
         let mut cfg = self.cfg.load(deps.storage)?;
         cfg.assert_owner(info.sender.to_string(), ContractError::Unauthorized {})?;
         let wallet = cfg
-            .hot_wallets
+            .permissioned_addresses
             .iter_mut()
-            .find(|wallet| wallet.address() == hot_wallet)
-            .ok_or(ContractError::HotWalletDoesNotExist {})?;
+            .find(|wallet| wallet.address() == permissioned_address)
+            .ok_or(ContractError::PermissionedAddressDoesNotExist {})?;
         wallet.update_spend_limit(new_spend_limits)?;
         Ok(Response::new())
     }
@@ -455,7 +468,9 @@ impl<'a> ObiProxyContract<'a> {
             QueryMsg::CanExecute { sender, msg } => {
                 to_binary(&self.query_can_execute(deps, sender, msg)?)
             }
-            QueryMsg::HotWallets {} => to_binary(&self.query_hot_wallets(deps)?),
+            QueryMsg::PermissionedAddresss {} => {
+                to_binary(&self.query_permissioned_addresses(deps)?)
+            }
             QueryMsg::CanSpend {
                 sender,
                 funds,
@@ -503,11 +518,14 @@ impl<'a> ObiProxyContract<'a> {
         })
     }
 
-    pub fn query_hot_wallets(&self, deps: Deps) -> StdResult<HotWalletsResponse> {
+    pub fn query_permissioned_addresses(
+        &self,
+        deps: Deps,
+    ) -> StdResult<PermissionedAddresssResponse> {
         let cfg = self.cfg.load(deps.storage)?;
-        Ok(HotWalletsResponse {
-            hot_wallets: cfg
-                .hot_wallets
+        Ok(PermissionedAddresssResponse {
+            permissioned_addresses: cfg
+                .permissioned_addresses
                 .into_iter()
                 .map(|wallet| wallet.get_params())
                 .collect(),
@@ -549,15 +567,15 @@ impl<'a> ObiProxyContract<'a> {
         // if first token send with nothing left to repay fees
         if cfg.is_owner(sender.clone()) {
             if cfg.uusd_fee_debt > Uint128::from(0u128) {
-                for n in 0..msgs.len() {
+                for msg in msgs.iter().enumerate() {
                     let mut processed_msg = PendingSubmsg {
-                        msg: msgs[n].clone(),
+                        msg: msg.1.clone(),
                         contract_addr: None,
                         binarymsg: None,
                         funds: vec![],
                         ty: SubmsgType::Unknown,
                     };
-                    if n == 0 {
+                    if msg.0 == 0 {
                         processed_msg.add_funds(funds.clone());
                     }
                     let _msg_type = processed_msg.process_and_get_msg_type();
@@ -608,12 +626,13 @@ impl<'a> ObiProxyContract<'a> {
             }
         }
 
-        // if one of authorized token contracts and spender is hot wallet, yes
+        // if one of authorized token contracts and spender is permissioned address, yes
         if msgs.len() > 1 {
             return Ok((
                 CanSpendResponse {
                     can_spend: false,
-                    reason: "Multi-message txes with hot wallets not supported yet".to_string(),
+                    reason: "Multi-message txes with permissioned addresss not supported yet"
+                        .to_string(),
                 },
                 None,
                 None,
@@ -625,14 +644,15 @@ impl<'a> ObiProxyContract<'a> {
             funds,
         }) = msgs[0].clone()
         {
-            if cfg.is_active_hot_wallet(deps.api.addr_validate(&sender)?)?
-                && cfg.is_authorized_hotwallet_contract(contract_addr)
+            if cfg.is_active_permissioned_address(deps.api.addr_validate(&sender)?)?
+                && cfg.is_authorized_permissioned_address_contract(contract_addr)
                 && funds == vec![]
             {
                 return Ok((
                     CanSpendResponse {
                         can_spend: true,
-                        reason: "Active hot wallet spending blanket-authorized token".to_string(),
+                        reason: "Active permissioned address spending blanket-authorized token"
+                            .to_string(),
                     },
                     None,
                     None,
@@ -744,7 +764,7 @@ impl<'a> ObiProxyContract<'a> {
             Ok(coin) => Ok((
                 CanSpendResponse {
                     can_spend: true,
-                    reason: "Hot wallet, with spending within spend limits".to_string(),
+                    reason: "Permissioned address, with spending within spend limits".to_string(),
                 },
                 Some(coin),
                 None,
@@ -752,7 +772,7 @@ impl<'a> ObiProxyContract<'a> {
             Err(_) => Ok((
                 CanSpendResponse {
                     can_spend: false,
-                    reason: "Hot wallet does not exist or over spend limit".to_string(),
+                    reason: "Permissioned address does not exist or over spend limit".to_string(),
                 },
                 None,
                 None,
