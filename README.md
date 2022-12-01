@@ -1,5 +1,7 @@
 # CW1 Whitelist
 
+DISCLAIMER: Obi and this contract release are in alpha. Security audits are pending. Current implementations are only intended for trial purposes.
+
 This is a modification of CW1, a whitelist of addresses, originally
 at https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw1-whitelist.
 
