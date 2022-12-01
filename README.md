@@ -5,10 +5,8 @@ DISCLAIMER: Obi and this contract release are in alpha. Security audits are pend
 This is a modification of CW1, a whitelist of addresses, originally
 at https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw1-whitelist.
 
-1 single admin may `Execute` any message via the contract. This
-is intended to be used with a native multisig in order to achieve
-an "updatable multisig" for single user multisigs without the
-propose+vote+execute transaction overhead of cw3.
+The owner may `Execute` any message via the contract. Authorized addresses,
+based on message contents or recurring spend limits, may also execute.
 
 The immutability functionality of CW1 has been removed, and so
 has the Freeze function.
@@ -18,6 +16,9 @@ that no one controls, the update process is now 2 steps:
 
 1) ProposeUpdateAdmin {new_admin: String}, signed by current admin
 2) ConfirmUpdateAdmin {}, signed by new admin
+
+A delay can also be implemented so that CancelUpdateAdmin {} can
+be called.
 
 ### Hot Wallets
 
